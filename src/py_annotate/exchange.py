@@ -123,10 +123,20 @@ def page_label(doc: pymupdf.Document, page: int) -> str:
     return label or str(page + 1)
 
 
+_WORDS: dict[tuple[int, int], list] = {}  # (id of the document, page) -> its words, for marked_text
+
+
 def marked_text(doc: pymupdf.Document, a: Annotation) -> str:
+    """The text A marks (if it is a mark over text). The words of each page are read once,
+    while the document is the same."""
     if a.kind not in MARKUP or not 0 <= a.page < doc.page_count:
         return ""
-    return annots.text_under(doc[a.page], list(a.quads))
+    key = (id(doc), a.page)
+    if key not in _WORDS:
+        if len(_WORDS) > 2000 or any(k[0] != id(doc) for k in _WORDS):
+            _WORDS.clear()
+        _WORDS[key] = annots.page_text(doc[a.page])
+    return annots.text_in(_WORDS[key], a.quads)
 
 
 def quotation(doc: pymupdf.Document, a: Annotation, name: str = "") -> str:

@@ -135,6 +135,7 @@ class MainWindow(QMainWindow):
         self._thumb_shown: dict[int, tuple] = {}  # page -> the annotations its thumbnail shows
         self._by_page: list[list[Annotation]] = []
         self._marked: dict[tuple, str] = {}  # (page, quads) -> the text marked there
+        self._words: dict[int, list] = {}  # page -> its words (see annots.page_text)
         self._rows: list[int] = []  # row of the list -> index of its annotation (those the filters let through)
         self._quiet_table = False  # (the list's selection is being set by the program)
         try:
@@ -227,7 +228,10 @@ class MainWindow(QMainWindow):
         self.f_status, self.f_tag, self.f_category, self.sort = p.f_status, p.f_tag, p.f_category, p.sort
         self.table, self.comment, self.color_button = p.table, p.comment, p.color_button
         self.b_props, self.b_delete = p.b_props, p.b_delete
-        self.search.textChanged.connect(lambda _: self._filter_changed())
+        # (the list is searched when the typing stops for a moment, not at each key)
+        self.search_timer = QTimer(self, singleShot=True, interval=250)
+        self.search_timer.timeout.connect(self._filter_changed)
+        self.search.textChanged.connect(lambda _: self.search_timer.start())
         for box in (self.f_kind, self.f_author, self.f_color, self.f_status, self.f_tag, self.f_category):
             box.activated.connect(lambda _: self._filter_changed())
         for key, name in SORTS.items():
@@ -645,7 +649,7 @@ class MainWindow(QMainWindow):
         self._close_doc()
         self.doc, self.path, self.password, self.count = doc, path, password, doc.page_count
         self.page = min(page, self.count - 1)
-        self._thumbs, self._thumb_shown, self._marked = {}, {}, {}
+        self._thumbs, self._thumb_shown, self._marked, self._words = {}, {}, {}, {}
         self._by_page = [[] for _ in range(self.count)]
         self.canvas.source = self._source(doc, path, password, bool(found))
         self.canvas.set_document(doc, self.page)
@@ -1954,7 +1958,9 @@ class MainWindow(QMainWindow):
             return ""
         key = (a.page, a.quads)
         if key not in self._marked and self.doc is not None and 0 <= a.page < self.count:
-            self._marked[key] = annots.text_under(self.doc[a.page], list(a.quads))
+            if a.page not in self._words:  # (the words of a page, read once)
+                self._words[a.page] = annots.page_text(self.doc[a.page])
+            self._marked[key] = annots.text_in(self._words[a.page], a.quads)
         return self._marked.get(key, "")
 
     def _fill_table(self):

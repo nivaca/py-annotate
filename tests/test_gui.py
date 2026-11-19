@@ -311,6 +311,7 @@ def test_filters_and_navigation(window):
     drag(window, (100, 300), (250, 400))
     window.replace(1, dataclasses.replace(window.annotations[1], contents="about justice", author="B"))
     window.search.setText("justice")
+    window.search_timer.timeout.emit()  # (the pause after typing)
     assert window._rows == [1]
     window.search.clear()
     window.f_author.setCurrentIndex(window.f_author.findData("B"))
@@ -498,6 +499,7 @@ def test_replies_status_and_tags_in_the_panel(window, sample):
     window.f_status.setCurrentIndex(0)
     window.f_tag.setCurrentIndex(0)
     window.search.setText("right?")
+    window.search_timer.timeout.emit()
     assert window._rows == [0]
     window.search.clear()
     assert window.save()

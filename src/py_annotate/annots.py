@@ -956,10 +956,26 @@ def text_rects(found: list[tuple[Rect, int, int]], first: int, last: int) -> lis
     return [(_r(x0), _r(y0), _r(x1), _r(y1)) for x0, y0, x1, y1 in lines.values()]
 
 
-def text_under(page: pymupdf.Page, rects: list[Rect]) -> str:
-    """The text under RECTS (as the page is shown), a line for each."""
+def page_text(page: pymupdf.Page) -> list[tuple[Rect, str]]:
+    """The words of PAGE in reading order, each with its rectangle as the page is shown
+    (read once, for text_in: much faster than reading the text under each mark)."""
     out = []
-    for r in rects:
-        text = page.get_textbox(_real_rect(page, r))
-        out.append(" ".join(text.split()))
-    return " ".join(t for t in out if t)
+    for x0, y0, x1, y1, text, *_ in page.get_text("words", sort=False):
+        r = (pymupdf.Rect(x0, y0, x1, y1) * page.rotation_matrix).normalize()
+        out.append(((r.x0, r.y0, r.x1, r.y1), text))
+    return out
+
+
+def text_in(found: list[tuple[Rect, str]], rects) -> str:
+    """The words of FOUND (see page_text) whose middle is in one of RECTS, in reading order."""
+    out = []
+    for (x0, y0, x1, y1), text in found:
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+        if any(r[0] - 1 <= cx <= r[2] + 1 and r[1] - 1 <= cy <= r[3] + 1 for r in rects):
+            out.append(text)
+    return " ".join(out)
+
+
+def text_under(page: pymupdf.Page, rects: list[Rect]) -> str:
+    """The text under RECTS (as the page is shown): the words whose middle is under one of them."""
+    return text_in(page_text(page), rects)
