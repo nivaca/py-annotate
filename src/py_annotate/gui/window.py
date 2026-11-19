@@ -107,6 +107,8 @@ def icon(name: str) -> QIcon:
 
 
 def tool_name(tool: str) -> str:
+    if tool == annots.OTHER:
+        return tr("Other kinds (read only)")
     return tr(TOOL_NAMES[tool]) if tool in TOOL_NAMES else tr(NAMES[tool])
 
 
@@ -905,6 +907,14 @@ class MainWindow(FilesMixin, QMainWindow):
         """Make ANNOTATIONS the annotations (so that it can be undone), selecting SELECTED."""
         if annotations == self.annotations:
             return
+        # (those of other kinds, a link, an attached file..., are shown as they are in the document: whatever
+        # was done to them is undone, and copies of them are left out)
+        others = {a.xref: a for a in self.annotations if a.kind == annots.OTHER}
+        if others or any(a.kind == annots.OTHER for a in annotations):
+            annotations = [others.get(a.xref, a) if a.kind == annots.OTHER else a for a in annotations
+                           if a.kind != annots.OTHER or a.xref in others]
+            if annotations == self.annotations:
+                return
         self.undo_stack.append(self.annotations)
         self.redo_stack.clear()
         self.annotations = annotations
@@ -1120,7 +1130,7 @@ class MainWindow(FilesMixin, QMainWindow):
         if not self.selected:
             return
         self.keep_comment()
-        _CLIPBOARD[:] = [self.annotations[i] for i in sorted(self.selected)]
+        _CLIPBOARD[:] = [self.annotations[i] for i in sorted(self.selected) if self.annotations[i].kind != annots.OTHER]
         texts = [self.marked_text(a) or a.contents for a in _CLIPBOARD]
         QApplication.clipboard().setText("\n".join(t for t in texts if t))
         self.status(ntr("{count} annotation copied", "{count} annotations copied", len(_CLIPBOARD)))
@@ -1638,7 +1648,7 @@ class MainWindow(FilesMixin, QMainWindow):
         statuses = {a.status() for a in self.annotations if a.status()}
         for box, everything, values in (
                 (self.f_kind, tr("All kinds"), sorted({a.kind for a in self.annotations},
-                                                      key=lambda k: KINDS.index(k))),
+                                                      key=lambda k: (KINDS + (annots.OTHER,)).index(k))),
                 (self.f_author, tr("All authors"), sorted(by_author)),
                 (self.f_color, tr("All colours"), sorted({a.color for a in self.annotations})),
                 (self.f_status, tr("Any status"), ["-"] + [s for s in STATES if s in statuses]),
@@ -1818,7 +1828,7 @@ class MainWindow(FilesMixin, QMainWindow):
         keys = {
             "page": lambda i: (self.annotations[i].page, self.annotations[i].rect[1], self.annotations[i].rect[0]),
             "changed": lambda i: (self._age(self.annotations[i]), self.annotations[i].page),
-            "kind": lambda i: (KINDS.index(self.annotations[i].kind), self.annotations[i].page),
+            "kind": lambda i: ((KINDS + (annots.OTHER,)).index(self.annotations[i].kind), self.annotations[i].page),
             "author": lambda i: (self.annotations[i].author.lower(), self.annotations[i].page),
             "status": lambda i: (list(STATES).index(self.annotations[i].status()) if self.annotations[i].status()
                                  else -1, self.annotations[i].page),

@@ -53,6 +53,13 @@ from .interface import N_, tr
 Rect = tuple[float, float, float, float]  # x0, y0, x1, y1
 Point = tuple[float, float]
 
+# the annotations of other kinds (links, attachments, sounds...): listed, but neither changed nor written
+# (Annotation.other gives their kind, as the PDF names it)
+OTHER = "other"
+OTHER_NAMES = {"Link": N_("Link"), "FileAttachment": N_("Attached file"), "Sound": N_("Sound"), "Movie": N_("Movie"),
+               "Screen": N_("Screen"), "RichMedia": N_("Media"), "3D": N_("3D model"), "Redact": N_("Redaction mark"),
+               "Watermark": N_("Watermark"), "PrinterMark": N_("Printer's mark"), "TrapNet": N_("Trap network"),
+               "Projection": N_("Projection")}
 KINDS = ("highlight", "underline", "strikeout", "squiggly", "caret", "note", "freetext", "callout", "area", "rect",
          "ellipse", "polygon", "cloud", "line", "arrow", "polyline", "ink", "marker", "stamp")
 NAMES = {"highlight": N_("Highlight"), "underline": N_("Underline"), "strikeout": N_("Strikeout"),
@@ -193,10 +200,13 @@ class Annotation:
     # Written as the PDF writes groups: the others answer the first (/IRT) as its group (/RT /Group)
     group: str = ""
     critical: Critical | None = None  # an entry of textual criticism, if it has one
+    other: str = ""  # of an annotation of another kind (OTHER): its kind, as the PDF names it ('Link'...)
     replies: tuple[Reply, ...] = ()  # in the order they were made
     xref: int = 0  # of the annotation in the document it was read from; 0 if new
 
     def name(self) -> str:
+        if self.kind == OTHER:
+            return tr(OTHER_NAMES[self.other]) if self.other in OTHER_NAMES else self.other
         return tr(NAMES[self.kind])
 
     def status(self) -> str:
@@ -671,6 +681,7 @@ def read(doc: pymupdf.Document, known: dict[int, Annotation] | None = None) -> l
             a = known[annot.xref] if annot.xref in known else read_annotation(doc, page, annot)
             if a is not None:
                 found.append(a)
+        found += _others(doc, page)
         for a in found:
             if a.xref in replies and a.xref not in known:
                 thread = sorted(replies[a.xref], key=lambda r: (date_value(r.created) or datetime.datetime.min,
@@ -699,6 +710,43 @@ def critical_of(data) -> Critical | None:
         return None
     names = {f.name for f in dataclasses.fields(Critical)}
     return Critical(**{k: str(v) for k, v in values.items() if k in names})
+
+
+def _others(doc: pymupdf.Document, page: pymupdf.Page) -> list[Annotation]:
+    """The annotations of PAGE of other kinds (see OTHER), to be listed: what each one is, where."""
+    out = []
+    links = {link.get("xref"): link for link in page.get_links()}
+    for xref, kind, name in page.annot_xrefs():
+        if kind in _TYPES or kind in (pymupdf.PDF_ANNOT_POPUP, pymupdf.PDF_ANNOT_WIDGET):
+            continue
+        other = doc.xref_get_key(xref, "Subtype")[1].lstrip("/")
+        try:
+            if kind == pymupdf.PDF_ANNOT_LINK:
+                link = links.get(xref, {})
+                rect = pymupdf.Rect(link["from"]) if link.get("from") else _pdf_rect_of(doc, page, xref)
+                text = link.get("uri") or (tr("Page {page}", page=link["page"] + 1)
+                                           if isinstance(link.get("page"), int) and link["page"] >= 0 else "")
+                out.append(Annotation(OTHER, page.number, _shown_rect(page, rect), "#808080", contents=text,
+                                      locked=True, other=other, xref=xref))
+                continue
+            annot = page.load_annot(xref)
+            info = annot.info or {}
+            text = info.get("content", "") or ""
+            if kind == pymupdf.PDF_ANNOT_FILE_ATTACHMENT:
+                with_file = (annot.file_info or {}).get("filename", "")
+                text = " — ".join(t for t in (with_file, text) if t)
+            out.append(Annotation(OTHER, page.number, _shown_rect(page, annot.rect), "#808080", contents=text,
+                                  author=info.get("title", "") or "", locked=True, other=other, xref=xref,
+                                  created=info.get("creationDate", "") or "", modified=info.get("modDate", "") or ""))
+        except (RuntimeError, ValueError, KeyError, TypeError):
+            continue
+    return out
+
+
+def _pdf_rect_of(doc: pymupdf.Document, page: pymupdf.Page, xref: int) -> pymupdf.Rect:
+    """The /Rect of the annotation XREF, in PyMuPDF's coordinates of PAGE (unturned)."""
+    x0, y0, x1, y1 = (float(v) for v in doc.xref_get_key(xref, "Rect")[1].strip("[]").split())
+    return pymupdf.Rect(x0, y0, x1, y1) * page.transformation_matrix
 
 
 def _grouped(doc: pymupdf.Document, xref: int) -> bool:
@@ -1037,7 +1085,8 @@ def apply(doc: pymupdf.Document, annotations: list[Annotation], when: str | None
     annotations were written."""
     when = when or now()
     _unlink_groups(doc)
-    original = {a.xref: a for a in (read(doc) if original is None else original)}
+    original = {a.xref: a for a in (read(doc) if original is None else original) if a.kind != OTHER}
+    annotations = [a for a in annotations if a.kind != OTHER]  # (those of other kinds are left as they are)
     model = {a.xref: a for a in annotations if a.xref and a.xref in original}
     written = 0
     redo: list[Annotation] = []

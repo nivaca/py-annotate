@@ -161,6 +161,8 @@ class FilesMixin:
         self.canvas.commit_text()
         self.keep_comment()
         chosen = [self.annotations[i] for i in self._rows]
+        if self.f_kind.currentData() != annots.OTHER:  # (links and the like, only if the list shows only them)
+            chosen = [a for a in chosen if a.kind != annots.OTHER]
         if kind == "apparatus":
             chosen = [a for a in chosen if a.critical]
         if not chosen:

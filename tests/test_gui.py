@@ -742,3 +742,51 @@ def test_textual_criticism_in_the_window(window):
     dialog = PropertiesDialog([window.annotations[0]], window)
     dialog.critical.setChecked(False)
     assert dialog.apply(window.annotations[0]).critical is None
+
+
+def test_other_kinds_listed_not_changed(app, sample, tmp_path, monkeypatch):
+    """A link and an attached file are listed, but are neither deleted, changed nor copied; saving
+    keeps them as they were."""
+    import pymupdf
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    doc = pymupdf.open(sample)
+    doc[0].add_file_annot((300, 300), b"data", "data.txt")
+    doc[0].insert_link({"kind": pymupdf.LINK_URI, "from": pymupdf.Rect(60, 60, 200, 80), "uri": "https://example.org"})
+    path = tmp_path / "linked.pdf"
+    doc.save(path)
+    w = MainWindow()
+    w.ask_recover = lambda when: False
+    assert w.open_path(path)
+    assert sorted(a.name() for a in w.annotations) == ["Attached file", "Link"]
+    assert len(w._rows) == 2
+    w.pick([0, 1], False)
+    w.delete_selected()
+    assert len(w.annotations) == 2
+    w.change([dataclasses.replace(a, color="#ff0000", locked=False) for a in w.annotations])
+    assert all(a.color == "#808080" and a.locked for a in w.annotations) and not w.undo_stack
+    w.copy_selected()
+    w.set_tool("rect")
+    drag(w, (100, 400), (150, 440))
+    assert w.save()
+    out = annots.open_pdf(path)
+    assert sorted(a.other for a in annots.read(out) if a.kind == "other") == ["FileAttachment", "Link"]
+    assert out[0].get_links()[0]["uri"] == "https://example.org"
+    w.annotations = w.saved = []
+    w.close()
+
+
+def test_exports_leave_out_other_kinds(window, sample, tmp_path):
+    import pymupdf
+
+    doc = pymupdf.open(sample)
+    doc[0].insert_link({"kind": pymupdf.LINK_URI, "from": pymupdf.Rect(60, 60, 200, 80), "uri": "https://example.org"})
+    doc.save(tmp_path / "linked.pdf")
+    assert window.open_path(tmp_path / "linked.pdf")
+    window.set_tool("rect")
+    drag(window, (100, 400), (150, 440))
+    window._ask_target = lambda *args: tmp_path / "out.json"
+    assert window.export_dialog("json")
+    import json
+
+    assert [a["kind"] for a in json.loads((tmp_path / "out.json").read_text())["annotations"]] == ["rect"]

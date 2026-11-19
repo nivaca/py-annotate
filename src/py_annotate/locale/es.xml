@@ -2071,4 +2071,56 @@
     <en>{count} entry</en>
     <tr>{count} entrada</tr>
   </text>
+  <text>
+    <en>Link</en>
+    <tr>Enlace</tr>
+  </text>
+  <text>
+    <en>Attached file</en>
+    <tr>Archivo adjunto</tr>
+  </text>
+  <text>
+    <en>Sound</en>
+    <tr>Sonido</tr>
+  </text>
+  <text>
+    <en>Movie</en>
+    <tr>Película</tr>
+  </text>
+  <text>
+    <en>Screen</en>
+    <tr>Pantalla</tr>
+  </text>
+  <text>
+    <en>Media</en>
+    <tr>Multimedia</tr>
+  </text>
+  <text>
+    <en>3D model</en>
+    <tr>Modelo 3D</tr>
+  </text>
+  <text>
+    <en>Redaction mark</en>
+    <tr>Marca de censura</tr>
+  </text>
+  <text>
+    <en>Watermark</en>
+    <tr>Marca de agua</tr>
+  </text>
+  <text>
+    <en>Printer's mark</en>
+    <tr>Marca de impresión</tr>
+  </text>
+  <text>
+    <en>Trap network</en>
+    <tr>Red de reventado</tr>
+  </text>
+  <text>
+    <en>Projection</en>
+    <tr>Proyección</tr>
+  </text>
+  <text>
+    <en>Other kinds (read only)</en>
+    <tr>Otros tipos (solo lectura)</tr>
+  </text>
 </interface>

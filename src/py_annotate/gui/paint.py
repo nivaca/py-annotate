@@ -158,6 +158,8 @@ def _note(p: QPainter, r: QRectF, color: QColor, icon: str) -> None:
 
 def paint(p: QPainter, a: Annotation, thumbnail: bool = False) -> None:
     """Draw A with P. THUMBNAIL: small, so lines are kept visible and texts left out."""
+    if a.kind == "other":  # (a link, an attached file...: the page shows it, as it is)
+        return
     p.save()
     p.setOpacity(p.opacity() * a.opacity)
     color = QColor(a.color)

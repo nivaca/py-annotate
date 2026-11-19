@@ -23,7 +23,7 @@ añaden al final del archivo, así que un documento firmado conserva sus
 firmas válidas para lo que firmaron.
 
 Tiene una ventana, en español y en inglés, y funciona en Linux, Windows y
-macOS. Esta es la versión 0.3.8.
+macOS. Esta es la versión 0.3.9.
 
 Soy Nicolas Vaughan (<nicolasvaughan@proton.me>) y lo escribí en 2026. Es
 software libre, bajo la Licencia Pública General de GNU, versión 3 o
@@ -322,9 +322,10 @@ Lo que todavía no hace
 ----------------------
 
 * Faltan las capas de anotaciones y las anotaciones giradas.
-* Las anotaciones de otros tipos (enlaces, sonidos, archivos adjuntos,
-  medidas) se conservan tal cual, pero no aparecen en la lista ni se pueden
-  editar.
+* Las anotaciones de otros tipos (enlaces, archivos adjuntos, sonidos,
+  medidas) aparecen en la lista, bloqueadas, pero no se pueden editar; se
+  conservan tal cual, y quedan fuera de las exportaciones salvo que la lista
+  muestre solo esas.
 * El texto de un cuadro de texto tiene un solo tamaño, y solo las letras
   Helvetica, Times y Courier.
 * Un dibujo tiene un solo grosor de punta a punta: con el lápiz de una

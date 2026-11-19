@@ -116,13 +116,24 @@ def test_only_changes_are_written(sample, tmp_path):
 
 
 def test_other_annotations_are_kept(sample, tmp_path):
+    """Annotations of other kinds (an attached file, a link) are read, to be listed, locked, and
+    kept as they are: neither changed nor taken out, whatever is given for them."""
     doc = pymupdf.open(sample)
-    doc[0].add_file_annot((300, 300), b"data", "data.txt")
+    doc[0].add_file_annot((300, 300), b"data", "data.txt", desc="the data")
+    doc[0].insert_link({"kind": pymupdf.LINK_URI, "from": pymupdf.Rect(60, 60, 200, 80), "uri": "https://example.org"})
     doc.save(tmp_path / "stamped.pdf")
-    annots.write(tmp_path / "stamped.pdf", [], tmp_path / "out.pdf")
+    found = annots.read(annots.open_pdf(tmp_path / "stamped.pdf"))
+    assert sorted((a.kind, a.other, a.locked) for a in found) == [("other", "FileAttachment", True),
+                                                                  ("other", "Link", True)]
+    link = next(a for a in found if a.other == "Link")
+    assert link.contents == "https://example.org" and abs(link.rect[0] - 60) < 1 and abs(link.rect[1] - 60) < 1
+    attached = next(a for a in found if a.other == "FileAttachment")
+    assert attached.contents.startswith("data.txt") and attached.name() == "Attached file"
+    changed = [dataclasses.replace(attached, color="#ff0000", contents="no")]  # (and the link left out)
+    annots.write(tmp_path / "stamped.pdf", changed, tmp_path / "out.pdf")
     out = annots.open_pdf(tmp_path / "out.pdf")
-    assert [a.type[1] for a in out[0].annots()] == ["FileAttachment"]
-    assert annots.read(out) == []
+    assert [a.type[1] for a in out[0].annots()] == ["FileAttachment"] and len(out[0].get_links()) == 1
+    assert sorted(a.other for a in annots.read(out)) == ["FileAttachment", "Link"]
 
 
 def test_remove_editable(sample, tmp_path):

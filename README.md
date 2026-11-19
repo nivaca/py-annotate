@@ -22,7 +22,7 @@ file, so that a signed document keeps its signatures valid for what they
 signed.
 
 It has a window, in English and in Spanish, and works on Linux, Windows and
-macOS. This is version 0.3.8.
+macOS. This is version 0.3.9.
 
 I am Nicolas Vaughan (<nicolasvaughan@proton.me>), and I wrote it in 2026.
 It is free software, under the GNU General Public License, version 3 or
@@ -318,8 +318,9 @@ What it does not do yet
 -----------------------
 
 * Layers of annotations, and annotations that rotate, are not there yet.
-* Annotations of other kinds (links, sounds, file attachments, measurements)
-  are kept as they are, but are not shown in the list and cannot be edited.
+* Annotations of other kinds (links, attached files, sounds, measurements)
+  are shown in the list, locked, but cannot be edited; they are kept as they
+  are, and left out of the exports unless the list shows only them.
 * The text of a text box has one size, and only Helvetica, Times and Courier.
 * A drawing has one width all along: with a tablet's pen, the pressure sets
   the width of each stroke, not of each part of it.

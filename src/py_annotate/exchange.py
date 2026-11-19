@@ -192,7 +192,7 @@ def import_pdf(source: Path, password: str = "") -> list[Annotation]:
     """The annotations of another PDF (another copy of the document, annotated by someone else)."""
     doc = annots.open_pdf(source, password)
     try:
-        return [dataclasses.replace(a, xref=0) for a in annots.read(doc)]
+        return [dataclasses.replace(a, xref=0) for a in annots.read(doc) if a.kind != annots.OTHER]
     finally:
         doc.close()
 
@@ -392,7 +392,7 @@ def export_xfdf(doc: pymupdf.Document, path: Path, annotations: list[Annotation]
     root = ET.Element("xfdf", {"xmlns": XFDF_NS, "xml:space": "preserve"})
     ET.SubElement(root, "f", {"href": path.name})
     items = ET.SubElement(root, "annots")
-    for n, a in enumerate(annotations, 1):
+    for n, a in enumerate((a for a in annotations if a.kind != annots.OTHER), 1):
         if not 0 <= a.page < doc.page_count:
             continue
         page = doc[a.page]
