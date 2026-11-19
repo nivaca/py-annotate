@@ -1,0 +1,227 @@
+"""The user's settings, kept in the configuration file (config.toml,
+[parameters]; see config.py) next to the language:
+
+* ``author``: written in new annotations;
+* the style of new annotations of each kind, and how its tool behaves, as
+  ``KIND_FIELD`` (``highlight_color = "#ffeb3b"``, ``note_icon = "Key"``,
+  ``rect_sticky = false``...): see Style;
+* the colours offered in the menus, with what each one means to the user,
+  as ``palette_N_color`` and ``palette_N_meaning`` (N from 1);
+* the keyboard shortcuts, as ``shortcut_ACTION`` (``shortcut_highlight = "H"``);
+* ``autosave``: every how many minutes a recovery copy of the annotations
+  is kept (0: never; see recovery.py).
+
+Only what differs from the usual values is written. Each setting is checked
+when it is read: a value that is missing, of the wrong type or out of range
+gives the usual one, so a file edited by hand can never stop the program.
+"""
+
+from __future__ import annotations
+
+import dataclasses
+import re
+
+from . import config
+from .annots import ALIGNS, DASHABLE, ENDED, ENDS, FILLED, FONTS, ICONS, KINDS, STAMPS, STROKED, TEXTUAL
+from .interface import N_
+
+COLOR = re.compile(r"#[0-9a-f]{6}")
+SHOW = {"": N_("Nothing"), "text": N_("A field for its text"), "comment": N_("The field of its comment"),
+        "properties": N_("Its properties")}  # (what opens after an annotation is made)
+
+
+@dataclasses.dataclass(frozen=True)
+class Style:
+    color: str
+    fill: str = ""
+    opacity: float = 1.0
+    width: float = 1.5
+    font_size: float = 12.0
+    font: str = "helv"
+    align: str = "left"
+    icon: str = "Note"
+    start: str = "None"  # (the ends of a line)
+    end: str = "None"
+    dashed: bool = False
+    stamp: str = "Approved"  # a standard stamp, or "text:THE TEXT" for one of the user's
+    stamp_date: bool = True  # (a stamp of the user's: with the author and the date under its text)
+    sticky: bool = True  # the tool stays chosen after an annotation is made (else, back to Select)
+    show: str = ""  # what opens after an annotation is made: see SHOW
+
+
+STYLES = {
+    "highlight": Style("#ffeb3b"), "underline": Style("#1e88e5"), "strikeout": Style("#e53935"),
+    "squiggly": Style("#43a047"), "caret": Style("#1e88e5", show="text"),
+    "note": Style("#ffd54f", show="text"),
+    "freetext": Style("#000000", fill="#fffde7", width=0, show="text"),
+    "callout": Style("#000000", fill="#ffffff", width=1, end="OpenArrow", show="text"),
+    "area": Style("#ffeb3b", fill="#ffeb3b", opacity=0.4, width=0),
+    "rect": Style("#e53935"), "ellipse": Style("#e53935"), "polygon": Style("#e53935"), "cloud": Style("#e53935"),
+    "line": Style("#e53935"), "arrow": Style("#e53935", end="OpenArrow"), "polyline": Style("#e53935"),
+    "ink": Style("#1e88e5", width=2.0), "stamp": Style("#c62828", stamp="Approved"),
+}
+STYLE_FIELDS = tuple(f.name for f in dataclasses.fields(Style))
+
+
+def relevant(kind: str, field: str) -> bool:
+    """Whether FIELD of a Style means something for annotations of KIND."""
+    if field in ("color", "opacity", "sticky", "show"):
+        return True
+    if field == "fill":
+        return kind in FILLED
+    if field == "width":
+        return kind in STROKED
+    if field in ("font_size", "font", "align"):
+        return kind in TEXTUAL
+    if field == "icon":
+        return kind == "note"
+    if field in ("start", "end"):
+        return kind in ENDED or kind == "arrow"
+    if field == "dashed":
+        return kind in DASHABLE
+    if field in ("stamp", "stamp_date"):
+        return kind == "stamp"
+    return False
+
+
+# the colours offered in the menus: (colour, its name, what it means) — the meanings are the user's to change
+PALETTE = (("#ffeb3b", N_("Yellow"), N_("Important")), ("#43a047", N_("Green"), N_("Definitions and concepts")),
+           ("#1e88e5", N_("Blue"), N_("References and citations")), ("#ec407a", N_("Pink"), N_("Questions")),
+           ("#fb8c00", N_("Orange"), N_("Arguments and conclusions")),
+           ("#8e24aa", N_("Purple"), N_("Context and history")), ("#e53935", N_("Red"), N_("Errors, to check")),
+           ("#000000", N_("Black"), ""), ("#ffffff", N_("White"), ""))
+PALETTE_SIZE = len(PALETTE)
+
+# the actions that have a shortcut, besides the tools (annots.KINDS, and select, hand, eraser): the usual keys
+SHORTCUTS = {
+    "select": "V", "hand": "M", "eraser": "E", "highlight": "H", "area": "Shift+H", "underline": "U",
+    "strikeout": "S", "squiggly": "Q", "caret": "I", "note": "N", "freetext": "T", "callout": "Shift+T",
+    "rect": "R", "ellipse": "O", "polygon": "G", "cloud": "Shift+G", "line": "L", "arrow": "A",
+    "polyline": "Shift+L", "ink": "P", "stamp": "Shift+S", "comment": "C", "next": "Alt+Down",
+    "previous": "Alt+Up", "copy": "Ctrl+C", "paste": "Ctrl+V", "duplicate": "Ctrl+D", "properties": "Alt+Return",
+}
+
+
+@dataclasses.dataclass(frozen=True)
+class Settings:
+    author: str = ""  # written in new annotations
+    styles: tuple[tuple[str, Style], ...] = tuple(STYLES.items())
+    palette: tuple[tuple[str, str | None], ...] = tuple((c, None) for c, _, _ in PALETTE)  # (colour, meaning; None: usual)
+    shortcuts: tuple[tuple[str, str], ...] = tuple(SHORTCUTS.items())
+    autosave: int = 2  # minutes between recovery copies; 0: none
+
+    def style(self, kind: str) -> Style:
+        return dict(self.styles).get(kind, STYLES[kind])
+
+    def with_style(self, kind: str, style: Style) -> Settings:
+        styles = dict(self.styles)
+        styles[kind] = style
+        return dataclasses.replace(self, styles=tuple(styles.items()))
+
+    def shortcut(self, action: str) -> str:
+        return dict(self.shortcuts).get(action, SHORTCUTS.get(action, ""))
+
+
+DEFAULTS = Settings()
+
+
+def valid(field: str, value) -> bool:
+    number = isinstance(value, (int, float)) and not isinstance(value, bool)
+    if field in ("author", "meaning"):
+        return isinstance(value, str) and "\n" not in value and len(value) <= 200
+    if field == "color":
+        return isinstance(value, str) and bool(COLOR.fullmatch(value.lower()))
+    if field == "fill":
+        return isinstance(value, str) and (value == "" or bool(COLOR.fullmatch(value.lower())))
+    if field == "opacity":
+        return number and 0.1 <= value <= 1
+    if field == "width":
+        return number and 0 <= value <= 20
+    if field == "font_size":
+        return number and 4 <= value <= 72
+    if field == "font":
+        return value in FONTS
+    if field == "align":
+        return value in ALIGNS
+    if field == "icon":
+        return value in ICONS
+    if field in ("start", "end"):
+        return value in ENDS
+    if field in ("dashed", "sticky", "stamp_date"):
+        return isinstance(value, bool)
+    if field == "stamp":
+        return isinstance(value, str) and (value in STAMPS or (value.startswith("text:") and "\n" not in value
+                                                                and 5 < len(value) <= 80))
+    if field == "show":
+        return value in SHOW
+    if field == "shortcut":
+        return isinstance(value, str) and "\n" not in value and len(value) <= 40
+    if field == "autosave":
+        return isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 120
+    return False
+
+
+def _value(value, field: str):
+    if isinstance(value, str) and field in ("color", "fill"):
+        return value.lower()
+    if field in ("opacity", "width", "font_size") and not isinstance(value, bool):
+        return float(value)
+    return value
+
+
+def load() -> Settings:
+    try:
+        params = config.read().get("parameters", {})
+    except config.ConfigError:
+        params = {}
+    if not isinstance(params, dict):
+        params = {}
+    author = params.get("author", "")
+    styles = []
+    for kind in KINDS:
+        values = {}
+        for field in STYLE_FIELDS:
+            value = params.get(f"{kind}_{field}")
+            if valid(field, value) and relevant(kind, field):
+                values[field] = _value(value, field)
+        styles.append((kind, dataclasses.replace(STYLES[kind], **values)))
+    palette = []
+    for n, (usual, _, _) in enumerate(PALETTE, 1):
+        color, meaning = params.get(f"palette_{n}_color"), params.get(f"palette_{n}_meaning")
+        palette.append((color.lower() if valid("color", color) else usual, meaning if valid("meaning", meaning)
+                        else None))
+    shortcuts = []
+    for action, usual in SHORTCUTS.items():
+        key = params.get(f"shortcut_{action}")
+        shortcuts.append((action, key if valid("shortcut", key) else usual))
+    autosave = params.get("autosave")
+    return Settings(author if valid("author", author) else "", tuple(styles), tuple(palette), tuple(shortcuts),
+                    autosave if valid("autosave", autosave) else DEFAULTS.autosave)
+
+
+def save(settings: Settings) -> None:
+    """Keep SETTINGS in the configuration file (raises OSError, or ValueError
+    for a value that isn't allowed). Usual values are left out of it."""
+    if not valid("author", settings.author):
+        raise ValueError(f"author = {settings.author!r}")
+    values: dict = {"author": settings.author or None}
+    for kind in KINDS:
+        style, usual = settings.style(kind), STYLES[kind]
+        for field in STYLE_FIELDS:
+            value = getattr(style, field)
+            if not valid(field, value):
+                raise ValueError(f"{kind}_{field} = {value!r}")
+            keep = relevant(kind, field) and value != getattr(usual, field)
+            values[f"{kind}_{field}"] = value if keep else None
+    for n, ((color, meaning), (usual, _, _)) in enumerate(zip(settings.palette, PALETTE, strict=True), 1):
+        if not valid("color", color) or (meaning is not None and not valid("meaning", meaning)):
+            raise ValueError(f"palette_{n} = {color!r}, {meaning!r}")
+        values[f"palette_{n}_color"] = color if color != usual else None
+        values[f"palette_{n}_meaning"] = meaning
+    for action, key in settings.shortcuts:
+        if action in SHORTCUTS:
+            values[f"shortcut_{action}"] = key if key != SHORTCUTS[action] else None
+    if not valid("autosave", settings.autosave):
+        raise ValueError(f"autosave = {settings.autosave!r}")
+    values["autosave"] = settings.autosave if settings.autosave != DEFAULTS.autosave else None
+    config.set_many(values)

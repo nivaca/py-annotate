@@ -1,0 +1,1394 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The interface of py-annotate in Spanish: each <text> gives an English text of the
+     program (<en>) and its translation (<tr>). See src/py_annotate/interface.py.
+     tests/test_interface.py checks that every text of the program is here, and nothing else. -->
+<interface code="es" name="Spanish" native="Español">
+  <text>
+    <en>The settings of py-annotate. Delete this file to use the usual values.</en>
+    <tr>La configuración de py-annotate. Borre este archivo para usar los valores habituales.</tr>
+  </text>
+  <text>
+    <en>&amp;File</en>
+    <tr>&amp;Archivo</tr>
+  </text>
+  <text>
+    <en>&amp;Edit</en>
+    <tr>&amp;Editar</tr>
+  </text>
+  <text>
+    <en>&amp;Tools</en>
+    <tr>&amp;Herramientas</tr>
+  </text>
+  <text>
+    <en>&amp;View</en>
+    <tr>&amp;Ver</tr>
+  </text>
+  <text>
+    <en>&amp;Settings</en>
+    <tr>&amp;Configuración</tr>
+  </text>
+  <text>
+    <en>&amp;Help</en>
+    <tr>A&amp;yuda</tr>
+  </text>
+  <text>
+    <en>(several)</en>
+    <tr>(varios)</tr>
+  </text>
+  <text>
+    <en>A comment on this annotation</en>
+    <tr>Un comentario sobre esta anotación</tr>
+  </text>
+  <text>
+    <en>About</en>
+    <tr>Acerca de</tr>
+  </text>
+  <text>
+    <en>About py-annotate</en>
+    <tr>Acerca de py-annotate</tr>
+  </text>
+  <text>
+    <en>Add a note here…</en>
+    <tr>Añadir una nota aquí…</tr>
+  </text>
+  <text>
+    <en>Annotations</en>
+    <tr>Anotaciones</tr>
+  </text>
+  <text>
+    <en>Arrow</en>
+    <tr>Flecha</tr>
+  </text>
+  <text>
+    <en>Author:</en>
+    <tr>Autor:</tr>
+  </text>
+  <text>
+    <en>Black</en>
+    <tr>Negro</tr>
+  </text>
+  <text>
+    <en>Blue</en>
+    <tr>Azul</tr>
+  </text>
+  <text>
+    <en>Change to</en>
+    <tr>Cambiar a</tr>
+  </text>
+  <text>
+    <en>Clear the list</en>
+    <tr>Vaciar la lista</tr>
+  </text>
+  <text>
+    <en>Click on the page to add a note</en>
+    <tr>Haga clic en la página para añadir una nota</tr>
+  </text>
+  <text>
+    <en>Colour</en>
+    <tr>Color</tr>
+  </text>
+  <text>
+    <en>Colour:</en>
+    <tr>Color:</tr>
+  </text>
+  <text>
+    <en>Comment:</en>
+    <tr>Comentario:</tr>
+  </text>
+  <text>
+    <en>Copy the text marked</en>
+    <tr>Copiar el texto marcado</tr>
+  </text>
+  <text>
+    <en>Could not keep the setting: {error}</en>
+    <tr>No se pudo guardar la configuración: {error}</tr>
+  </text>
+  <text>
+    <en>Delete</en>
+    <tr>Borrar</tr>
+  </text>
+  <text>
+    <en>Delete all the annotations</en>
+    <tr>Borrar todas las anotaciones</tr>
+  </text>
+  <text>
+    <en>Delete the annotation</en>
+    <tr>Borrar la anotación</tr>
+  </text>
+  <text>
+    <en>Delete the annotations of this page</en>
+    <tr>Borrar las anotaciones de esta página</tr>
+  </text>
+  <text>
+    <en>Delete the selected annotation</en>
+    <tr>Borrar la anotación seleccionada</tr>
+  </text>
+  <text>
+    <en>Delete the selected annotations</en>
+    <tr>Borrar las anotaciones seleccionadas</tr>
+  </text>
+  <text>
+    <en>Delete the {count} annotation of the document?</en>
+    <tr>¿Borrar la {count} anotación del documento?</tr>
+  </text>
+  <text>
+    <en>Delete the {count} annotations</en>
+    <tr>Borrar las {count} anotaciones</tr>
+  </text>
+  <text>
+    <en>Delete the {count} annotations of the document?</en>
+    <tr>¿Borrar las {count} anotaciones del documento?</tr>
+  </text>
+  <text>
+    <en>Delete the {count} selected annotations</en>
+    <tr>Borrar las {count} anotaciones seleccionadas</tr>
+  </text>
+  <text>
+    <en>Drag a box on the page (or click) to write a text in it</en>
+    <tr>Arrastre un recuadro en la página (o haga clic) para escribir un texto en él</tr>
+  </text>
+  <text>
+    <en>Drag on the page to draw a line</en>
+    <tr>Arrastre en la página para dibujar una línea</tr>
+  </text>
+  <text>
+    <en>Drag on the page to draw a rectangle</en>
+    <tr>Arrastre en la página para dibujar un rectángulo</tr>
+  </text>
+  <text>
+    <en>Drag on the page to draw an arrow</en>
+    <tr>Arrastre en la página para dibujar una flecha</tr>
+  </text>
+  <text>
+    <en>Drag on the page to draw an ellipse</en>
+    <tr>Arrastre en la página para dibujar una elipse</tr>
+  </text>
+  <text>
+    <en>Drag over text to highlight it</en>
+    <tr>Arrastre sobre el texto para resaltarlo</tr>
+  </text>
+  <text>
+    <en>Drag over text to strike it out</en>
+    <tr>Arrastre sobre el texto para tacharlo</tr>
+  </text>
+  <text>
+    <en>Drag over text to underline it</en>
+    <tr>Arrastre sobre el texto para subrayarlo</tr>
+  </text>
+  <text>
+    <en>Drag over text to underline it with a wavy line</en>
+    <tr>Arrastre sobre el texto para subrayarlo con una línea ondulada</tr>
+  </text>
+  <text>
+    <en>Dragging moves the page in the window</en>
+    <tr>Al arrastrar se mueve la página en la ventana</tr>
+  </text>
+  <text>
+    <en>Draw on the page by hand</en>
+    <tr>Dibuje a mano alzada en la página</tr>
+  </text>
+  <text>
+    <en>Ellipse</en>
+    <tr>Elipse</tr>
+  </text>
+  <text>
+    <en>Fill:</en>
+    <tr>Relleno:</tr>
+  </text>
+  <text>
+    <en>First page</en>
+    <tr>Primera página</tr>
+  </text>
+  <text>
+    <en>Fit the page</en>
+    <tr>Ajustar a la página</tr>
+  </text>
+  <text>
+    <en>Fit the width</en>
+    <tr>Ajustar al ancho</tr>
+  </text>
+  <text>
+    <en>Font size:</en>
+    <tr>Tamaño de letra:</tr>
+  </text>
+  <text>
+    <en>Freehand</en>
+    <tr>A mano alzada</tr>
+  </text>
+  <text>
+    <en>Green</en>
+    <tr>Verde</tr>
+  </text>
+  <text>
+    <en>Hand</en>
+    <tr>Mano</tr>
+  </text>
+  <text>
+    <en>Highlight</en>
+    <tr>Resaltado</tr>
+  </text>
+  <text>
+    <en>Kind</en>
+    <tr>Tipo</tr>
+  </text>
+  <text>
+    <en>Labels in the toolbar</en>
+    <tr>Etiquetas en la barra de herramientas</tr>
+  </text>
+  <text>
+    <en>Language</en>
+    <tr>Idioma</tr>
+  </text>
+  <text>
+    <en>Last page</en>
+    <tr>Última página</tr>
+  </text>
+  <text>
+    <en>Line</en>
+    <tr>Línea</tr>
+  </text>
+  <text>
+    <en>Line width:</en>
+    <tr>Grosor de línea:</tr>
+  </text>
+  <text>
+    <en>New annotations ({kind}) will be {color}</en>
+    <tr>Las anotaciones nuevas ({kind}) tendrán el color {color}</tr>
+  </text>
+  <text>
+    <en>New annotations of this kind will look like this one</en>
+    <tr>Las anotaciones nuevas de este tipo se verán como esta</tr>
+  </text>
+  <text>
+    <en>New annotations: {kind}</en>
+    <tr>Anotaciones nuevas: {kind}</tr>
+  </text>
+  <text>
+    <en>New note</en>
+    <tr>Nota nueva</tr>
+  </text>
+  <text>
+    <en>New text box</en>
+    <tr>Cuadro de texto nuevo</tr>
+  </text>
+  <text>
+    <en>Next page</en>
+    <tr>Página siguiente</tr>
+  </text>
+  <text>
+    <en>No annotation selected</en>
+    <tr>Ninguna anotación seleccionada</tr>
+  </text>
+  <text>
+    <en>No colour</en>
+    <tr>Sin color</tr>
+  </text>
+  <text>
+    <en>Note</en>
+    <tr>Nota</tr>
+  </text>
+  <text>
+    <en>Opacity:</en>
+    <tr>Opacidad:</tr>
+  </text>
+  <text>
+    <en>Open PDF</en>
+    <tr>Abrir PDF</tr>
+  </text>
+  <text>
+    <en>Open recent</en>
+    <tr>Abrir reciente</tr>
+  </text>
+  <text>
+    <en>Opened {path}</en>
+    <tr>Abierto {path}</tr>
+  </text>
+  <text>
+    <en>Open…</en>
+    <tr>Abrir…</tr>
+  </text>
+  <text>
+    <en>Orange</en>
+    <tr>Naranja</tr>
+  </text>
+  <text>
+    <en>Other colour ({color})…</en>
+    <tr>Otro color ({color})…</tr>
+  </text>
+  <text>
+    <en>Other colour…</en>
+    <tr>Otro color…</tr>
+  </text>
+  <text>
+    <en>PDF files (*.pdf)</en>
+    <tr>Archivos PDF (*.pdf)</tr>
+  </text>
+  <text>
+    <en>Page</en>
+    <tr>Página</tr>
+  </text>
+  <text>
+    <en>Password</en>
+    <tr>Contraseña</tr>
+  </text>
+  <text>
+    <en>Previous page</en>
+    <tr>Página anterior</tr>
+  </text>
+  <text>
+    <en>Properties of the annotation</en>
+    <tr>Propiedades de la anotación</tr>
+  </text>
+  <text>
+    <en>Properties of the annotation ({kind})</en>
+    <tr>Propiedades de la anotación ({kind})</tr>
+  </text>
+  <text>
+    <en>Properties of the {count} annotations</en>
+    <tr>Propiedades de las {count} anotaciones</tr>
+  </text>
+  <text>
+    <en>Properties…</en>
+    <tr>Propiedades…</tr>
+  </text>
+  <text>
+    <en>Purple</en>
+    <tr>Morado</tr>
+  </text>
+  <text>
+    <en>Quit</en>
+    <tr>Salir</tr>
+  </text>
+  <text>
+    <en>Rectangle</en>
+    <tr>Rectángulo</tr>
+  </text>
+  <text>
+    <en>Red</en>
+    <tr>Rojo</tr>
+  </text>
+  <text>
+    <en>Redo</en>
+    <tr>Rehacer</tr>
+  </text>
+  <text>
+    <en>Save</en>
+    <tr>Guardar</tr>
+  </text>
+  <text>
+    <en>Save as</en>
+    <tr>Guardar como</tr>
+  </text>
+  <text>
+    <en>Save as…</en>
+    <tr>Guardar como…</tr>
+  </text>
+  <text>
+    <en>Saved {path}</en>
+    <tr>Guardado {path}</tr>
+  </text>
+  <text>
+    <en>Select</en>
+    <tr>Seleccionar</tr>
+  </text>
+  <text>
+    <en>Select an annotation to see its comment here</en>
+    <tr>Seleccione una anotación para ver aquí su comentario</tr>
+  </text>
+  <text>
+    <en>Select none</en>
+    <tr>No seleccionar ninguna</tr>
+  </text>
+  <text>
+    <en>Select the annotation of this page</en>
+    <tr>Seleccionar la anotación de esta página</tr>
+  </text>
+  <text>
+    <en>Select the annotations of this page</en>
+    <tr>Seleccionar las anotaciones de esta página</tr>
+  </text>
+  <text>
+    <en>Select the {count} annotations of this page</en>
+    <tr>Seleccionar las {count} anotaciones de esta página</tr>
+  </text>
+  <text>
+    <en>Settings</en>
+    <tr>Configuración</tr>
+  </text>
+  <text>
+    <en>Settings…</en>
+    <tr>Configuración…</tr>
+  </text>
+  <text>
+    <en>Squiggly underline</en>
+    <tr>Subrayado ondulado</tr>
+  </text>
+  <text>
+    <en>Strikeout</en>
+    <tr>Tachado</tr>
+  </text>
+  <text>
+    <en>Text</en>
+    <tr>Texto</tr>
+  </text>
+  <text>
+    <en>Text box</en>
+    <tr>Cuadro de texto</tr>
+  </text>
+  <text>
+    <en>Text colour:</en>
+    <tr>Color del texto:</tr>
+  </text>
+  <text>
+    <en>Text:</en>
+    <tr>Texto:</tr>
+  </text>
+  <text>
+    <en>That password is not right. The password of {name}:</en>
+    <tr>Esa contraseña no es correcta. La contraseña de {name}:</tr>
+  </text>
+  <text>
+    <en>The annotations have changed since the document was last saved. Save them before going on?</en>
+    <tr>Las anotaciones han cambiado desde la última vez que se guardó el documento. ¿Guardarlas antes de seguir?</tr>
+  </text>
+  <text>
+    <en>The language of the interface could not be changed: {error}</en>
+    <tr>No se pudo cambiar el idioma de la interfaz: {error}</tr>
+  </text>
+  <text>
+    <en>The pages; the number after ● is how many annotations a page has</en>
+    <tr>Las páginas; el número después de ● es cuántas anotaciones tiene cada una</tr>
+  </text>
+  <text>
+    <en>The settings are kept in {path}</en>
+    <tr>La configuración se guarda en {path}</tr>
+  </text>
+  <text>
+    <en>The text of the note:</en>
+    <tr>El texto de la nota:</tr>
+  </text>
+  <text>
+    <en>The text to write on the page:</en>
+    <tr>El texto que se escribirá en la página:</tr>
+  </text>
+  <text>
+    <en>Tools</en>
+    <tr>Herramientas</tr>
+  </text>
+  <text>
+    <en>Underline</en>
+    <tr>Subrayado</tr>
+  </text>
+  <text>
+    <en>Undo</en>
+    <tr>Deshacer</tr>
+  </text>
+  <text>
+    <en>Undo ({count})</en>
+    <tr>Deshacer ({count})</tr>
+  </text>
+  <text>
+    <en>Unsaved annotations</en>
+    <tr>Anotaciones sin guardar</tr>
+  </text>
+  <text>
+    <en>Use this style for new annotations of this kind</en>
+    <tr>Usar este estilo para las anotaciones nuevas de este tipo</tr>
+  </text>
+  <text>
+    <en>White</en>
+    <tr>Blanco</tr>
+  </text>
+  <text>
+    <en>Write a copy of the document with the annotations, and go on with it</en>
+    <tr>Escribir una copia del documento con las anotaciones, y seguir con ella</tr>
+  </text>
+  <text>
+    <en>Write the annotations in the document</en>
+    <tr>Escribir las anotaciones en el documento</tr>
+  </text>
+  <text>
+    <en>Written in each new annotation, as its author</en>
+    <tr>Se escribe en cada anotación nueva, como su autor</tr>
+  </text>
+  <text>
+    <en>Yellow</en>
+    <tr>Amarillo</tr>
+  </text>
+  <text>
+    <en>Your name</en>
+    <tr>Su nombre</tr>
+  </text>
+  <text>
+    <en>Zoom in</en>
+    <tr>Acercar</tr>
+  </text>
+  <text>
+    <en>Zoom out</en>
+    <tr>Alejar</tr>
+  </text>
+  <text>
+    <en>{count} annotation</en>
+    <tr>{count} anotación</tr>
+  </text>
+  <text>
+    <en>{count} annotation selected</en>
+    <tr>{count} anotación seleccionada</tr>
+  </text>
+  <text>
+    <en>{count} annotation written</en>
+    <tr>{count} anotación escrita</tr>
+  </text>
+  <text>
+    <en>{count} annotations</en>
+    <tr>{count} anotaciones</tr>
+  </text>
+  <text>
+    <en>{count} annotations selected</en>
+    <tr>{count} anotaciones seleccionadas</tr>
+  </text>
+  <text>
+    <en>{count} annotations written</en>
+    <tr>{count} anotaciones escritas</tr>
+  </text>
+  <text>
+    <en>{count} page</en>
+    <tr>{count} página</tr>
+  </text>
+  <text>
+    <en>{count} pages</en>
+    <tr>{count} páginas</tr>
+  </text>
+  <text>
+    <en>{kind}, on page {page}</en>
+    <tr>{kind}, en la página {page}</tr>
+  </text>
+  <text>
+    <en>{name} is protected. Its password:</en>
+    <tr>{name} está protegido. Su contraseña:</tr>
+  </text>
+  <text>
+    <en>{path} cannot be read as a PDF: {error}</en>
+    <tr>{path} no se puede leer como PDF: {error}</tr>
+  </text>
+  <text>
+    <en>{path} cannot be written: {error}</en>
+    <tr>No se puede escribir {path}: {error}</tr>
+  </text>
+  <text>
+    <en>{path} is not a PDF</en>
+    <tr>{path} no es un PDF</tr>
+  </text>
+  <text>
+    <en>{path} is protected by a password</en>
+    <tr>{path} está protegido con contraseña</tr>
+  </text>
+  <text>
+    <en>{path} not found</en>
+    <tr>No se encontró {path}</tr>
+  </text>
+  <text>
+    <en>(no author)</en>
+    <tr>(sin autor)</tr>
+  </text>
+  <text>
+    <en>&lt;b&gt;py-annotate {version}&lt;/b&gt;&lt;p&gt;Adds annotations to PDF documents: highlights, notes, text boxes, shapes, stamps and drawings, which any PDF viewer shows and can edit.&lt;/p&gt;&lt;p&gt;By {author}.&lt;/p&gt;&lt;p&gt;Licensed under the GNU General Public License, version 3 or later.&lt;/p&gt;</en>
+    <tr>&lt;b&gt;py-annotate {version}&lt;/b&gt;&lt;p&gt;Añade anotaciones a documentos PDF: resaltados, notas, cuadros de texto, formas, sellos y dibujos, que cualquier visor de PDF muestra y puede editar.&lt;/p&gt;&lt;p&gt;Por {author}.&lt;/p&gt;&lt;p&gt;Con licencia GNU General Public License, versión 3 o posterior.&lt;/p&gt;</tr>
+  </text>
+  <text>
+    <en>A copy of the annotations not yet saved is kept this often, and offered if the program stops before they are saved</en>
+    <tr>Con esta frecuencia se guarda una copia de las anotaciones aún no guardadas, que se ofrece si el programa se cierra antes de guardarlas</tr>
+  </text>
+  <text>
+    <en>A field for its text</en>
+    <tr>Un campo para su texto</tr>
+  </text>
+  <text>
+    <en>A stamp of my own</en>
+    <tr>Un sello propio</tr>
+  </text>
+  <text>
+    <en>A stamp of my own ({text})…</en>
+    <tr>Un sello propio ({text})…</tr>
+  </text>
+  <text>
+    <en>A stamp of my own…</en>
+    <tr>Un sello propio…</tr>
+  </text>
+  <text>
+    <en>Action</en>
+    <tr>Acción</tr>
+  </text>
+  <text>
+    <en>After making an annotation, open:</en>
+    <tr>Después de hacer una anotación, abrir:</tr>
+  </text>
+  <text>
+    <en>Align</en>
+    <tr>Alinear</tr>
+  </text>
+  <text>
+    <en>Alignment:</en>
+    <tr>Alineación:</tr>
+  </text>
+  <text>
+    <en>All authors</en>
+    <tr>Todos los autores</tr>
+  </text>
+  <text>
+    <en>All colours</en>
+    <tr>Todos los colores</tr>
+  </text>
+  <text>
+    <en>All kinds</en>
+    <tr>Todos los tipos</tr>
+  </text>
+  <text>
+    <en>Annotation</en>
+    <tr>Anotación</tr>
+  </text>
+  <text>
+    <en>Annotations (*.json)</en>
+    <tr>Anotaciones (*.json)</tr>
+  </text>
+  <text>
+    <en>Annotations not saved</en>
+    <tr>Anotaciones sin guardar</tr>
+  </text>
+  <text>
+    <en>Annotations of {name}</en>
+    <tr>Anotaciones de {name}</tr>
+  </text>
+  <text>
+    <en>Appearance</en>
+    <tr>Aspecto</tr>
+  </text>
+  <text>
+    <en>Approved</en>
+    <tr>Aprobado</tr>
+  </text>
+  <text>
+    <en>Area highlight</en>
+    <tr>Resaltado de zona</tr>
+  </text>
+  <text>
+    <en>Arguments and conclusions</en>
+    <tr>Argumentos y conclusiones</tr>
+  </text>
+  <text>
+    <en>As a report (Markdown)…</en>
+    <tr>Como informe (Markdown)…</tr>
+  </text>
+  <text>
+    <en>As a table (CSV)…</en>
+    <tr>Como tabla (CSV)…</tr>
+  </text>
+  <text>
+    <en>As data, to import them again (JSON)…</en>
+    <tr>Como datos, para volver a importarlas (JSON)…</tr>
+  </text>
+  <text>
+    <en>As is</en>
+    <tr>Tal cual</tr>
+  </text>
+  <text>
+    <en>Author</en>
+    <tr>Autor</tr>
+  </text>
+  <text>
+    <en>Bar</en>
+    <tr>Barra</tr>
+  </text>
+  <text>
+    <en>Behaviour</en>
+    <tr>Comportamiento</tr>
+  </text>
+  <text>
+    <en>Border width:</en>
+    <tr>Grosor del borde:</tr>
+  </text>
+  <text>
+    <en>Bottoms</en>
+    <tr>Bordes inferiores</tr>
+  </text>
+  <text>
+    <en>Bring in the annotations of another copy of this document, such as one annotated by someone else; those already here are left out</en>
+    <tr>Traer las anotaciones de otra copia de este documento, por ejemplo una que haya anotado otra persona; las que ya están aquí se omiten</tr>
+  </text>
+  <text>
+    <en>By author</en>
+    <tr>Por autor</tr>
+  </text>
+  <text>
+    <en>By colour</en>
+    <tr>Por color</tr>
+  </text>
+  <text>
+    <en>By kind</en>
+    <tr>Por tipo</tr>
+  </text>
+  <text>
+    <en>By page</en>
+    <tr>Por página</tr>
+  </text>
+  <text>
+    <en>Callout</en>
+    <tr>Llamada</tr>
+  </text>
+  <text>
+    <en>Centre</en>
+    <tr>Centro</tr>
+  </text>
+  <text>
+    <en>Centres, across</en>
+    <tr>Centros, en horizontal</tr>
+  </text>
+  <text>
+    <en>Changed</en>
+    <tr>Cambiada</tr>
+  </text>
+  <text>
+    <en>Choose a tool in the toolbar: drag over text to mark it, drag on the page to draw, or click to add a note. Drag an annotation to move it or resize it; double-click it for its properties, right-click it for more. Right-click a tool to set it up.</en>
+    <tr>Elija una herramienta en la barra: arrastre sobre el texto para marcarlo, arrastre en la página para dibujar o haga clic para añadir una nota. Arrastre una anotación para moverla o cambiar su tamaño; haga doble clic en ella para ver sus propiedades, y clic derecho para más opciones. Con clic derecho sobre una herramienta, se configura.</tr>
+  </text>
+  <text>
+    <en>Choose another name: the document stays open</en>
+    <tr>Elija otro nombre: el documento sigue abierto</tr>
+  </text>
+  <text>
+    <en>Circle</en>
+    <tr>Círculo</tr>
+  </text>
+  <text>
+    <en>Click each corner; double-click, or press Enter, to end</en>
+    <tr>Haga clic en cada esquina; doble clic, o Intro, para terminar</tr>
+  </text>
+  <text>
+    <en>Click each point; double-click, or press Enter, to end</en>
+    <tr>Haga clic en cada punto; doble clic, o Intro, para terminar</tr>
+  </text>
+  <text>
+    <en>Click each point; double-click, press Enter or click the first point to end; Escape gives it up</en>
+    <tr>Haga clic en cada punto; para terminar, doble clic, Intro o clic en el primer punto; Escape lo descarta</tr>
+  </text>
+  <text>
+    <en>Click on the page to put a stamp (right-click the tool to choose it)</en>
+    <tr>Haga clic en la página para poner un sello (clic derecho en la herramienta para elegirlo)</tr>
+  </text>
+  <text>
+    <en>Click where text should be inserted, and write it</en>
+    <tr>Haga clic donde haya que insertar texto, y escríbalo</tr>
+  </text>
+  <text>
+    <en>Closed arrow</en>
+    <tr>Flecha cerrada</tr>
+  </text>
+  <text>
+    <en>Cloud</en>
+    <tr>Nube</tr>
+  </text>
+  <text>
+    <en>Colours</en>
+    <tr>Colores</tr>
+  </text>
+  <text>
+    <en>Comment</en>
+    <tr>Comentario</tr>
+  </text>
+  <text>
+    <en>Comment on the annotation selected</en>
+    <tr>Comentar la anotación seleccionada</tr>
+  </text>
+  <text>
+    <en>Confidential</en>
+    <tr>Confidencial</tr>
+  </text>
+  <text>
+    <en>Context and history</en>
+    <tr>Contexto e historia</tr>
+  </text>
+  <text>
+    <en>Copy</en>
+    <tr>Copiar</tr>
+  </text>
+  <text>
+    <en>Copy it as a quotation</en>
+    <tr>Copiarlo como cita</tr>
+  </text>
+  <text>
+    <en>Courier (monospaced)</en>
+    <tr>Courier (monoespaciada)</tr>
+  </text>
+  <text>
+    <en>Dashed</en>
+    <tr>Discontinua</tr>
+  </text>
+  <text>
+    <en>Definitions and concepts</en>
+    <tr>Definiciones y conceptos</tr>
+  </text>
+  <text>
+    <en>Departmental</en>
+    <tr>Departamental</tr>
+  </text>
+  <text>
+    <en>Diamond</en>
+    <tr>Rombo</tr>
+  </text>
+  <text>
+    <en>Document</en>
+    <tr>Documento</tr>
+  </text>
+  <text>
+    <en>Draft</en>
+    <tr>Borrador</tr>
+  </text>
+  <text>
+    <en>Drag on the page to draw a cloud</en>
+    <tr>Arrastre en la página para dibujar una nube</tr>
+  </text>
+  <text>
+    <en>Drag on the page to highlight a region (a picture, a table, a scanned page)</en>
+    <tr>Arrastre en la página para resaltar una zona (una imagen, una tabla, una página escaneada)</tr>
+  </text>
+  <text>
+    <en>Drag over annotations to erase them (over a drawing, only what is touched)</en>
+    <tr>Arrastre sobre las anotaciones para borrarlas (en un dibujo, solo lo que toque)</tr>
+  </text>
+  <text>
+    <en>Duplicate</en>
+    <tr>Duplicar</tr>
+  </text>
+  <text>
+    <en>End:</en>
+    <tr>Final:</tr>
+  </text>
+  <text>
+    <en>Eraser</en>
+    <tr>Goma de borrar</tr>
+  </text>
+  <text>
+    <en>Errors, to check</en>
+    <tr>Errores, por revisar</tr>
+  </text>
+  <text>
+    <en>Experimental</en>
+    <tr>Experimental</tr>
+  </text>
+  <text>
+    <en>Expired</en>
+    <tr>Vencido</tr>
+  </text>
+  <text>
+    <en>Export the annotations</en>
+    <tr>Exportar las anotaciones</tr>
+  </text>
+  <text>
+    <en>Final</en>
+    <tr>Final</tr>
+  </text>
+  <text>
+    <en>Flattened…</en>
+    <tr>Aplanada…</tr>
+  </text>
+  <text>
+    <en>Font:</en>
+    <tr>Letra:</tr>
+  </text>
+  <text>
+    <en>For comment</en>
+    <tr>Para comentarios</tr>
+  </text>
+  <text>
+    <en>For public release</en>
+    <tr>Para publicación</tr>
+  </text>
+  <text>
+    <en>From a file of annotations (JSON)…</en>
+    <tr>De un archivo de anotaciones (JSON)…</tr>
+  </text>
+  <text>
+    <en>From another copy of the PDF…</en>
+    <tr>De otra copia del PDF…</tr>
+  </text>
+  <text>
+    <en>General</en>
+    <tr>General</tr>
+  </text>
+  <text>
+    <en>Help</en>
+    <tr>Ayuda</tr>
+  </text>
+  <text>
+    <en>Helvetica (sans serif)</en>
+    <tr>Helvetica (sin serifa)</tr>
+  </text>
+  <text>
+    <en>Hide them to see the document as it is without them</en>
+    <tr>Ocultarlas para ver el documento tal como es sin ellas</tr>
+  </text>
+  <text>
+    <en>Icon:</en>
+    <tr>Icono:</tr>
+  </text>
+  <text>
+    <en>Import annotations</en>
+    <tr>Importar anotaciones</tr>
+  </text>
+  <text>
+    <en>Important</en>
+    <tr>Importante</tr>
+  </text>
+  <text>
+    <en>Insert</en>
+    <tr>Insertar</tr>
+  </text>
+  <text>
+    <en>Insert text</en>
+    <tr>Insertar texto</tr>
+  </text>
+  <text>
+    <en>Its properties</en>
+    <tr>Sus propiedades</tr>
+  </text>
+  <text>
+    <en>Keep the tool chosen after making an annotation</en>
+    <tr>Mantener la herramienta elegida después de hacer una anotación</tr>
+  </text>
+  <text>
+    <en>Key</en>
+    <tr>Llave</tr>
+  </text>
+  <text>
+    <en>Last changed first</en>
+    <tr>Primero la última cambiada</tr>
+  </text>
+  <text>
+    <en>Left</en>
+    <tr>Izquierda</tr>
+  </text>
+  <text>
+    <en>Left sides</en>
+    <tr>Bordes izquierdos</tr>
+  </text>
+  <text>
+    <en>Lock</en>
+    <tr>Bloquear</tr>
+  </text>
+  <text>
+    <en>Locked: can't be moved, resized, erased or deleted</en>
+    <tr>Bloqueada: no se puede mover, cambiar de tamaño ni borrar</tr>
+  </text>
+  <text>
+    <en>Made: {made}; changed: {changed}</en>
+    <tr>Hecha: {made}; cambiada: {changed}</tr>
+  </text>
+  <text>
+    <en>Make them the same size</en>
+    <tr>Darles el mismo tamaño</tr>
+  </text>
+  <text>
+    <en>Markdown (*.md)</en>
+    <tr>Markdown (*.md)</tr>
+  </text>
+  <text>
+    <en>Middles, up and down</en>
+    <tr>Centros, en vertical</tr>
+  </text>
+  <text>
+    <en>Never</en>
+    <tr>Nunca</tr>
+  </text>
+  <text>
+    <en>New paragraph</en>
+    <tr>Párrafo nuevo</tr>
+  </text>
+  <text>
+    <en>Next annotation</en>
+    <tr>Anotación siguiente</tr>
+  </text>
+  <text>
+    <en>None</en>
+    <tr>Ninguno</tr>
+  </text>
+  <text>
+    <en>Not approved</en>
+    <tr>No aprobado</tr>
+  </text>
+  <text>
+    <en>Not for public release</en>
+    <tr>No publicable</tr>
+  </text>
+  <text>
+    <en>Not yet saved in the document</en>
+    <tr>Aún no guardada en el documento</tr>
+  </text>
+  <text>
+    <en>Nothing</en>
+    <tr>Nada</tr>
+  </text>
+  <text>
+    <en>On the page, only the annotations that the search and filters of the list let through</en>
+    <tr>En la página, solo las anotaciones que dejan pasar la búsqueda y los filtros de la lista</tr>
+  </text>
+  <text>
+    <en>Only annotations by this author</en>
+    <tr>Solo anotaciones de este autor</tr>
+  </text>
+  <text>
+    <en>Only annotations of this colour</en>
+    <tr>Solo anotaciones de este color</tr>
+  </text>
+  <text>
+    <en>Only annotations of this kind</en>
+    <tr>Solo anotaciones de este tipo</tr>
+  </text>
+  <text>
+    <en>Only those the list shows</en>
+    <tr>Solo las que muestra la lista</tr>
+  </text>
+  <text>
+    <en>Open arrow</en>
+    <tr>Flecha abierta</tr>
+  </text>
+  <text>
+    <en>Otherwise, the Select tool is chosen again</en>
+    <tr>Si no, se vuelve a la herramienta Seleccionar</tr>
+  </text>
+  <text>
+    <en>Page {page}</en>
+    <tr>Página {page}</tr>
+  </text>
+  <text>
+    <en>Paragraph</en>
+    <tr>Párrafo</tr>
+  </text>
+  <text>
+    <en>Paste</en>
+    <tr>Pegar</tr>
+  </text>
+  <text>
+    <en>Pink</en>
+    <tr>Rosa</tr>
+  </text>
+  <text>
+    <en>Polygon</en>
+    <tr>Polígono</tr>
+  </text>
+  <text>
+    <en>Polyline</en>
+    <tr>Polilínea</tr>
+  </text>
+  <text>
+    <en>Press on the place to point at, and drag to where its text goes</en>
+    <tr>Pulse en el lugar al que debe apuntar, y arrastre hasta donde va su texto</tr>
+  </text>
+  <text>
+    <en>Previous annotation</en>
+    <tr>Anotación anterior</tr>
+  </text>
+  <text>
+    <en>Properties</en>
+    <tr>Propiedades</tr>
+  </text>
+  <text>
+    <en>Properties of the tool ({kind})</en>
+    <tr>Propiedades de la herramienta ({kind})</tr>
+  </text>
+  <text>
+    <en>Properties of the tool…</en>
+    <tr>Propiedades de la herramienta…</tr>
+  </text>
+  <text>
+    <en>Put the tools back as they were at first</en>
+    <tr>Devolver las herramientas a como estaban al principio</tr>
+  </text>
+  <text>
+    <en>Questions</en>
+    <tr>Preguntas</tr>
+  </text>
+  <text>
+    <en>Recovery copy every:</en>
+    <tr>Copia de recuperación cada:</tr>
+  </text>
+  <text>
+    <en>References and citations</en>
+    <tr>Referencias y citas</tr>
+  </text>
+  <text>
+    <en>Reversed closed arrow</en>
+    <tr>Flecha cerrada invertida</tr>
+  </text>
+  <text>
+    <en>Reversed open arrow</en>
+    <tr>Flecha abierta invertida</tr>
+  </text>
+  <text>
+    <en>Right</en>
+    <tr>Derecha</tr>
+  </text>
+  <text>
+    <en>Right sides</en>
+    <tr>Bordes derechos</tr>
+  </text>
+  <text>
+    <en>Save a copy</en>
+    <tr>Guardar una copia</tr>
+  </text>
+  <text>
+    <en>Save a copy without annotations</en>
+    <tr>Guardar una copia sin anotaciones</tr>
+  </text>
+  <text>
+    <en>Save a flattened copy</en>
+    <tr>Guardar una copia aplanada</tr>
+  </text>
+  <text>
+    <en>Saved {path}, with the annotations made part of the pages</en>
+    <tr>Guardado {path}, con las anotaciones hechas parte de las páginas</tr>
+  </text>
+  <text>
+    <en>Search the annotations…</en>
+    <tr>Buscar en las anotaciones…</tr>
+  </text>
+  <text>
+    <en>Select at least two annotations that can be moved (three, to spread them)</en>
+    <tr>Seleccione al menos dos anotaciones que se puedan mover (tres, para repartirlas)</tr>
+  </text>
+  <text>
+    <en>Select those of the same kind on this page</en>
+    <tr>Seleccionar las del mismo tipo en esta página</tr>
+  </text>
+  <text>
+    <en>Select, move and resize annotations; drag around them to select several</en>
+    <tr>Seleccionar, mover y cambiar el tamaño de las anotaciones; arrastre alrededor de varias para seleccionarlas</tr>
+  </text>
+  <text>
+    <en>Shortcut</en>
+    <tr>Atajo</tr>
+  </text>
+  <text>
+    <en>Shortcuts</en>
+    <tr>Atajos</tr>
+  </text>
+  <text>
+    <en>Show the annotations</en>
+    <tr>Mostrar las anotaciones</tr>
+  </text>
+  <text>
+    <en>Slash</en>
+    <tr>Barra oblicua</tr>
+  </text>
+  <text>
+    <en>Sold</en>
+    <tr>Vendido</tr>
+  </text>
+  <text>
+    <en>Spread evenly across</en>
+    <tr>Repartir en horizontal</tr>
+  </text>
+  <text>
+    <en>Spread evenly up and down</en>
+    <tr>Repartir en vertical</tr>
+  </text>
+  <text>
+    <en>Square</en>
+    <tr>Cuadrado</tr>
+  </text>
+  <text>
+    <en>Stamp</en>
+    <tr>Sello</tr>
+  </text>
+  <text>
+    <en>Stamp:</en>
+    <tr>Sello:</tr>
+  </text>
+  <text>
+    <en>Start:</en>
+    <tr>Inicio:</tr>
+  </text>
+  <text>
+    <en>Tables (*.csv)</en>
+    <tr>Tablas (*.csv)</tr>
+  </text>
+  <text>
+    <en>The annotations become part of the pages: they are seen and printed everywhere, but can no longer be edited or removed</en>
+    <tr>Las anotaciones pasan a formar parte de las páginas: se ven e imprimen en cualquier visor, pero ya no se pueden editar ni quitar</tr>
+  </text>
+  <text>
+    <en>The annotations not saved before were brought back</en>
+    <tr>Se recuperaron las anotaciones que no se habían guardado</tr>
+  </text>
+  <text>
+    <en>The colours offered in the menus, and what each one means to you (shown with its name)</en>
+    <tr>Los colores que ofrecen los menús, y lo que significa cada uno para usted (se muestra junto a su nombre)</tr>
+  </text>
+  <text>
+    <en>The colours, lines, fonts and opacity of the annotations each tool makes, and how it behaves</en>
+    <tr>Los colores, líneas, letras y opacidad de las anotaciones que hace cada herramienta, y cómo se comporta</tr>
+  </text>
+  <text>
+    <en>The colours, the line, the font and the opacity</en>
+    <tr>Los colores, la línea, la letra y la opacidad</tr>
+  </text>
+  <text>
+    <en>The document as it is without any annotation (links and form fields stay)</en>
+    <tr>El documento tal cual, sin ninguna anotación (los enlaces y los campos de formulario se conservan)</tr>
+  </text>
+  <text>
+    <en>The field of its comment</en>
+    <tr>El campo de su comentario</tr>
+  </text>
+  <text>
+    <en>The recovery copy could not be kept: {error}</en>
+    <tr>No se pudo guardar la copia de recuperación: {error}</tr>
+  </text>
+  <text>
+    <en>The text marked, in quotation marks, with the document and its page</en>
+    <tr>El texto marcado, entre comillas, con el documento y su página</tr>
+  </text>
+  <text>
+    <en>The text to insert:</en>
+    <tr>El texto que se insertará:</tr>
+  </text>
+  <text>
+    <en>The usual colours</en>
+    <tr>Los colores habituales</tr>
+  </text>
+  <text>
+    <en>The usual keys</en>
+    <tr>Las teclas habituales</tr>
+  </text>
+  <text>
+    <en>Their comments and texts, the text they mark, their authors and kinds</en>
+    <tr>Sus comentarios y textos, el texto que marcan, sus autores y tipos</tr>
+  </text>
+  <text>
+    <en>There are no annotations to export</en>
+    <tr>No hay anotaciones que exportar</tr>
+  </text>
+  <text>
+    <en>This document has annotations that were not saved, kept at {when} (the program stopped before they were saved). Bring them back?</en>
+    <tr>Este documento tiene anotaciones que no se guardaron, conservadas a las {when} (el programa se cerró antes de guardarlas). ¿Recuperarlas?</tr>
+  </text>
+  <text>
+    <en>Times (serif)</en>
+    <tr>Times (con serifa)</tr>
+  </text>
+  <text>
+    <en>Top secret</en>
+    <tr>Alto secreto</tr>
+  </text>
+  <text>
+    <en>Tops</en>
+    <tr>Bordes superiores</tr>
+  </text>
+  <text>
+    <en>Unlock</en>
+    <tr>Desbloquear</tr>
+  </text>
+  <text>
+    <en>Use its style for new annotations</en>
+    <tr>Usar su estilo para las anotaciones nuevas</tr>
+  </text>
+  <text>
+    <en>What it means</en>
+    <tr>Qué significa</tr>
+  </text>
+  <text>
+    <en>What the stamp says:</en>
+    <tr>Qué dice el sello:</tr>
+  </text>
+  <text>
+    <en>Without annotations…</en>
+    <tr>Sin anotaciones…</tr>
+  </text>
+  <text>
+    <en>Write the comment of the annotation selected; with none, add a note</en>
+    <tr>Escribir el comentario de la anotación seleccionada; si no hay ninguna, añadir una nota</tr>
+  </text>
+  <text>
+    <en>by {author}</en>
+    <tr>de {author}</tr>
+  </text>
+  <text>
+    <en>min</en>
+    <tr>min</tr>
+  </text>
+  <text>
+    <en>on {count} page</en>
+    <tr>en {count} página</tr>
+  </text>
+  <text>
+    <en>on {count} pages</en>
+    <tr>en {count} páginas</tr>
+  </text>
+  <text>
+    <en>p. {page}</en>
+    <tr>p. {page}</tr>
+  </text>
+  <text>
+    <en>{count} annotation copied</en>
+    <tr>{count} anotación copiada</tr>
+  </text>
+  <text>
+    <en>{count} annotation exported to {path}</en>
+    <tr>{count} anotación exportada a {path}</tr>
+  </text>
+  <text>
+    <en>{count} annotation imported</en>
+    <tr>{count} anotación importada</tr>
+  </text>
+  <text>
+    <en>{count} annotation is locked, and was kept</en>
+    <tr>{count} anotación está bloqueada, y se conservó</tr>
+  </text>
+  <text>
+    <en>{count} annotation taken out</en>
+    <tr>{count} anotación quitada</tr>
+  </text>
+  <text>
+    <en>{count} annotations are locked, and were kept</en>
+    <tr>{count} anotaciones están bloqueadas, y se conservaron</tr>
+  </text>
+  <text>
+    <en>{count} annotations copied</en>
+    <tr>{count} anotaciones copiadas</tr>
+  </text>
+  <text>
+    <en>{count} annotations exported to {path}</en>
+    <tr>{count} anotaciones exportadas a {path}</tr>
+  </text>
+  <text>
+    <en>{count} annotations imported</en>
+    <tr>{count} anotaciones importadas</tr>
+  </text>
+  <text>
+    <en>{count} annotations taken out</en>
+    <tr>{count} anotaciones quitadas</tr>
+  </text>
+  <text>
+    <en>{count} was here already</en>
+    <tr>{count} ya estaba</tr>
+  </text>
+  <text>
+    <en>{count} were here already</en>
+    <tr>{count} ya estaban</tr>
+  </text>
+  <text>
+    <en>{key} is the shortcut of two actions: {first} and {second}. Give another to one of them.</en>
+    <tr>{key} es el atajo de dos acciones: {first} y {second}. Asigne otro a una de ellas.</tr>
+  </text>
+  <text>
+    <en>{path} cannot be read: {error}</en>
+    <tr>No se puede leer {path}: {error}</tr>
+  </text>
+  <text>
+    <en>{path} is not a file of annotations of py-annotate</en>
+    <tr>{path} no es un archivo de anotaciones de py-annotate</tr>
+  </text>
+  <text>
+    <en>{shown} of {count}</en>
+    <tr>{shown} de {count}</tr>
+  </text>
+</interface>

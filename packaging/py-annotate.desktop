@@ -1,0 +1,17 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=py-annotate
+GenericName=PDF annotation
+GenericName[es]=Anotación de PDF
+Comment=Add annotations to PDF documents: highlights, notes, text boxes, shapes, stamps
+Comment[es]=Añadir anotaciones a documentos PDF: resaltados, notas, cuadros de texto, formas, sellos
+Keywords=annotate;annotation;highlight;comment;note;markup;PDF;
+Keywords[es]=anotar;anotación;resaltar;comentario;nota;subrayar;PDF;
+Categories=Office;Viewer;
+Icon=py-annotate
+Exec=py-annotate %f
+MimeType=application/pdf;
+Terminal=false
+StartupNotify=true
+StartupWMClass=py-annotate

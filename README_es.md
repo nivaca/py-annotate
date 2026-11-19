@@ -1,0 +1,195 @@
+py-annotate
+===========
+
+*(English: [README.md](README.md))*
+
+py-annotate añade anotaciones a documentos PDF: resaltados, subrayados y
+tachados sobre el texto, marcas donde falta insertar texto, notas, cuadros
+de texto y llamadas, zonas resaltadas, rectángulos, elipses, polígonos,
+nubes, líneas, flechas, dibujos a mano alzada y sellos. Cada una puede
+llevar un comentario, el nombre de su autor y las fechas en que se hizo y
+se cambió por última vez.
+
+Se escriben como anotaciones PDF corrientes, no se pintan en las páginas.
+Cualquier visor de PDF las muestra, las lista con sus comentarios y puede
+cambiarlas o quitarlas; las páginas debajo quedan como estaban. Las
+anotaciones que el documento ya tenga (de los tipos dichos) se leen al
+abrirlo, así que también se pueden mover, cambiar o borrar. Al guardar se
+reescriben solo las que cambiaron; las demás no se tocan, ni tampoco los
+enlaces, los archivos adjuntos o los campos de formulario.
+
+Tiene una ventana, en español y en inglés, y está pensado para Linux,
+Windows y macOS. Esta es la versión 0.1.0, la primera.
+
+Soy Nicolas Vaughan (<nicolasvaughan@proton.me>) y lo escribí en 2026. Es
+software libre, bajo la Licencia Pública General de GNU, versión 3 o
+posterior (véase «Licencia»).
+
+Cómo ejecutarlo
+---------------
+
+Necesita Python 3.14 o posterior y [uv](https://docs.astral.sh/uv/), que
+trae lo demás (PyMuPDF y PySide6):
+
+    $ uv run py-annotate [archivo.pdf]
+
+Un PDF también se abre desde Archivo > Abrir, o soltándolo sobre la ventana.
+
+Las herramientas
+----------------
+
+Se elige una herramienta en la segunda barra, en el menú Herramientas o con
+su tecla (las teclas se pueden cambiar: véase «Configuración»):
+
+| Herramienta        | Tecla   | Qué hace                                                      |
+|--------------------|---------|---------------------------------------------------------------|
+| Seleccionar        | V       | selecciona, mueve y cambia el tamaño; arrastrando alrededor, selecciona varias |
+| Mano               | M       | al arrastrar se mueve la página en la ventana                  |
+| Goma de borrar     | E       | borra las anotaciones sobre las que se arrastra; en un dibujo, solo lo que toca |
+| Resaltado          | H       | arrastrar sobre el texto                                       |
+| Resaltado de zona  | Mayús+H | arrastrar sobre una zona: una imagen, una tabla, una página escaneada |
+| Subrayado          | U       | arrastrar sobre el texto                                       |
+| Tachado            | S       | arrastrar sobre el texto                                       |
+| Subrayado ondulado | Q       | arrastrar sobre el texto                                       |
+| Insertar texto     | I       | hacer clic donde falta texto, y escribirlo                     |
+| Nota               | N       | hacer clic en la página                                        |
+| Cuadro de texto    | T       | arrastrar un recuadro (o hacer clic) y escribir el texto       |
+| Llamada            | Mayús+T | pulsar en el lugar señalado y arrastrar hasta donde va el texto |
+| Sello              | Mayús+S | hacer clic (o arrastrar, para darle el ancho) donde va el sello |
+| Rectángulo         | R       | arrastrar en la página                                         |
+| Elipse             | O       | arrastrar en la página                                         |
+| Polígono           | G       | clic en cada esquina; doble clic o Intro para terminar         |
+| Nube               | Mayús+G | arrastrar en la página                                         |
+| Línea              | L       | arrastrar en la página                                         |
+| Flecha             | A       | arrastrar en la página                                         |
+| Polilínea          | Mayús+L | clic en cada punto; doble clic o Intro para terminar           |
+| A mano alzada      | P       | dibujar en la página con el ratón                              |
+
+Con el clic derecho sobre una herramienta de la barra aparecen sus colores,
+el sello que pone (los habituales, como Aprobado, Borrador o Confidencial, o
+uno propio, con su nombre y la fecha bajo el texto) y sus propiedades: el
+aspecto de las anotaciones que hace, si la herramienta sigue elegida después
+de hacer una (o se vuelve a Seleccionar) y qué se abre tras cada una (un
+campo para su texto, su comentario, sus propiedades o nada).
+
+Cómo se editan
+--------------
+
+Con cualquier herramienta, una anotación se selecciona haciendo clic en
+ella (Ctrl la añade a la selección), se mueve arrastrándola o con las
+flechas del teclado (con Mayús, de diez en diez puntos) y cambia de tamaño
+arrastrando sus bordes y esquinas. Los puntos de una línea, un polígono o
+una polilínea, y el lugar al que apunta una llamada, se arrastran uno por
+uno; el recuadro de una llamada se mueve por su cuenta. Las marcas sobre el
+texto pertenecen a su texto y no se mueven. Con una herramienta de texto,
+el doble clic marca una sola palabra.
+
+El doble clic sobre una anotación abre sus propiedades: color y relleno,
+grosor de línea, trazo discontinuo, los extremos de una línea (flechas,
+círculos, cuadrados…), la letra, el tamaño y la alineación de un cuadro de
+texto, el icono de una nota, la opacidad, el texto o comentario, el autor y
+si está bloqueada (una anotación bloqueada no se puede mover, cambiar de
+tamaño ni borrar). El clic derecho da un menú con más: copiar el texto
+marcado, o copiarlo como cita con el nombre del documento y la página;
+cambiar un resaltado por un subrayado; usar su estilo para las anotaciones
+nuevas; alinear varias.
+
+En el menú Editar están Copiar, Pegar y Duplicar (lo copiado se puede pegar
+en otra página o en otro documento), Bloquear, Alinear (bordes, centros, el
+mismo tamaño, repartir) y la selección de las anotaciones de una página o de
+las del mismo tipo.
+
+La lista
+--------
+
+La lista de la derecha tiene todas las anotaciones del documento, con su
+página, tipo, autor, fecha y comentario (o, en las marcas sobre el texto, el
+texto que marcan). Se puede ordenar por página, por fecha, por tipo o por
+autor, buscar en ella (comentarios, textos marcados, autores) y filtrarla
+por tipo, autor y color. Ver > Anotación siguiente (Alt+Abajo) y Anotación
+anterior (Alt+Arriba) recorren las anotaciones en el orden de la lista, y
+solo las que ella muestra. Ver > Mostrar las anotaciones las oculta todas,
+para ver el documento tal cual; Ver > Solo las que muestra la lista deja en
+las páginas solo las que pasan la búsqueda y los filtros.
+
+Debajo de la lista se escribe directamente el comentario de la anotación
+seleccionada (la tecla C pone allí el cursor); se guarda al salir del campo.
+
+Guardar, exportar, importar
+---------------------------
+
+Archivo > Guardar escribe las anotaciones en el propio documento; Archivo >
+Guardar como escribe una copia con ellas y sigue con la copia. Todo se puede
+deshacer (Ctrl+Z) hasta que se guarda. Archivo > Guardar una copia escribe
+una copia aplanada (las anotaciones pasan a formar parte de las páginas:
+cualquier visor las muestra e imprime, pero ya no se pueden editar) o una
+copia sin ninguna anotación.
+
+Archivo > Exportar las anotaciones escribe las que muestra la lista como
+informe en Markdown (cuántas hay de cada tipo, color y autor, y luego cada
+una con el texto que marca y su comentario, página por página), como tabla
+(CSV) o como JSON, que guarda todo lo que se sabe de ellas y se puede volver
+a importar. Archivo > Importar anotaciones las trae de un JSON así o de otra
+copia del PDF, por ejemplo una que haya anotado otra persona; se conservan
+sus autores, y las que ya estaban en el documento se omiten.
+
+Mientras haya anotaciones sin guardar, se guarda una copia de recuperación
+cada dos minutos. Si el programa se cierra antes de guardarlas, se ofrecen
+al volver a abrir el documento (siempre que el archivo no haya cambiado
+entretanto).
+
+Configuración
+-------------
+
+Configuración > Configuración tiene tres partes:
+
+* General: el nombre que se escribe como autor de las anotaciones nuevas,
+  cada cuánto se guarda la copia de recuperación y un modo de devolver las
+  herramientas a como estaban al principio.
+* Colores: los colores que ofrecen los menús y lo que significa cada uno
+  para usted (de entrada, amarillo para lo importante, verde para las
+  definiciones, azul para las referencias, rosa para las preguntas, naranja
+  para los argumentos, morado para el contexto y rojo para los errores por
+  revisar). Los significados aparecen junto a los colores en los menús, en
+  la lista y en lo que se exporta.
+* Atajos: la tecla de cada herramienta y acción. Dos acciones no pueden
+  tener la misma.
+
+El idioma se elige en Configuración > Idioma.
+
+Todo esto se guarda en un archivo TOML pequeño, `config.toml`, en
+`~/.config/py-annotate` en Linux, en `~/Library/Application Support/py-annotate`
+en macOS y en `%APPDATA%\py-annotate` en Windows (`$PY_ANNOTATE_CONFIG`
+indica otra carpeta); las copias de recuperación, en la carpeta `recovery`
+de al lado. Si se borra el archivo, vuelven los valores habituales.
+
+Lo que todavía no hace
+----------------------
+
+* No guarda PDF/A ni PDF/X, ni guarda de forma incremental: la firma
+  digital de un documento deja de ser válida al guardarlo.
+* Faltan las respuestas a anotaciones, los estados de revisión, las
+  etiquetas, las categorías, los grupos y las capas. Las respuestas que ya
+  tenga un documento se conservan tal cual, pero no se muestran.
+* Las anotaciones de otros tipos (enlaces, sonidos, archivos adjuntos,
+  medidas) se conservan tal cual, pero no aparecen en la lista ni se pueden
+  editar.
+* Un cuadro de texto tiene una sola letra (Helvetica, Times o Courier) y un
+  solo color para todo su texto, y su borde es del color del texto.
+* No hay plumas sensibles a la presión, ni anotaciones giradas.
+
+Pruebas
+-------
+
+    $ uv run pytest
+
+Licencia
+--------
+
+py-annotate es software libre: puede redistribuirse y modificarse según
+los términos de la Licencia Pública General de GNU publicada por la Free
+Software Foundation, versión 3 o (a su elección) cualquier versión
+posterior. Se distribuye con la esperanza de que sea útil, pero SIN NINGUNA
+GARANTÍA, ni siquiera la garantía implícita de COMERCIABILIDAD o IDONEIDAD
+PARA UN PROPÓSITO PARTICULAR. Los detalles están en el archivo
+[LICENSE](LICENSE).

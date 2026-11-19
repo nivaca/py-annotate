@@ -1,0 +1,371 @@
+"""The window, driven as the user would: annotations made, moved and resized with the mouse, and saved."""
+
+from __future__ import annotations
+
+import dataclasses
+
+import pytest
+from PySide6.QtCore import QEvent, QPointF, Qt
+from PySide6.QtGui import QMouseEvent
+from PySide6.QtWidgets import QApplication
+
+from py_annotate import annots, settings
+from py_annotate.gui.window import MainWindow
+
+
+@pytest.fixture(scope="module")
+def app():
+    return QApplication.instance() or QApplication([])
+
+
+@pytest.fixture
+def window(app, sample, tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))  # (QSettings)
+    w = MainWindow()
+
+    def warn(title, text):  # (a message box would wait for a click for ever)
+        raise AssertionError(f"warning shown: {title}: {text}")
+
+    w.warn = warn
+    w.ask_text = lambda annotation: "Typed text"
+
+    def ask_recover(when):  # (likewise)
+        raise AssertionError("recovery offered")
+
+    w.ask_recover = ask_recover
+    w.resize(1200, 800)
+    w.show()
+    app.processEvents()
+    assert w.open_path(sample)
+    app.processEvents()
+    yield w
+    w.annotations = w.saved = []
+    w.close()
+
+
+def mouse(w, kind, point, button=Qt.MouseButton.LeftButton, mods=Qt.KeyboardModifier.NoModifier):
+    c = w.canvas
+    pos = c.mapFromScene(*point)
+    handler = {QEvent.Type.MouseButtonPress: c.mousePressEvent, QEvent.Type.MouseMove: c.mouseMoveEvent,
+               QEvent.Type.MouseButtonRelease: c.mouseReleaseEvent,
+               QEvent.Type.MouseButtonDblClick: c.mouseDoubleClickEvent}[kind]
+    buttons = Qt.MouseButton.NoButton if kind == QEvent.Type.MouseMove else button
+    handler(QMouseEvent(kind, QPointF(pos), QPointF(c.viewport().mapToGlobal(pos)), buttons, button, mods))
+
+
+def drag(w, *points, mods=Qt.KeyboardModifier.NoModifier):
+    """Drag with the mouse on the page, through POINTS (in points)."""
+    mouse(w, QEvent.Type.MouseButtonPress, points[0], mods=mods)
+    for p in points[1:]:
+        mouse(w, QEvent.Type.MouseMove, p, mods=mods)
+    mouse(w, QEvent.Type.MouseButtonRelease, points[-1], mods=mods)
+    QApplication.processEvents()
+
+
+def click(w, point):
+    drag(w, point)
+
+
+def close(a, b, tolerance=2.0):
+    return all(abs(x - y) <= tolerance for x, y in zip(a, b, strict=True))
+
+
+def test_highlight_text(window):
+    window.set_tool("highlight")
+    drag(window, (75, 95), (200, 125))  # (from the first line to the second)
+    assert len(window.annotations) == 1
+    a = window.annotations[0]
+    assert a.kind == "highlight" and len(a.quads) == 2 and a.color == settings.STYLES["highlight"].color
+    assert "First line" in window.marked_text(a)
+    window.set_tool("underline")
+    mouse(window, QEvent.Type.MouseButtonDblClick, (80, 125))  # (a word: "A")
+    assert window.annotations[-1].kind == "underline" and len(window.annotations[-1].quads) == 1
+
+
+def test_draw_move_resize(window):
+    window.set_tool("rect")
+    drag(window, (100, 300), (250, 400))
+    assert len(window.annotations) == 1 and window.selected == [0]
+    assert close(window.annotations[0].rect, (100, 300, 250, 400))
+    drag(window, (150, 350), (170, 360))  # (inside: moves it)
+    assert close(window.annotations[0].rect, (120, 310, 270, 410))
+    drag(window, (270, 410), (300, 450))  # (its corner: resizes it)
+    assert close(window.annotations[0].rect, (120, 310, 300, 450))
+    window.undo()
+    window.undo()
+    assert close(window.annotations[0].rect, (100, 300, 250, 400))
+    window.redo()
+    assert close(window.annotations[0].rect, (120, 310, 270, 410))
+
+
+def test_lines_and_drawings(window):
+    window.set_tool("arrow")
+    drag(window, (100, 500), (300, 500))
+    arrow = window.annotations[0]
+    assert arrow.kind == "arrow" and close(arrow.paths[0][0] + arrow.paths[0][1], (100, 500, 300, 500))
+    drag(window, (300, 500), (300, 600))  # (its end: moves only that end)
+    assert close(window.annotations[0].paths[0][1], (300, 600))
+    window.set_tool("ink")
+    drag(window, (100, 650), (120, 670), (150, 660), (180, 690))
+    ink = window.annotations[1]
+    assert ink.kind == "ink" and len(ink.paths[0]) == 4
+    window.set_tool("rect")
+    drag(window, (400, 700), (401, 701))  # (a click: draws nothing)
+    assert len(window.annotations) == 2
+
+
+def test_note_and_text_box(window):
+    window.set_tool("note")
+    click(window, (400, 200))
+    note = window.annotations[0]
+    assert note.kind == "note" and note.contents == "Typed text"
+    assert close(note.rect, (400, 200, 400 + annots.NOTE_SIZE, 200 + annots.NOTE_SIZE))
+    window.set_tool("freetext")
+    click(window, (300, 300))  # (a click: a box of the usual size)
+    box = window.annotations[1]
+    assert box.kind == "freetext" and box.contents == "Typed text"
+    assert close(box.rect[:2], (300, 300))
+    window.ask_text = lambda annotation: None  # (given up: nothing is made)
+    click(window, (100, 700))
+    assert len(window.annotations) == 2
+
+
+def test_comment_in_the_panel(window):
+    window.set_tool("ellipse")
+    drag(window, (100, 300), (250, 400))
+    window.comment.setPlainText("Look at this")
+    window.keep_comment()
+    assert window.annotations[0].contents == "Look at this"
+    window.undo()
+    assert window.annotations[0].contents == ""
+
+
+def test_new_colour_is_kept(window):
+    window.set_tool("highlight")
+    window.set_color("#43a047")
+    assert settings.load().style("highlight").color == "#43a047"
+    drag(window, (75, 95), (200, 100))
+    assert window.annotations[0].color == "#43a047"
+    window.set_color("#e53935")  # (selected: only it changes)
+    assert window.annotations[0].color == "#e53935" and settings.load().style("highlight").color == "#43a047"
+
+
+def test_save_and_open_again(window, sample):
+    window.set_tool("highlight")
+    drag(window, (75, 95), (200, 100))
+    window.set_tool("rect")
+    drag(window, (100, 300), (250, 400))
+    window.show_page(2)  # (the turned page)
+    window.set_tool("note")
+    click(window, (100, 100))
+    assert window.is_modified() and window.save()
+    assert not window.is_modified() and window.undo_stack == []
+    kinds = [a.kind for a in annots.read(annots.open_pdf(sample))]
+    assert sorted(kinds) == ["highlight", "note", "rect"]
+    # the window shows the annotations of the file now, and can delete one of them
+    assert all(a.xref for a in window.annotations)
+    window.show_page(0)
+    window.pick([i for i, a in enumerate(window.annotations) if a.kind == "rect"], False)
+    window.delete_selected()
+    assert window.save()
+    assert sorted(a.kind for a in annots.read(annots.open_pdf(sample))) == ["highlight", "note"]
+
+
+def test_save_as(window, tmp_path, sample):
+    window.set_tool("line")
+    drag(window, (100, 300), (250, 400))
+    target = tmp_path / "copy.pdf"
+    assert window.save_to(target)
+    assert window.path == target
+    assert [a.kind for a in annots.read(annots.open_pdf(target))] == ["line"]
+    assert annots.read(annots.open_pdf(sample)) == []
+
+
+def test_pages_rendered_elsewhere(app, sample, tmp_path, monkeypatch):
+    """With the pages rendered in other processes, a document with annotations is shown without them."""
+    from py_annotate.gui import renderer
+
+    monkeypatch.setattr(renderer, "ENABLED", True)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    annots.write(sample, [annots.Annotation("rect", 0, (10, 10, 50, 50), "#000000")], sample)
+    w = MainWindow()
+    assert w.open_path(sample)
+    temp = w._temp
+    assert temp is not None and temp.is_file() and w.canvas.source[0] == str(temp)
+    assert annots.read(annots.open_pdf(temp)) == []
+    w.close()
+    assert not temp.exists()
+
+
+def test_language(window, sample):
+    window.change_language("es")
+    from py_annotate.gui.window import _WINDOWS
+
+    new = _WINDOWS[-1]
+    assert new.menuBar().actions()[0].text() == "&Archivo" and new.path == sample
+    new.change_language("en")
+    _WINDOWS[-1].close()
+
+
+def test_new_tools(window):
+    window.set_tool("area")
+    drag(window, (100, 300), (200, 360))
+    window.set_tool("cloud")
+    drag(window, (300, 300), (400, 360))
+    window.set_tool("callout")
+    drag(window, (100, 500), (250, 420))  # (from the place pointed at, to where the box goes)
+    window.set_tool("caret")
+    click(window, (150, 600))
+    window.set_tool("stamp")
+    click(window, (300, 700))
+    kinds = [a.kind for a in window.annotations]
+    assert kinds == ["area", "cloud", "callout", "caret", "stamp"]
+    area, cloud, callout, caret, stamp = window.annotations
+    assert area.opacity == settings.STYLES["area"].opacity and len(cloud.paths[0]) == 4
+    assert close(callout.paths[0][0], (100, 500)) and callout.contents == "Typed text"
+    assert stamp.stamp == "Approved" and stamp.image and close(((stamp.rect[0] + stamp.rect[2]) / 2,), (300,))
+    assert window.save()
+    assert [a.kind for a in annots.read(annots.open_pdf(window.path))] == kinds
+
+
+def test_polygon_by_clicks(window):
+    window.set_tool("polygon")
+    for p in ((100, 300), (200, 300), (150, 380)):
+        click(window, p)
+    window.canvas.finish_polygon()
+    assert window.annotations[0].kind == "polygon" and len(window.annotations[0].paths[0]) == 3
+    window.set_tool("select")
+    drag(window, (100, 300), (90, 290))  # (a point of the polygon, selected: moves only that point)
+    assert close(window.annotations[0].paths[0][0], (90, 290)) and close(window.annotations[0].paths[0][1], (200, 300))
+
+
+def test_eraser(window):
+    window.set_tool("ink")
+    drag(window, (100, 650), (150, 650), (200, 650), (250, 650), (300, 650))
+    window.set_tool("rect")
+    drag(window, (100, 300), (250, 400))
+    window.set_tool("eraser")
+    drag(window, (200, 640), (200, 660))  # (across the middle of the stroke: it is cut in two)
+    ink = window.annotations[0]
+    assert ink.kind == "ink" and len(ink.paths) == 2
+    drag(window, (100, 350), (110, 350))  # (on the rectangle: it goes)
+    assert [a.kind for a in window.annotations] == ["ink"]
+    window.undo()
+    assert len(window.annotations) == 2
+
+
+def test_select_by_frame_copy_paste_align(window):
+    window.set_tool("rect")
+    drag(window, (100, 300), (150, 340))
+    drag(window, (200, 320), (260, 380))
+    window.set_tool("select")
+    drag(window, (80, 280), (300, 400))  # (a frame around both)
+    assert sorted(window.selected) == [0, 1]
+    window.align("top")
+    assert window.annotations[0].rect[1] == window.annotations[1].rect[1]
+    window.copy_selected()
+    window.show_page(1)
+    window.paste()
+    assert [a.page for a in window.annotations] == [0, 0, 1, 1]
+    assert window.annotations[2].rect == window.annotations[0].rect  # (another page: in the same place)
+    window.duplicate()
+    assert len(window.annotations) == 6 and close(window.annotations[4].rect[:2],
+                                                  [v + 10 for v in window.annotations[2].rect[:2]])
+
+
+def test_lock(window):
+    window.set_tool("rect")
+    drag(window, (100, 300), (250, 400))
+    window.toggle_lock()
+    assert window.annotations[0].locked
+    window.set_tool("select")
+    drag(window, (150, 350), (170, 360))  # (locked: it stays)
+    assert close(window.annotations[0].rect, (100, 300, 250, 400))
+    window.delete_selected()
+    assert len(window.annotations) == 1
+
+
+def test_filters_and_navigation(window):
+    window.set_tool("highlight")
+    drag(window, (75, 95), (200, 100))
+    window.set_tool("rect")
+    drag(window, (100, 300), (250, 400))
+    window.replace(1, dataclasses.replace(window.annotations[1], contents="about justice", author="B"))
+    window.search.setText("justice")
+    assert window._rows == [1]
+    window.search.clear()
+    window.f_author.setCurrentIndex(window.f_author.findData("B"))
+    window._filter_changed()
+    assert window._rows == [1]
+    window.f_author.setCurrentIndex(0)
+    window._filter_changed()
+    window.selected = []
+    window.go_annotation(1)
+    assert window.selected == [0]
+    window.go_annotation(1)
+    assert window.selected == [1]
+    window.a_show.setChecked(False)
+    assert window.canvas.items_ == []
+
+
+def test_tool_behaviour(window):
+    prefs = window.prefs.with_style("rect", dataclasses.replace(window.prefs.style("rect"), sticky=False))
+    window.set_prefs(prefs)
+    window.set_tool("rect")
+    drag(window, (100, 300), (250, 400))
+    assert window.canvas.mode == "select"  # (not sticky: back to Select)
+    window.set_tool("note")
+    window.ask_text = lambda annotation: None  # (asked for its text, and given up: no note)
+    click(window, (400, 200))
+    assert len(window.annotations) == 1
+
+
+def test_recovery(window, sample, app):
+    window.set_tool("rect")
+    drag(window, (100, 300), (250, 400))
+    window.keep_recovery()
+    kept = list(window.annotations)
+    window.annotations = window.saved = []  # (as if the program had stopped)
+    other = MainWindow()
+    other.ask_recover = lambda when: True
+    assert other.open_path(sample)
+    assert other.annotations == kept and other.is_modified()
+    assert other.save()
+    other.close()
+
+
+def test_export_import(window, tmp_path):
+    window.set_tool("highlight")
+    drag(window, (75, 95), (200, 100))
+    window._ask_target = lambda title, suffix, ext="pdf": tmp_path / f"out.{ext}"
+    for kind in ("json", "md", "csv"):
+        assert window.export_dialog(kind)
+    assert "First line" in (tmp_path / "out.md").read_text(encoding="utf-8")
+    window.annotations = []
+    window.refresh()
+    assert window.import_from(tmp_path / "out.json", "json")
+    assert [a.kind for a in window.annotations] == ["highlight"]
+    assert window.import_from(tmp_path / "out.json", "json") and len(window.annotations) == 1  # (already there)
+    assert window.save_flattened_dialog()
+    flat = annots.open_pdf(tmp_path / "out.pdf")
+    assert list(flat[0].annots()) == [] and window.path != tmp_path / "out.pdf"
+
+
+def test_settings_dialog(window):
+    from PySide6.QtGui import QKeySequence
+
+    from py_annotate.gui.prefs import SettingsDialog
+
+    dialog = SettingsDialog(window.prefs, window)
+    dialog.author.setText("  N.   V. ")
+    dialog.palette_rows[0][1].setText("Key ideas")
+    dialog.key_edits["rect"].setKeySequence(QKeySequence("H"))
+    assert dialog.conflicts() == [("H", "highlight", "rect")]
+    dialog.key_edits["rect"].setKeySequence(QKeySequence("Ctrl+Alt+R"))
+    assert dialog.conflicts() == []
+    window.set_prefs(dialog.settings())
+    assert window.prefs.author == "N. V." and window.prefs.palette[0] == ("#ffeb3b", "Key ideas")
+    assert window.tool_actions["rect"].shortcut().toString() == "Ctrl+Alt+R"
+    from py_annotate.gui.colors import color_name
+
+    assert color_name("#ffeb3b") == "Yellow — Key ideas"

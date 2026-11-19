@@ -1,0 +1,32 @@
+[project]
+name = "py-annotate"
+version = "0.1.0"
+description = "Add annotations to PDF documents: highlights, notes, text boxes, shapes and drawings"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Nicolas Vaughan", email = "nicolasvaughan@proton.me" }
+]
+requires-python = ">=3.14"
+keywords = ["pdf", "annotations", "highlight", "comments", "notes"]
+dependencies = [
+    "pymupdf>=1.26",
+    "pyside6-essentials>=6.10",
+]
+
+[project.gui-scripts]
+py-annotate = "py_annotate.gui:main"
+
+[build-system]
+requires = ["uv_build>=0.10,<0.14"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["tests"]
+filterwarnings = ["ignore:'typing.ByteString':DeprecationWarning"]
