@@ -22,7 +22,7 @@ file, so that a signed document keeps its signatures valid for what they
 signed.
 
 It has a window, in English and in Spanish, and works on Linux, Windows and
-macOS. This is version 0.4.1.
+macOS. This is version 0.4.2.
 
 I am Nicolas Vaughan (<nicolasvaughan@proton.me>), and I wrote it in 2026.
 It is free software, under the GNU General Public License, version 3 or
@@ -249,6 +249,16 @@ polygons and clouds, at least). If it does, py-annotate says which, and
 offers to make those part of the pages instead, keeping the others as
 annotations. PDF/A and PDF/X can't have a password, so the copy of a
 protected document has none.
+
+A scanned page has no text, only its image, so its words can't be found,
+copied or marked. File > Save a copy > Searchable (OCR) reads the text of
+the scanned pages with [Tesseract](https://github.com/tesseract-ocr/tesseract)
+and writes it under their images, invisible, where each word is on the
+image; then it offers to open the copy, whose text can be marked like any
+other. Tesseract must be installed (on Fedora, `sudo dnf install tesseract
+tesseract-langpack-eng`, and other languages as `tesseract-langpack-lat`...);
+the languages it reads are set in Settings, as `eng`, or several, as
+`lat+eng`. The OCR is done on this machine: nothing is sent anywhere.
 
 For the study and edition of texts, any annotation (usually a highlight
 over the passage) can carry an entry of textual criticism: its kind

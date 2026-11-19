@@ -304,6 +304,9 @@ class MainWindow(FilesMixin, QMainWindow):
         self.a_bare = self._action(sub, tr("Without annotations…"), self.save_without_dialog,
                                    tip=tr("The document as it is without any annotation (links and form fields "
                                           "stay)"))
+        self.a_ocr = self._action(sub, tr("Searchable (OCR)…"), self.save_searchable_dialog,
+                                  tip=tr("The text of the scanned pages is read (with Tesseract) and written under "
+                                         "their images, invisible: it can be found, copied and marked"))
         sub.addSeparator()
         self.standard_actions: dict[str, QAction] = {}
         for value, name in conform.STANDARDS:
@@ -2012,6 +2015,10 @@ class MainWindow(FilesMixin, QMainWindow):
                   self.a_zoom_out, self.page_spin, self.a_flat, self.a_bare, self.a_import_json, self.a_import_pdf,
                   self.a_import_xfdf, self.a_print, self.a_find, *self.tool_actions.values()):
             w.setEnabled(has)
+        from .. import ocr
+
+        self.a_ocr.setEnabled(has and ocr.available())
+        self.a_ocr.setToolTip(self.a_ocr.toolTip() if ocr.available() else tr("Needs Tesseract: install it"))
         for act in self.standard_actions.values():
             act.setEnabled(has and self._have_conform)
             act.setToolTip("" if self._have_conform else tr("Needs {command}: install it, or say where it is in "

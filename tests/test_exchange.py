@@ -193,3 +193,54 @@ def test_textual_criticism(sample, tmp_path):
     assert lines[0].startswith("* **p. 1** *iustitia* ] iusticia B (f. 3r) — Variant reading; probable.")
     assert "ed. Smith. orthographic." in lines[0]
     assert "Lacuna." in lines[1]
+
+
+def scanned_pdf(path, rotation=0):
+    """A PDF of one scanned page: an image of a text, without text (turned, if ROTATION)."""
+    import pymupdf
+
+    src = pymupdf.open()
+    page = src.new_page()
+    page.insert_textbox((72, 72, 520, 300), "Quod iustitia est, quaerimus. The question of justice is old.",
+                        fontsize=16)
+    pix = page.get_pixmap(dpi=200)
+    doc = pymupdf.open()
+    if rotation:
+        page = doc.new_page(width=842, height=595)
+        page.insert_image(page.rect, pixmap=pix, rotate=rotation)
+        page.set_rotation(rotation)
+    else:
+        page = doc.new_page(width=595, height=842)
+        page.insert_image(page.rect, pixmap=pix)
+    doc.save(path)
+    return path
+
+
+@pytest.mark.parametrize("rotation", [0, 90])
+def test_ocr(tmp_path, rotation):
+    """The text of a scanned page is read and written under its image, where the image has it, so it
+    is found and marked; the annotations go into the copy too."""
+    from py_annotate import ocr
+
+    if not ocr.available() or "eng" not in ocr.languages():
+        pytest.skip("Tesseract (with English) is not installed")
+    source = scanned_pdf(tmp_path / "scan.pdf", rotation)
+    doc = annots.open_pdf(source)
+    assert ocr.scanned(doc[0]) and annots.words(doc[0]) == []
+    note = Annotation("rect", 0, (60, 600 if not rotation else 400, 120, 640 if not rotation else 440), "#ff0000")
+    seen = []
+    pages, words = ocr.save_searchable(source, [note], tmp_path / "out.pdf", "", "eng",
+                                       lambda done, of: seen.append((done, of)) or True)
+    assert pages == 1 and words >= 8 and seen == [(0, 1)]
+    out = annots.open_pdf(tmp_path / "out.pdf")
+    assert not ocr.scanned(out[0])
+    found = annots.page_text(out[0])
+    texts = [t for _, t in found]
+    assert "justice" in texts and "iustitia" in texts
+    hits = out[0].search_for("justice")
+    assert hits and len(annots.read(out)) == 1
+    # (where the word is on the image: OCR of the copy rendered finds it in the same place)
+    page = out[0]
+    again = page.get_text("words", textpage=page.get_textpage_ocr(language="eng", dpi=200, full=True))
+    box = next(pymupdf.Rect(w[:4]) for w in again if w[4] == "justice")
+    assert hits[0].intersects(box)

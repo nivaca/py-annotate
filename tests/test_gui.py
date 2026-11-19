@@ -845,3 +845,21 @@ def test_layers_in_the_window(window, sample):
     assert annots.layers(doc) == {"Mine": False, "Other": True}
     assert window.open_path(sample) and window.layers == {"Mine": False, "Other": True}
     assert window._rows == [1]
+
+
+def test_searchable_copy(window, tmp_path):
+    """File > Save a copy > Searchable (OCR): the copy is made, with the annotations, and opened, and
+    its text can be marked."""
+    from py_annotate import ocr
+    from test_exchange import scanned_pdf
+
+    if not ocr.available() or "eng" not in ocr.languages():
+        pytest.skip("Tesseract (with English) is not installed")
+    assert window.open_path(scanned_pdf(tmp_path / "scan.pdf"))
+    window.set_tool("rect")
+    drag(window, (100, 600), (150, 640))
+    window.ask_open_copy = lambda target: True
+    window.maybe_discard = lambda: True
+    assert window.save_searchable(tmp_path / "scan-ocr.pdf")
+    assert window.path == tmp_path / "scan-ocr.pdf" and len(window.annotations) == 1
+    assert any(t == "justice" for _, t in annots.page_text(window.doc[0]))

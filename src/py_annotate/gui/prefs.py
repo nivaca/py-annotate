@@ -83,6 +83,15 @@ class SettingsDialog(QDialog):
         self.pdfconform_found.setStyleSheet("color: palette(placeholder-text);")
         form.addRow("", self.pdfconform_found)
         self._show_pdfconform()
+        from .. import ocr
+
+        self.ocr_language = QLineEdit(prefs.ocr_language)
+        found = ocr.languages()
+        self.ocr_language.setToolTip(tr("The languages of the text of scanned pages, as Tesseract names them; "
+                                        "several with +: lat+eng") + "\n"
+                                     + (tr("Installed: {languages}", languages=", ".join(found)) if found
+                                        else tr("Tesseract is not installed: there is no OCR")))
+        form.addRow(tr("OCR languages:"), self.ocr_language)
         self.reset = QCheckBox(tr("Put the tools back as they were at first"))
         self.reset.setToolTip(tr("The colours, lines, fonts and opacity of the annotations each tool makes, and "
                                  "how it behaves"))
@@ -228,9 +237,13 @@ class SettingsDialog(QDialog):
             palette.append((color, None if same else text))
         prefs = dataclasses.replace(self.prefs, author=author, autosave=self.autosave.value(),
                                     pdfconform=self.pdfconform.text().strip(),
+                                    ocr_language=self._ocr_language(),
                                     categories=self._categories(),
                                     palette=tuple(palette), shortcuts=tuple(self.shortcuts().items()))
         if self.reset.isChecked():
             prefs = dataclasses.replace(prefs, styles=settings.DEFAULTS.styles)
         return prefs
 
+    def _ocr_language(self) -> str:
+        text = "+".join(self.ocr_language.text().replace(",", "+").split()).strip("+")
+        return text if settings.valid("ocr_language", text) else self.prefs.ocr_language

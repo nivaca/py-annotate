@@ -12,6 +12,8 @@
   ``"Definitions; Questions; ..."`` (if there is none, the usual ones);
 * ``pdfconform``: the path of pdf2iso, which makes PDF/A and PDF/X ('' to
   look for it; see conform.py);
+* ``ocr_language``: the languages of the text of scanned pages, for OCR
+  (Tesseract's names: ``"eng"``, or several, ``"lat+eng"``);
 * ``autosave``: every how many minutes a recovery copy of the annotations
   is kept (0: never; see recovery.py).
 
@@ -122,6 +124,7 @@ class Settings:
     autosave: int = 2  # minutes between recovery copies; 0: none
     pdfconform: str = ""  # the path of pdf2iso; '' to look for it (see conform.find)
     categories: tuple[str, ...] | None = None  # None: the usual ones (CATEGORIES, translated)
+    ocr_language: str = "eng"  # of the text of scanned pages (see ocr.py)
 
     def category_list(self) -> list[str]:
         from .interface import tr
@@ -178,6 +181,8 @@ def valid(field: str, value) -> bool:
         return isinstance(value, str) and "\n" not in value and len(value) <= 5000
     if field == "pdfconform":
         return isinstance(value, str) and "\n" not in value and len(value) <= 1000
+    if field == "ocr_language":
+        return isinstance(value, str) and bool(re.fullmatch(r"[A-Za-z_]+(\+[A-Za-z_]+)*", value)) and len(value) <= 200
     if field == "autosave":
         return isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 120
     return False
@@ -223,7 +228,8 @@ def load() -> Settings:
                     autosave if valid("autosave", autosave) else DEFAULTS.autosave,
                     pdfconform if valid("pdfconform", pdfconform) else "",
                     tuple(c.strip() for c in categories.split(";") if c.strip())
-                    if valid("categories", categories) else None)
+                    if valid("categories", categories) else None,
+                    params["ocr_language"] if valid("ocr_language", params.get("ocr_language")) else "eng")
 
 
 def save(settings: Settings) -> None:
@@ -254,6 +260,9 @@ def save(settings: Settings) -> None:
     if not valid("pdfconform", settings.pdfconform):
         raise ValueError(f"pdfconform = {settings.pdfconform!r}")
     values["pdfconform"] = settings.pdfconform or None
+    if not valid("ocr_language", settings.ocr_language):
+        raise ValueError(f"ocr_language = {settings.ocr_language!r}")
+    values["ocr_language"] = settings.ocr_language if settings.ocr_language != "eng" else None
     if settings.categories is not None and any(";" in c or "\n" in c for c in settings.categories):
         raise ValueError(f"categories = {settings.categories!r}")
     values["categories"] = "; ".join(settings.categories) if settings.categories is not None else None

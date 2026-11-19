@@ -2159,4 +2159,76 @@
     <en>Name of the layer:</en>
     <tr>Nombre de la capa:</tr>
   </text>
+  <text>
+    <en>Searchable (OCR)…</en>
+    <tr>Con texto buscable (OCR)…</tr>
+  </text>
+  <text>
+    <en>Searchable (OCR)</en>
+    <tr>Con texto buscable (OCR)</tr>
+  </text>
+  <text>
+    <en>The text of the scanned pages is read (with Tesseract) and written under their images, invisible: it can be found, copied and marked</en>
+    <tr>Se lee el texto de las páginas escaneadas (con Tesseract) y se escribe bajo sus imágenes, invisible: se puede buscar, copiar y marcar</tr>
+  </text>
+  <text>
+    <en>Needs Tesseract: install it</en>
+    <tr>Necesita Tesseract: instálelo</tr>
+  </text>
+  <text>
+    <en>Tesseract is not installed: there is no OCR</en>
+    <tr>Tesseract no está instalado: no hay OCR</tr>
+  </text>
+  <text>
+    <en>No page of this document is a scan without text</en>
+    <tr>Ninguna página de este documento es un escaneo sin texto</tr>
+  </text>
+  <text>
+    <en>Save a searchable copy</en>
+    <tr>Guardar una copia con texto buscable</tr>
+  </text>
+  <text>
+    <en>Reading the scanned pages…</en>
+    <tr>Leyendo las páginas escaneadas…</tr>
+  </text>
+  <text>
+    <en>Reading page {done} of {of}…</en>
+    <tr>Leyendo la página {done} de {of}…</tr>
+  </text>
+  <text>
+    <en>{count} page read</en>
+    <tr>{count} página leída</tr>
+  </text>
+  <text>
+    <en>{count} pages read</en>
+    <tr>{count} páginas leídas</tr>
+  </text>
+  <text>
+    <en>{count} word</en>
+    <tr>{count} palabra</tr>
+  </text>
+  <text>
+    <en>{count} words</en>
+    <tr>{count} palabras</tr>
+  </text>
+  <text>
+    <en>Open {name}, to mark its text?</en>
+    <tr>¿Abrir {name}, para marcar su texto?</tr>
+  </text>
+  <text>
+    <en>Stopped: the copy was not made</en>
+    <tr>Detenido: no se hizo la copia</tr>
+  </text>
+  <text>
+    <en>The languages of the text of scanned pages, as Tesseract names them; several with +: lat+eng</en>
+    <tr>Los idiomas del texto de las páginas escaneadas, con los nombres de Tesseract; varios con +: lat+spa</tr>
+  </text>
+  <text>
+    <en>Installed: {languages}</en>
+    <tr>Instalados: {languages}</tr>
+  </text>
+  <text>
+    <en>OCR languages:</en>
+    <tr>Idiomas del OCR:</tr>
+  </text>
 </interface>

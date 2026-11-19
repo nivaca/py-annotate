@@ -23,7 +23,7 @@ añaden al final del archivo, así que un documento firmado conserva sus
 firmas válidas para lo que firmaron.
 
 Tiene una ventana, en español y en inglés, y funciona en Linux, Windows y
-macOS. Esta es la versión 0.4.1.
+macOS. Esta es la versión 0.4.2.
 
 Soy Nicolas Vaughan (<nicolasvaughan@proton.me>) y lo escribí en 2026. Es
 software libre, bajo la Licencia Pública General de GNU, versión 3 o
@@ -253,6 +253,17 @@ lo menos las marcas de insertar texto, los polígonos y las nubes). Si eso
 pasa, py-annotate dice cuáles y ofrece hacerlas parte de las páginas, y las
 demás quedan como anotaciones. PDF/A y PDF/X no admiten contraseña, así que
 la copia de un documento protegido no la tiene.
+
+Una página escaneada no tiene texto, solo su imagen, así que sus palabras no
+se pueden buscar, copiar ni marcar. Archivo > Guardar una copia > Con texto
+buscable (OCR) lee el texto de las páginas escaneadas con
+[Tesseract](https://github.com/tesseract-ocr/tesseract) y lo escribe bajo
+sus imágenes, invisible, donde está cada palabra en la imagen; luego ofrece
+abrir la copia, cuyo texto se marca como cualquier otro. Tesseract debe
+estar instalado (en Fedora, `sudo dnf install tesseract
+tesseract-langpack-spa`, y otros idiomas como `tesseract-langpack-lat`...);
+los idiomas que lee se dan en la Configuración, como `spa`, o varios, como
+`lat+spa`. El OCR se hace en este equipo: nada se envía a ningún lado.
 
 Para el estudio y la edición de textos, cualquier anotación (por lo común
 un resaltado sobre el pasaje) puede llevar una entrada de crítica textual:

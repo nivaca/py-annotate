@@ -10,7 +10,7 @@
 # Build with packaging/build-rpm.sh, which makes the source tarball.
 
 Name:           py-annotate
-Version:        0.4.1
+Version:        0.4.2
 Release:        1%{?dist}
 Summary:        Add annotations to PDF documents: highlights, notes, text boxes, shapes, stamps
 
@@ -31,6 +31,9 @@ BuildRequires:  python3-pyside6
 # The window: Fedora's PySide6 (pyproject.toml names the PyPI wheel, pyside6-essentials).
 Requires:       python3-pyside6
 Requires:       hicolor-icon-theme
+# (for the searchable copies of scanned pages: OCR)
+Recommends:     tesseract
+Recommends:     tesseract-langpack-eng
 
 %description
 py-annotate adds annotations to PDF documents: highlights, underlines and
@@ -84,6 +87,9 @@ export HOME="$PWD/check-home" PY_ANNOTATE_CONFIG="$PWD/check-home/config" QT_QPA
 %lang(es) %{_mandir}/es/man1/py-annotate.1*
 
 %changelog
+* Thu Nov 19 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.4.2-1
+- Version 0.4.2: searchable copies of scanned documents (OCR, with Tesseract)
+
 * Thu Nov 19 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.4.1-1
 - Version 0.4.1: layers of annotations
 

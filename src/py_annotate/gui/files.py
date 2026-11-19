@@ -122,6 +122,61 @@ class FilesMixin:
         self.status(message)
         return True
 
+    def save_searchable_dialog(self) -> bool:
+        """Save a copy in which the text of the scanned pages is read (OCR), and offer to open it."""
+        if self.path is None:
+            return False
+        from .. import ocr
+
+        if not ocr.available():
+            self.warn(tr("Searchable (OCR)"), tr("Tesseract is not installed: there is no OCR"))
+            return False
+        if not any(ocr.scanned(page) for page in self.doc):
+            self.status(tr("No page of this document is a scan without text"), error=True)
+            return False
+        target = self._ask_target(tr("Save a searchable copy"), "-ocr")
+        if target is None or self._same_file(target):
+            return False
+        return self.save_searchable(target)
+
+    def save_searchable(self, target: Path) -> bool:
+        from PySide6.QtWidgets import QProgressDialog
+
+        from .. import ocr
+
+        self.canvas.commit_text()
+        self.keep_comment()
+        progress = QProgressDialog(tr("Reading the scanned pages…"), tr("Stop"), 0, 1, self)
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(500)
+
+        def step(done: int, of: int) -> bool:
+            progress.setMaximum(of)
+            progress.setValue(done)
+            progress.setLabelText(tr("Reading page {done} of {of}…", done=done + 1, of=of))
+            QApplication.processEvents()
+            return not progress.wasCanceled()
+
+        try:
+            pages, words = ocr.save_searchable(self.path, self.annotations, target, self.password,
+                                               self.prefs.ocr_language, step)
+        except AnnotateError as e:
+            self.status(str(e), error=True)
+            return False
+        finally:
+            progress.close()
+        self.status(tr("Saved {path}", path=target) + " — "
+                    + ntr("{count} page read", "{count} pages read", pages) + ", "
+                    + ntr("{count} word", "{count} words", words))
+        if self.ask_open_copy(target):
+            self.open_path(target)  # (it asks first about what is not saved here: the copy has it, though)
+        return True
+
+    def ask_open_copy(self, target: Path) -> bool:
+        return QMessageBox.question(self, tr("Searchable (OCR)"),
+                                    tr("Open {name}, to mark its text?", name=target.name)) \
+            == QMessageBox.StandardButton.Yes
+
     def ask_flatten_lost(self, standard: str, names: str) -> bool:
         """Whether to make part of the pages the annotations (NAMES: their kinds and how many) that
         Ghostscript could not keep in STANDARD."""
