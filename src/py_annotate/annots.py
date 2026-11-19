@@ -40,6 +40,7 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import html
+import json
 import os
 import re
 import tempfile
@@ -105,6 +106,7 @@ TAGS_KEY, CATEGORIES_KEY = "PyAnnotateTags", "PyAnnotateCategories"
 # the group of an annotation (see Annotation.group), besides the PDF's own (/IRT and /RT /Group, which
 # _link_groups writes): with it, the group is known while those links are out (see apply)
 GROUP_KEY = "PyAnnotateGroup"
+CRITICAL_KEY = "PyAnnotateCritical"  # (an entry of textual criticism: its fields, as JSON)
 DASHES = (3, 3)
 
 _TYPES = {pymupdf.PDF_ANNOT_HIGHLIGHT: "highlight", pymupdf.PDF_ANNOT_UNDERLINE: "underline",
@@ -114,6 +116,34 @@ _TYPES = {pymupdf.PDF_ANNOT_HIGHLIGHT: "highlight", pymupdf.PDF_ANNOT_UNDERLINE:
           pymupdf.PDF_ANNOT_CIRCLE: "ellipse", pymupdf.PDF_ANNOT_POLYGON: "polygon",
           pymupdf.PDF_ANNOT_POLY_LINE: "polyline", pymupdf.PDF_ANNOT_LINE: "line", pymupdf.PDF_ANNOT_INK: "ink",
           pymupdf.PDF_ANNOT_STAMP: "stamp"}
+
+
+# the kinds of entries of textual criticism (see Critical)
+CRITICAL = {"variant": N_("Variant reading"), "manuscript": N_("Manuscript reading"), "emendation": N_("Emendation"),
+            "conjecture": N_("Conjecture"), "lacuna": N_("Lacuna"), "illegible": N_("Illegible passage"),
+            "scribal": N_("Scribal correction"), "marginal": N_("Marginal addition"),
+            "interlinear": N_("Interlinear addition"), "deletion": N_("Deletion"), "abbreviation": N_("Abbreviation"),
+            "expansion": N_("Expansion"), "uncertain": N_("Uncertain interpretation"),
+            "editorial": N_("Editorial intervention"), "palaeographical": N_("Palaeographical observation"),
+            "codicological": N_("Codicological observation")}
+CONFIDENCE = {"": N_("Not given"), "certain": N_("Certain"), "probable": N_("Probable"), "possible": N_("Possible"),
+              "doubtful": N_("Doubtful")}
+
+
+@dataclasses.dataclass(frozen=True)
+class Critical:
+    """An entry of textual criticism, given to an annotation (usually a mark over the passage)."""
+    type: str  # see CRITICAL
+    lemma: str = ""  # the reading of the text
+    reading: str = ""  # the reading proposed, or that of the witness
+    witness: str = ""  # the manuscript or edition (its siglum)
+    location: str = ""  # where, in it (folio, line...)
+    source: str = ""  # where the reading comes from (an edition, a scholar...)
+    rationale: str = ""
+    confidence: str = ""  # see CONFIDENCE
+
+    def name(self) -> str:
+        return tr(CRITICAL[self.type]) if self.type in CRITICAL else self.type
 
 
 @dataclasses.dataclass(frozen=True)
@@ -162,6 +192,7 @@ class Annotation:
     # the annotations with the same group (on any page) are moved, selected and deleted together; '' for none.
     # Written as the PDF writes groups: the others answer the first (/IRT) as its group (/RT /Group)
     group: str = ""
+    critical: Critical | None = None  # an entry of textual criticism, if it has one
     replies: tuple[Reply, ...] = ()  # in the order they were made
     xref: int = 0  # of the annotation in the document it was read from; 0 if new
 
@@ -525,6 +556,7 @@ def read_annotation(doc: pymupdf.Document, page: pymupdf.Page, annot: pymupdf.An
               "dashed": bool(border.get("dashes")) or border.get("style") == "D",
               "tags": _labels(_pdf_text(doc, annot.xref, TAGS_KEY)),
               "categories": _labels(_pdf_text(doc, annot.xref, CATEGORIES_KEY)), "xref": annot.xref,
+              "critical": critical_of(_pdf_text(doc, annot.xref, CRITICAL_KEY)),
               "group": _pdf_text(doc, annot.xref, GROUP_KEY)
               or (f"#{_irt(doc, annot.xref)}" if _grouped(doc, annot.xref) else "")}
     vertices = annot.vertices or []
@@ -657,6 +689,18 @@ def _editable(doc: pymupdf.Document, annot: pymupdf.Annot) -> bool:
                                         or _grouped(doc, annot.xref))
 
 
+def critical_of(data) -> Critical | None:
+    """The entry of textual criticism of DATA (JSON, or a dict); None if it has none."""
+    try:
+        values = json.loads(data) if isinstance(data, str) else data
+    except ValueError:
+        return None
+    if not isinstance(values, dict) or not values.get("type"):
+        return None
+    names = {f.name for f in dataclasses.fields(Critical)}
+    return Critical(**{k: str(v) for k, v in values.items() if k in names})
+
+
 def _grouped(doc: pymupdf.Document, xref: int) -> bool:
     """Whether the annotation XREF is in the group of another (not a reply to it)."""
     return doc.xref_get_key(xref, "RT")[1] == "/Group"
@@ -750,6 +794,9 @@ def _labels_keys(doc: pymupdf.Document, xref: int, a: Annotation) -> None:
     for key, values in ((TAGS_KEY, a.tags), (CATEGORIES_KEY, a.categories)):
         doc.xref_set_key(xref, key, pymupdf.get_pdf_str(", ".join(values)) if values else "null")
     doc.xref_set_key(xref, GROUP_KEY, pymupdf.get_pdf_str(a.group) if a.group else "null")
+    entry = json.dumps({k: v for k, v in dataclasses.asdict(a.critical).items() if v}, ensure_ascii=False) \
+        if a.critical else ""
+    doc.xref_set_key(xref, CRITICAL_KEY, pymupdf.get_pdf_str(entry) if entry else "null")
 
 
 def add(page: pymupdf.Page, a: Annotation, when: str | None = None) -> pymupdf.Annot:

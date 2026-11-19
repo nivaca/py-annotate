@@ -23,7 +23,7 @@ añaden al final del archivo, así que un documento firmado conserva sus
 firmas válidas para lo que firmaron.
 
 Tiene una ventana, en español y en inglés, y funciona en Linux, Windows y
-macOS. Esta es la versión 0.3.7.
+macOS. Esta es la versión 0.3.8.
 
 Soy Nicolas Vaughan (<nicolasvaughan@proton.me>) y lo escribí en 2026. Es
 software libre, bajo la Licencia Pública General de GNU, versión 3 o
@@ -247,11 +247,26 @@ pasa, py-annotate dice cuáles y ofrece hacerlas parte de las páginas, y las
 demás quedan como anotaciones. PDF/A y PDF/X no admiten contraseña, así que
 la copia de un documento protegido no la tiene.
 
+Para el estudio y la edición de textos, cualquier anotación (por lo común
+un resaltado sobre el pasaje) puede llevar una entrada de crítica textual:
+su tipo (variante, lectura del manuscrito, enmienda, conjetura, laguna,
+pasaje ilegible, corrección del copista, adición marginal o interlineal,
+supresión, abreviatura, desarrollo, interpretación dudosa, intervención
+editorial, observación paleográfica o codicológica), la lectura del texto y
+la otra lectura, el testimonio (su sigla) y la ubicación en él, la fuente,
+la justificación y qué tan segura es. El tipo se da desde el menú del clic
+derecho (Crítica textual), lo demás en las propiedades; la lista busca en
+todo ello. El aparato crítico exportado tiene una entrada para cada una, en
+el orden del texto: `p. 3 iustitia ] iusticia B (f. 3r) — Variante;
+probable.` Las entradas se guardan en el PDF en una clave propia de
+py-annotate, que los demás programas dejan en paz.
+
 Archivo > Exportar las anotaciones escribe las que muestra la lista:
 
 * como informe en Markdown (cuántas hay de cada tipo, color y autor, y luego
   cada una con el texto que marca y su comentario, página por página);
 * como tabla (CSV);
+* como aparato crítico en Markdown (véase más abajo);
 * como JSON, que guarda todo lo que se sabe de ellas y se puede volver a
   importar;
 * como XFDF, el formato en que los programas de PDF intercambian anotaciones

@@ -83,6 +83,8 @@ def from_data(data: dict, keep_xref: bool = False) -> Annotation | None:
                 value = tuple(str(v) for v in value)
             elif name == "replies":
                 value = tuple(_reply(r, keep_xref) for r in value if isinstance(r, dict))
+            elif name == "critical":
+                value = annots.critical_of(value) if value else None
             elif name in ("opacity", "width", "font_size"):
                 value = float(value)
             elif name in ("page", "xref"):
@@ -196,7 +198,8 @@ def import_pdf(source: Path, password: str = "") -> list[Annotation]:
 
 
 CSV_COLUMNS = ("page", "page_label", "kind", "color", "meaning", "author", "created", "modified", "marked_text",
-               "contents")
+               "contents", "critical_type", "lemma", "reading", "witness", "location", "source", "rationale",
+               "confidence")
 
 
 def export_csv(doc: pymupdf.Document, annotations: list[Annotation], target: Path,
@@ -206,7 +209,10 @@ def export_csv(doc: pymupdf.Document, annotations: list[Annotation], target: Pat
     w.writerow(CSV_COLUMNS)
     for a in sorted(annotations, key=lambda a: (a.page, a.rect[1], a.rect[0])):
         w.writerow([a.page + 1, page_label(doc, a.page), a.name(), a.color, meaning(a.color), a.author,
-                    annots.date_text(a.created), annots.date_text(a.modified), marked_text(doc, a), a.contents])
+                    annots.date_text(a.created), annots.date_text(a.modified), marked_text(doc, a), a.contents]
+                   + ([c.name(), c.lemma, c.reading, c.witness, c.location, c.source, c.rationale,
+                       tr(annots.CONFIDENCE.get(c.confidence, "")) if c.confidence else ""]
+                      if (c := a.critical) else [""] * 8))
     _write_text(target, out.getvalue())
 
 
@@ -247,8 +253,43 @@ def report(doc: pymupdf.Document, path: Path, annotations: list[Annotation],
             lines += ["", f"  > {text}"]
         if a.contents.strip():
             lines += [""] + ["  " + line for line in a.contents.strip().splitlines()]
+        if a.critical:
+            lines += ["", "  " + apparatus_entry(doc, a)]
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
+
+
+def apparatus_entry(doc: pymupdf.Document, a: Annotation, with_page: bool = False) -> str:
+    """The entry of textual criticism of A, as a line of an apparatus: 'lemma ] reading W
+    (Variant reading; probable). Source. Rationale.'"""
+    c = a.critical
+    lemma = c.lemma or marked_text(doc, a)
+    head = (f"*{lemma}* ]" if lemma else "]") + (f" {c.reading}" if c.reading else "") \
+        + (f" {c.witness}" if c.witness else "") + (f" ({c.location})" if c.location else "")
+    kind = c.name() + (f"; {tr(annots.CONFIDENCE[c.confidence]).lower()}" if c.confidence in annots.CONFIDENCE
+                       and c.confidence else "")
+    text = f"{head} — {kind}." + "".join(f" {part.rstrip('.')}." for part in (c.source, c.rationale) if part)
+    if with_page:
+        label = page_label(doc, a.page)
+        text = f"**{tr('p. {page}', page=label)}** " + text
+    return text
+
+
+def apparatus(doc: pymupdf.Document, path: Path, annotations: list[Annotation]) -> str:
+    """The critical apparatus of ANNOTATIONS (those with an entry of textual criticism), in
+    Markdown: its entries in the order of the text."""
+    info = _document_info(doc, path)
+    entries = sorted((a for a in annotations if a.critical), key=lambda a: (a.page, a.rect[1], a.rect[0]))
+    lines = ["# " + tr("Critical apparatus of {name}", name=info["title"] or path.name), ""]
+    lines += [ntr("{count} entry", "{count} entries", len(entries)) + ".", ""]
+    lines += [f"* {apparatus_entry(doc, a, with_page=True)}" for a in entries]
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def export_apparatus(doc: pymupdf.Document, path: Path, annotations: list[Annotation], target: Path) -> int:
+    """Write the critical apparatus of ANNOTATIONS (see apparatus) as TARGET; returns how many entries."""
+    _write_text(target, apparatus(doc, path, annotations))
+    return sum(1 for a in annotations if a.critical)
 
 
 def export_markdown(doc: pymupdf.Document, path: Path, annotations: list[Annotation], target: Path,

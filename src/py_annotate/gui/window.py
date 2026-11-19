@@ -308,6 +308,9 @@ class MainWindow(FilesMixin, QMainWindow):
         sub.setToolTipsVisible(True)
         self.a_export_md = self._action(sub, tr("As a report (Markdown)…"), lambda: self.export_dialog("md"))
         self.a_export_csv = self._action(sub, tr("As a table (CSV)…"), lambda: self.export_dialog("csv"))
+        self.a_export_apparatus = self._action(
+            sub, tr("The critical apparatus (Markdown)…"), lambda: self.export_dialog("apparatus"),
+            tip=tr("The entries of textual criticism, in the order of the text"))
         self.a_export_json = self._action(sub, tr("As data, to import them again (JSON)…"),
                                           lambda: self.export_dialog("json"))
         self.a_export_xfdf = self._action(sub, tr("For other PDF programs (XFDF)…"), lambda: self.export_dialog("xfdf"),
@@ -1390,6 +1393,16 @@ class MainWindow(FilesMixin, QMainWindow):
             for key, name in STATES.items():
                 status.addAction(tr(name), lambda k=key: self._status_for_selected(k))
             self._categories_menu(menu, chosen)
+            critical = menu.addMenu(tr("Textual criticism"))
+            for key, name in annots.CRITICAL.items():
+                act = critical.addAction(tr(name), lambda k=key: self._critical_for_selected(k))
+                act.setCheckable(True)
+                act.setChecked(all(a.critical and a.critical.type == key for a in chosen))
+            critical.addSeparator()
+            critical.addAction(tr("None"), lambda: self._critical_for_selected(""))
+            if len(chosen) > 1 or any(a.group for a in chosen):
+                menu.addAction(self.a_group if not all(a.group == chosen[0].group != "" for a in chosen)
+                               else self.a_ungroup)
             menu.addSeparator()
             menu.addAction(self.a_copy)
             menu.addAction(self.a_duplicate)
@@ -1518,6 +1531,18 @@ class MainWindow(FilesMixin, QMainWindow):
             self.refresh(pages=False, table=False)
             self._select_rows()
 
+    def _critical_for_selected(self, kind: str):
+        """Give the annotations selected an entry of textual criticism of KIND (keeping what else
+        their entries had); '': none."""
+        def entry(a: Annotation):
+            if not kind:
+                return None
+            return dataclasses.replace(a.critical, type=kind) if a.critical else annots.Critical(kind)
+
+        chosen = set(self.selected)
+        self.change([dataclasses.replace(a, critical=entry(a)) if i in chosen else a
+                     for i, a in enumerate(self.annotations)], sorted(chosen))
+
     def _with_groups(self, chosen: list[int], toggled: list[int] | None = None) -> list[int]:
         """CHOSEN, with the others of their groups (those of TOGGLED that were taken out, without theirs)."""
         dropped = {self.annotations[i].group for i in toggled or [] if i not in chosen and i < len(self.annotations)}
@@ -1598,7 +1623,10 @@ class MainWindow(FilesMixin, QMainWindow):
             return False
         words = self.search.text().lower().split()
         if words:
+            c = a.critical
             text = " ".join((a.contents, a.author, a.name(), self.marked_text(a), " ".join(a.tags),
+                             " ".join((c.name(), c.lemma, c.reading, c.witness, c.location, c.source, c.rationale))
+                             if c else "",
                              " ".join(a.categories), " ".join(f"{r.author} {r.contents}" for r in a.replies))).lower()
             return all(w in text for w in words)
         return True
@@ -1904,7 +1932,7 @@ class MainWindow(FilesMixin, QMainWindow):
             act.setEnabled(has and self._have_conform)
             act.setToolTip("" if self._have_conform else tr("Needs {command}: install it, or say where it is in "
                                                             "Settings", command=conform.COMMAND))
-        for w in (self.a_export_md, self.a_export_csv, self.a_export_json, self.a_export_xfdf, self.a_summary,
+        for w in (self.a_export_md, self.a_export_csv, self.a_export_apparatus, self.a_export_json, self.a_export_xfdf, self.a_summary,
                   self.a_next_annot, self.a_prev_annot):
             w.setEnabled(has and bool(self._rows))
         self.a_save.setEnabled(has and self.is_modified())

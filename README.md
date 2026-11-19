@@ -22,7 +22,7 @@ file, so that a signed document keeps its signatures valid for what they
 signed.
 
 It has a window, in English and in Spanish, and works on Linux, Windows and
-macOS. This is version 0.3.7.
+macOS. This is version 0.3.8.
 
 I am Nicolas Vaughan (<nicolasvaughan@proton.me>), and I wrote it in 2026.
 It is free software, under the GNU General Public License, version 3 or
@@ -243,12 +243,27 @@ offers to make those part of the pages instead, keeping the others as
 annotations. PDF/A and PDF/X can't have a password, so the copy of a
 protected document has none.
 
+For the study and edition of texts, any annotation (usually a highlight
+over the passage) can carry an entry of textual criticism: its kind
+(variant reading, manuscript reading, emendation, conjecture, lacuna,
+illegible passage, scribal correction, marginal or interlinear addition,
+deletion, abbreviation, expansion, uncertain interpretation, editorial
+intervention, palaeographical or codicological observation), the reading of
+the text and the other reading, the witness (its siglum) and the location in
+it, the source, the rationale and how certain it is. The kind is given from
+the right-click menu (Textual criticism), the rest in the properties; the
+list searches all of it. The critical apparatus exported has an entry for
+each, in the order of the text: `p. 3 iustitia ] iusticia B (f. 3r) —
+Variant reading; probable.` The entries are kept in the PDF in a key of
+py-annotate's own, which other programs leave alone.
+
 File > Export the annotations writes those the list shows:
 
 * as a report in Markdown (how many there are of each kind, colour and
   author, then each of them with the text it marks and its comment, page by
   page);
 * as a table (CSV);
+* as a critical apparatus in Markdown (see below);
 * as JSON, which holds all there is to know of them and can be imported
   again;
 * as XFDF, the format in which PDF programs exchange annotations (with

@@ -1911,4 +1911,164 @@
     <en>{count} annotations grouped</en>
     <tr>{count} anotaciones agrupadas</tr>
   </text>
+  <text>
+    <en>(the text marked)</en>
+    <tr>(el texto marcado)</tr>
+  </text>
+  <text>
+    <en>Abbreviation</en>
+    <tr>Abreviatura</tr>
+  </text>
+  <text>
+    <en>Certain</en>
+    <tr>Segura</tr>
+  </text>
+  <text>
+    <en>Codicological observation</en>
+    <tr>Observación codicológica</tr>
+  </text>
+  <text>
+    <en>Confidence:</en>
+    <tr>Seguridad:</tr>
+  </text>
+  <text>
+    <en>Conjecture</en>
+    <tr>Conjetura</tr>
+  </text>
+  <text>
+    <en>Critical apparatus of {name}</en>
+    <tr>Aparato crítico de {name}</tr>
+  </text>
+  <text>
+    <en>Deletion</en>
+    <tr>Supresión</tr>
+  </text>
+  <text>
+    <en>Doubtful</en>
+    <tr>Dudosa</tr>
+  </text>
+  <text>
+    <en>Editorial intervention</en>
+    <tr>Intervención editorial</tr>
+  </text>
+  <text>
+    <en>Emendation</en>
+    <tr>Enmienda</tr>
+  </text>
+  <text>
+    <en>Expansion</en>
+    <tr>Desarrollo</tr>
+  </text>
+  <text>
+    <en>Folio, line…</en>
+    <tr>Folio, línea…</tr>
+  </text>
+  <text>
+    <en>Illegible passage</en>
+    <tr>Pasaje ilegible</tr>
+  </text>
+  <text>
+    <en>Interlinear addition</en>
+    <tr>Adición interlineal</tr>
+  </text>
+  <text>
+    <en>Kind:</en>
+    <tr>Tipo:</tr>
+  </text>
+  <text>
+    <en>Lacuna</en>
+    <tr>Laguna</tr>
+  </text>
+  <text>
+    <en>Location:</en>
+    <tr>Ubicación:</tr>
+  </text>
+  <text>
+    <en>Manuscript or edition (its siglum)</en>
+    <tr>Manuscrito o edición (su sigla)</tr>
+  </text>
+  <text>
+    <en>Manuscript reading</en>
+    <tr>Lectura del manuscrito</tr>
+  </text>
+  <text>
+    <en>Marginal addition</en>
+    <tr>Adición marginal</tr>
+  </text>
+  <text>
+    <en>Not given</en>
+    <tr>Sin indicar</tr>
+  </text>
+  <text>
+    <en>Other reading:</en>
+    <tr>Otra lectura:</tr>
+  </text>
+  <text>
+    <en>Palaeographical observation</en>
+    <tr>Observación paleográfica</tr>
+  </text>
+  <text>
+    <en>Possible</en>
+    <tr>Posible</tr>
+  </text>
+  <text>
+    <en>Probable</en>
+    <tr>Probable</tr>
+  </text>
+  <text>
+    <en>Proposed, or of the witness</en>
+    <tr>Propuesta, o la del testimonio</tr>
+  </text>
+  <text>
+    <en>Rationale:</en>
+    <tr>Justificación:</tr>
+  </text>
+  <text>
+    <en>Reading of the text:</en>
+    <tr>Lectura del texto:</tr>
+  </text>
+  <text>
+    <en>Scribal correction</en>
+    <tr>Corrección del copista</tr>
+  </text>
+  <text>
+    <en>Source:</en>
+    <tr>Fuente:</tr>
+  </text>
+  <text>
+    <en>Textual criticism</en>
+    <tr>Crítica textual</tr>
+  </text>
+  <text>
+    <en>The critical apparatus (Markdown)…</en>
+    <tr>El aparato crítico (Markdown)…</tr>
+  </text>
+  <text>
+    <en>The entries of textual criticism, in the order of the text</en>
+    <tr>Las entradas de crítica textual, en el orden del texto</tr>
+  </text>
+  <text>
+    <en>Uncertain interpretation</en>
+    <tr>Interpretación dudosa</tr>
+  </text>
+  <text>
+    <en>Variant reading</en>
+    <tr>Variante</tr>
+  </text>
+  <text>
+    <en>Where the reading comes from</en>
+    <tr>De dónde viene la lectura</tr>
+  </text>
+  <text>
+    <en>Witness:</en>
+    <tr>Testimonio:</tr>
+  </text>
+  <text>
+    <en>{count} entries</en>
+    <tr>{count} entradas</tr>
+  </text>
+  <text>
+    <en>{count} entry</en>
+    <tr>{count} entrada</tr>
+  </text>
 </interface>

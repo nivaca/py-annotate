@@ -717,3 +717,28 @@ def test_groups_in_the_window(window, sample):
     window.ungroup_selected()
     window.pick([1], False)
     assert window.selected == [1]
+
+
+def test_textual_criticism_in_the_window(window):
+    from py_annotate.annots import Critical
+    from py_annotate.gui.props import PropertiesDialog
+
+    window.set_tool("rect")
+    drag(window, (100, 300), (150, 340))
+    window.pick([0], False)
+    window._critical_for_selected("conjecture")
+    assert window.annotations[0].critical == Critical("conjecture")
+    dialog = PropertiesDialog([window.annotations[0]], window)
+    assert dialog.critical.isChecked()
+    dialog.c_fields["reading"].setText("  lege   pacem ")
+    dialog.c_fields["witness"].setText("A")
+    a = dialog.apply(window.annotations[0])
+    assert a.critical == Critical("conjecture", reading="lege pacem", witness="A")
+    window.replace(0, a)
+    window.search.setText("pacem")
+    window.search_timer.timeout.emit()
+    assert window._rows == [0]
+    window.search.clear()
+    dialog = PropertiesDialog([window.annotations[0]], window)
+    dialog.critical.setChecked(False)
+    assert dialog.apply(window.annotations[0]).critical is None

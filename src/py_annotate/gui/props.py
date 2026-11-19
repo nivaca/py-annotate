@@ -31,6 +31,8 @@ from PySide6.QtWidgets import (
 from .. import settings
 from ..annots import (
     ALIGNS,
+    CONFIDENCE,
+    CRITICAL,
     DASHABLE,
     ENDED,
     ENDS,
@@ -42,6 +44,7 @@ from ..annots import (
     STROKED,
     TEXTUAL,
     Annotation,
+    Critical,
     date_text,
 )
 from ..interface import ntr, tr
@@ -175,7 +178,7 @@ class PropertiesDialog(QDialog):
 
         lay = QVBoxLayout(self)
         lay.addWidget(look)
-        self.contents = self.author = self.locked = self.tags = self.categories = None
+        self.contents = self.author = self.locked = self.tags = self.categories = self.critical = None
         self.sticky = self.show_after = None
         self.as_default = QCheckBox(tr("Use this style for new annotations of this kind"))
         if tool is None:
@@ -224,6 +227,8 @@ class PropertiesDialog(QDialog):
                 info.setStyleSheet("color: palette(placeholder-text);")
                 form.addRow("", info)
             lay.addWidget(note)
+            if len(annotations) == 1:
+                lay.addWidget(self._critical_box(annotations[0].critical))
             self.as_default.setToolTip(tr("The colours, the line, the font and the opacity"))
             self.as_default.setVisible(len(kinds) == 1)
             lay.addWidget(self.as_default)
@@ -242,6 +247,36 @@ class PropertiesDialog(QDialog):
         buttons.rejected.connect(self.reject)
         lay.addWidget(buttons)
         self.resize(460, self.sizeHint().height())
+
+    def _critical_box(self, entry: Critical | None) -> QGroupBox:
+        """The entry of textual criticism of the annotation: ticked, it has one."""
+        self.critical = box = QGroupBox(tr("Textual criticism"))
+        box.setCheckable(True)
+        box.setChecked(entry is not None)
+        entry = entry or Critical("variant")
+        form = QFormLayout(box)
+        self.c_type = _combo(CRITICAL, entry.type)
+        form.addRow(tr("Kind:"), self.c_type)
+        self.c_fields = {}
+        for name, label, hint in (("lemma", tr("Reading of the text:"), tr("(the text marked)")),
+                                  ("reading", tr("Other reading:"), tr("Proposed, or of the witness")),
+                                  ("witness", tr("Witness:"), tr("Manuscript or edition (its siglum)")),
+                                  ("location", tr("Location:"), tr("Folio, line…")),
+                                  ("source", tr("Source:"), tr("Where the reading comes from")),
+                                  ("rationale", tr("Rationale:"), "")):
+            field = QLineEdit(getattr(entry, name))
+            field.setPlaceholderText(hint)
+            self.c_fields[name] = field
+            form.addRow(label, field)
+        self.c_confidence = _combo(CONFIDENCE, entry.confidence)
+        form.addRow(tr("Confidence:"), self.c_confidence)
+        return box
+
+    def critical_entry(self) -> Critical | None:
+        if not self.critical.isChecked():
+            return None
+        return Critical(self.c_type.currentData() or "variant", confidence=self.c_confidence.currentData() or "",
+                        **{k: " ".join(f.text().split()) for k, f in self.c_fields.items()})
 
     @staticmethod
     def _number(value, low: float, high: float, suffix: str) -> QDoubleSpinBox:
@@ -301,6 +336,8 @@ class PropertiesDialog(QDialog):
                 out["contents"] = text.strip("\n")
         if self.author is not None and (self.author.text() or len({a.author for a in self.annotations}) == 1):
             out["author"] = " ".join(self.author.text().split())
+        if self.critical is not None:
+            out["critical"] = self.critical_entry()
         if self.tags is not None and (self._tags_given or self.tags.text().strip()):
             out["tags"] = tuple(t for t in (" ".join(x.split()) for x in self.tags.text().split(",")) if t)
         return out

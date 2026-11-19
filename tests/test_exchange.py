@@ -164,3 +164,32 @@ def test_summary(sample, tmp_path):
     text = doc[0].get_text()
     assert "Page 1" in text and "1. Highlight" in text and "First line of page 1" in text and "look" in text
     assert "See page two" in doc[1].get_text() and doc[0].rect.width > 595
+
+
+def test_textual_criticism(sample, tmp_path):
+    """An entry of textual criticism is kept in the PDF, in JSON and in the CSV, and makes the
+    critical apparatus, in the order of the text."""
+    from py_annotate.annots import Critical
+
+    doc = annots.open_pdf(sample)
+    found = annots.words(doc[0])
+    rects = annots.text_rects(found, 0, 0)  # (the first word)
+    entry = Critical("variant", lemma="iustitia", reading="iusticia", witness="B", location="f. 3r",
+                     source="ed. Smith", rationale="orthographic", confidence="probable")
+    made = [Annotation("highlight", 0, annots.union(rects[:1]), quads=tuple(rects[:1]), critical=entry),
+            Annotation("rect", 0, (60, 300, 120, 340), "#000000", critical=Critical("lacuna")),
+            Annotation("rect", 1, (60, 300, 120, 340), "#000000")]
+    path = tmp_path / "doc.pdf"
+    annots.write(sample, made, path)
+    got = annots.read(annots.open_pdf(path))
+    assert [a.critical for a in got] == [entry, Critical("lacuna"), None]
+    assert [exchange.from_data(exchange.to_data(a)) for a in made] == made
+    exchange.export_csv(doc, got, tmp_path / "a.csv")
+    rows = list(csv.DictReader((tmp_path / "a.csv").open(encoding="utf-8")))
+    assert rows[0]["lemma"] == "iustitia" and rows[0]["witness"] == "B" and rows[2]["critical_type"] == ""
+    text = exchange.apparatus(doc, path, got)
+    lines = [line for line in text.splitlines() if line.startswith("* ")]
+    assert len(lines) == 2
+    assert lines[0].startswith("* **p. 1** *iustitia* ] iusticia B (f. 3r) — Variant reading; probable.")
+    assert "ed. Smith. orthographic." in lines[0]
+    assert "Lacuna." in lines[1]

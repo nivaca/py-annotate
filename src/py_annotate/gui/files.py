@@ -161,10 +161,14 @@ class FilesMixin:
         self.canvas.commit_text()
         self.keep_comment()
         chosen = [self.annotations[i] for i in self._rows]
+        if kind == "apparatus":
+            chosen = [a for a in chosen if a.critical]
         if not chosen:
             self.status(tr("There are no annotations to export"), error=True)
             return False
-        target = self._ask_target(tr("Export the annotations"), "-summary" if kind == "pdf" else "-annotations", kind)
+        target = self._ask_target(tr("Export the annotations"),
+                                  {"pdf": "-summary", "apparatus": "-apparatus"}.get(kind, "-annotations"),
+                                  "md" if kind == "apparatus" else kind)
         if target is None:
             return False
         if kind == "pdf" and self._same_file(target):
@@ -176,6 +180,8 @@ class FilesMixin:
                 exchange.export_csv(self.doc, chosen, target, colors.color_meaning)
             elif kind == "xfdf":
                 exchange.export_xfdf(self.doc, self.path, chosen, target)
+            elif kind == "apparatus":
+                exchange.export_apparatus(self.doc, self.path, chosen, target)
             elif kind == "pdf":
                 exchange.save_summary(self.path, chosen, target, self.password, color_name)
             else:

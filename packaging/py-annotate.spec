@@ -10,7 +10,7 @@
 # Build with packaging/build-rpm.sh, which makes the source tarball.
 
 Name:           py-annotate
-Version:        0.3.7
+Version:        0.3.8
 Release:        1%{?dist}
 Summary:        Add annotations to PDF documents: highlights, notes, text boxes, shapes, stamps
 
@@ -84,6 +84,9 @@ export HOME="$PWD/check-home" PY_ANNOTATE_CONFIG="$PWD/check-home/config" QT_QPA
 %lang(es) %{_mandir}/es/man1/py-annotate.1*
 
 %changelog
+* Thu Nov 19 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.3.8-1
+- Version 0.3.8: entries of textual criticism, and the critical apparatus
+
 * Thu Nov 19 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.3.7-1
 - Version 0.3.7: groups of annotations
 
