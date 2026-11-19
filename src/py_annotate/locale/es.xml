@@ -2343,4 +2343,36 @@
     <en>{count} differences marked, tagged “{tag}”</en>
     <tr>{count} diferencias marcadas, con la etiqueta «{tag}»</tr>
   </text>
+  <text>
+    <en>Typewriter</en>
+    <tr>Máquina de escribir</tr>
+  </text>
+  <text>
+    <en>Check mark</en>
+    <tr>Marca de verificación</tr>
+  </text>
+  <text>
+    <en>Click on the page and write there, as with a typewriter: no box, no border</en>
+    <tr>Hacer clic en la página y escribir allí, como con una máquina de escribir: sin cuadro ni borde</tr>
+  </text>
+  <text>
+    <en>Click to put a check mark, a cross, a dot or a dash, as on a form (right-click the tool to choose it)</en>
+    <tr>Hacer clic para poner una marca de verificación, una cruz, un punto o una raya, como en un formulario (con el clic derecho sobre la herramienta se elige)</tr>
+  </text>
+  <text>
+    <en>Check mark ✓</en>
+    <tr>Marca de verificación ✓</tr>
+  </text>
+  <text>
+    <en>Cross ✕</en>
+    <tr>Cruz ✕</tr>
+  </text>
+  <text>
+    <en>Dot ●</en>
+    <tr>Punto ●</tr>
+  </text>
+  <text>
+    <en>Dash ─</en>
+    <tr>Raya ─</tr>
+  </text>
 </interface>

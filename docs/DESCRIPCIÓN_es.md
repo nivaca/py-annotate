@@ -1,4 +1,4 @@
-# py-annotate 1.0.5: descripción
+# py-annotate 1.0.6: descripción
 
 ## Análisis
 
@@ -50,7 +50,7 @@ Con un documento de 300 páginas y 3000 anotaciones, la primera letra escrita en
 
 ## Validación
 
-Hay 100 pruebas automáticas (`uv run pytest`). Las de las anotaciones escriben una de cada clase en una página normal y en una girada y las vuelven a leer; comprueban que una anotación cambiada conserva su número y las claves de otros programas, que guardar en el documento solo añade a su final, y que se conservan las respuestas, los estados, las etiquetas y las categorías; y pasan todo por JSON y por XFDF y de vuelta.
+Hay 101 pruebas automáticas (`uv run pytest`). Las de las anotaciones escriben una de cada clase en una página normal y en una girada y las vuelven a leer; comprueban que una anotación cambiada conserva su número y las claves de otros programas, que guardar en el documento solo añade a su final, y que se conservan las respuestas, los estados, las etiquetas y las categorías; y pasan todo por JSON y por XFDF y de vuelta.
 
 La ventana se prueba manejándola como lo haría un usuario, con eventos del ratón sobre las páginas: cada herramienta, mover, redimensionar y cambiar la forma, la goma de borrar, el panel y sus filtros, escribir en la página, deshacer después de guardar, guardar cuando otro programa cambió el archivo, las páginas dibujadas en otro proceso sin las anotaciones que la ventana dibuja, y las copias como PDF/A, con un pdf2iso hecho para la prueba que deja fuera los polígonos, como Ghostscript. Una prueba comprueba que cada texto de la ventana tenga su traducción al español, y ninguna otra.
 

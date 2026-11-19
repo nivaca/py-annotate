@@ -1077,3 +1077,34 @@ def test_compare_in_the_window(window, sample, tmp_path):
     assert changed and "CHANGED" in changed[0].contents
     window.undo()
     assert window.annotations == []
+
+
+def test_typewriter_and_marks(window, sample):
+    """The typewriter writes a text box with no border nor fill, kept as one (/IT /FreeTextTypeWriter);
+    the check-mark tool puts the mark chosen, and the window remembers it."""
+    window.set_tool("typewriter")
+    click(window, (100, 400))
+    tw = window.annotations[0]
+    assert (tw.kind, tw.width, tw.fill, tw.intent, tw.contents) == ("freetext", 0, "", "FreeTextTypeWriter",
+                                                                   "Typed text")
+    assert tw.name() == "Typewriter"
+    window.set_tool("mark")
+    click(window, (200, 600))
+    check = window.annotations[1]
+    assert check.kind == "ink" and len(check.paths) == 1 and len(check.paths[0]) == 3
+    x0, y0, x1, y1 = check.rect
+    assert x0 < 200 < x1 and y0 < 600 < y1
+    window.set_mark("cross")
+    click(window, (250, 600))
+    assert len(window.annotations[2].paths) == 2
+    window.set_mark("dot")
+    click(window, (300, 600))
+    dot = window.annotations[3]
+    assert dot.kind == "ellipse" and dot.fill == dot.color
+    window.save_settings()
+    assert MainWindow().mark == "dot"
+    assert window.save()
+    got = annots.read(annots.open_pdf(sample))
+    assert got[0].intent == "FreeTextTypeWriter" and got[0].name() == "Typewriter"
+    doc = annots.open_pdf(sample)
+    assert doc.xref_get_key(got[0].xref, "IT")[1] == "/FreeTextTypeWriter"

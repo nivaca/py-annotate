@@ -23,7 +23,7 @@ añaden al final del archivo, así que un documento firmado conserva sus
 firmas válidas para lo que firmaron.
 
 Tiene una ventana, en español y en inglés, y funciona en Linux, Windows y
-macOS. Esta es la versión 1.0.5.
+macOS. Esta es la versión 1.0.6.
 
 Soy Nicolas Vaughan (<nicolasvaughan@proton.me>) y lo escribí en 2026. Es
 software libre, bajo la Licencia Pública General de GNU, versión 3 o
@@ -138,6 +138,8 @@ su tecla (las teclas se pueden cambiar: véase «Configuración»):
 | Nota                      | N       | hacer clic en la página, y escribir la nota                    |
 | Cuadro de texto           | T       | arrastrar un recuadro (o hacer clic) y escribir el texto       |
 | Llamada                   | Mayús+T | pulsar en el lugar señalado y arrastrar hasta donde va el texto |
+| Máquina de escribir       | Y       | hacer clic y escribir allí: sin cuadro ni borde (como en un formulario) |
+| Marca de verificación     | K       | hacer clic para poner ✓, ✕, ● o ─ (con el clic derecho se elige) |
 | Sello                     | Mayús+S | hacer clic (o arrastrar, para darle el ancho) donde va el sello |
 | Rectángulo                | R       | arrastrar en la página                                         |
 | Elipse                    | O       | arrastrar en la página                                         |

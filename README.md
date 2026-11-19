@@ -22,7 +22,7 @@ file, so that a signed document keeps its signatures valid for what they
 signed.
 
 It has a window, in English and in Spanish, and works on Linux, Windows and
-macOS. This is version 1.0.5.
+macOS. This is version 1.0.6.
 
 I am Nicolas Vaughan (<nicolasvaughan@proton.me>), and I wrote it in 2026.
 It is free software, under the GNU General Public License, version 3 or
@@ -135,6 +135,8 @@ Choose a tool in the second toolbar, in the Tools menu, or with its key
 | Note               | N       | click on the page, and write the note                         |
 | Text box           | T       | drag a box, or click, and write the text                      |
 | Callout            | Shift+T | press on the place to point at, drag to where the text goes   |
+| Typewriter         | Y       | click and write there: no box, no border (as on a form)       |
+| Check mark         | K       | click to put ✓, ✕, ● or ─ (right-click the tool to choose)    |
 | Stamp              | Shift+S | click (or drag, for its width) where the stamp goes           |
 | Rectangle          | R       | drag on the page                                             |
 | Ellipse            | O       | drag on the page                                             |

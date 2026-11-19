@@ -58,6 +58,10 @@ TOOLS = [
     [("note", "note", N_("Click on the page to add a note")),
      ("freetext", "draw-text", N_("Drag a box on the page (or click) to write a text in it")),
      ("callout", "draw-callout", N_("Press on the place to point at, and drag to where its text goes")),
+     ("typewriter", "typewriter", N_("Click on the page and write there, as with a typewriter: no box, no "
+                                     "border")),
+     ("mark", "check-mark", N_("Click to put a check mark, a cross, a dot or a dash, as on a form (right-click "
+                               "the tool to choose it)")),
      ("stamp", "stamp", N_("Click on the page to put a stamp (right-click the tool to choose it)"))],
     [("rect", "draw-rectangle", N_("Drag on the page to draw a rectangle")),
      ("ellipse", "draw-ellipse", N_("Drag on the page to draw an ellipse")),
@@ -69,7 +73,13 @@ TOOLS = [
      ("ink", "draw-freehand", N_("Draw on the page by hand (with a tablet's pen, pressing harder draws wider)")),
      ("marker", "draw-marker", N_("Highlight by hand, where there is no text to drag over"))],
 ]
-TOOL_NAMES = {"select": N_("Select"), "hand": N_("Hand"), "eraser": N_("Eraser"), "replace": N_("Replace text")}
+TOOL_NAMES = {"select": N_("Select"), "hand": N_("Hand"), "eraser": N_("Eraser"), "replace": N_("Replace text"),
+              "typewriter": N_("Typewriter"), "mark": N_("Check mark")}
+# the marks of the Check mark tool, drawn in a square of side 1: strokes (a drawing), or None (a dot: a disc)
+MARKS = {"check": (N_("Check mark ✓"), (((0.1, 0.55), (0.4, 0.85), (0.9, 0.15)),)),
+         "cross": (N_("Cross ✕"), (((0.15, 0.15), (0.85, 0.85)), ((0.85, 0.15), (0.15, 0.85)))),
+         "dot": (N_("Dot ●"), None),
+         "dash": (N_("Dash ─"), (((0.1, 0.5), (0.9, 0.5)),))}
 SORTS = {"page": N_("By page"), "changed": N_("Last changed first"), "kind": N_("By kind"),
          "author": N_("By author"), "status": N_("By status")}
 _CLIPBOARD: list[Annotation] = []  # (annotations copied, for all the windows)
@@ -130,6 +140,7 @@ class MainWindow(FilesMixin, QMainWindow):
         self.layers: dict[str, bool] = {}  # the layers of the annotations: {name: whether they are shown}
         self.saved_layers: dict[str, bool] = {}  # (as the document has them)
         self.layer = ""  # the layer of the annotations made (see layers_menu)
+        self.mark = "check"  # the mark of the Check mark tool (see MARKS)
         self.saved: list[Annotation] = []  # the annotations as they are in the file
         self.undo_stack: list[list[Annotation]] = []
         self.redo_stack: list[list[Annotation]] = []
@@ -532,6 +543,8 @@ class MainWindow(FilesMixin, QMainWindow):
             self.splitter.restoreState(split)
         self.a_thumbs.setChecked(self.settings.value("thumbnails", True, type=bool))
         self.show_thumbnails(self.a_thumbs.isChecked())
+        mark = self.settings.value("mark", "check")
+        self.mark = mark if mark in MARKS else "check"
         bars = self.settings.value("toolbars")
         if isinstance(bars, QByteArray):
             self.restoreState(bars)
@@ -865,6 +878,11 @@ class MainWindow(FilesMixin, QMainWindow):
                 act.setChecked(bool(custom))
             menu.addSeparator()
             menu.addAction(tr("Properties of the tool…"), lambda: self.tool_dialog(tool))
+        if tool == "mark":
+            for key, (name, _) in MARKS.items():
+                act = menu.addAction(tr(name), lambda k=key: self.set_mark(k))
+                act.setCheckable(True)
+                act.setChecked(self.mark == key)
         self.set_tool(tool)
         self.show_menu(menu, where)
 
@@ -956,6 +974,11 @@ class MainWindow(FilesMixin, QMainWindow):
     def new_annotation(self, kind: str, page: int, rect: Rect, paths: tuple = (), quads: tuple = ()) -> Annotation:
         """An annotation with the style of new ones of its KIND (Settings, or Properties); a
         stamp, of its usual size where RECT has none."""
+        if kind == "typewriter":  # (a text box with no border nor fill, written at once)
+            a = self.new_annotation("freetext", page, rect)
+            return dataclasses.replace(a, width=0, fill="", intent=annots.TYPEWRITER)
+        if kind == "mark":
+            return self._mark(page, rect)
         style = self.prefs.style(kind)
         a = Annotation(kind, page, rect, style.color, fill=style.fill if kind in FILLED else "",
                        opacity=style.opacity, width=style.width, author=self.prefs.author,
@@ -965,6 +988,27 @@ class MainWindow(FilesMixin, QMainWindow):
         if kind == "stamp":
             a = self._stamp(a, style)
         return a
+
+    def _mark(self, page: int, rect: Rect) -> Annotation:
+        """The mark chosen for the Check mark tool (see MARKS) in RECT: a drawing, or a disc for a dot,
+        in the colour and width of the freehand tool's style."""
+        style = self.prefs.style("ink")
+        x0, y0, x1, y1 = rect
+        _, strokes = MARKS.get(self.mark, MARKS["check"])
+        if strokes is None:
+            r = (x0 + (x1 - x0) * 0.25, y0 + (y1 - y0) * 0.25, x1 - (x1 - x0) * 0.25, y1 - (y1 - y0) * 0.25)
+            return Annotation("ellipse", page, r, style.color, fill=style.color, width=0, author=self.prefs.author,
+                              layer=self.layer)
+        paths = tuple(tuple((round(x0 + u * (x1 - x0), 2), round(y0 + v * (y1 - y0), 2)) for u, v in stroke)
+                      for stroke in strokes)
+        width = max(style.width, 1.5)
+        return Annotation("ink", page, annots.frame("ink", paths, width), style.color, width=width, paths=paths,
+                          author=self.prefs.author, layer=self.layer)
+
+    def set_mark(self, mark: str):
+        self.mark = mark
+        self.settings.setValue("mark", mark)
+        self.set_tool("mark")
 
     def _stamp(self, a: Annotation, style: settings.Style) -> Annotation:
         if style.stamp.startswith("text:"):

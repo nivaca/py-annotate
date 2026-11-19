@@ -211,6 +211,8 @@ class Annotation:
     def name(self) -> str:
         if self.kind == "caret" and self.intent == "Replace":
             return tr("Replacement")
+        if self.kind == "freetext" and self.intent == TYPEWRITER:
+            return tr("Typewriter")
         if self.kind == OTHER:
             return tr(OTHER_NAMES[self.other]) if self.other in OTHER_NAMES else self.other
         return tr(NAMES[self.kind])
@@ -629,9 +631,7 @@ def read_annotation(doc: pymupdf.Document, page: pymupdf.Page, annot: pymupdf.An
               "categories": _labels(_pdf_text(doc, annot.xref, CATEGORIES_KEY)), "xref": annot.xref,
               "critical": critical_of(_pdf_text(doc, annot.xref, CRITICAL_KEY)),
               "layer": _layer_of(doc, annot.xref),
-              "intent": doc.xref_get_key(annot.xref, "IT")[1].lstrip("/")
-              if annot.type[0] in (pymupdf.PDF_ANNOT_CARET, pymupdf.PDF_ANNOT_STRIKE_OUT)
-              and doc.xref_get_key(annot.xref, "IT")[0] == "name" else "",
+              "intent": _intent(doc, annot),
               "group": _pdf_text(doc, annot.xref, GROUP_KEY)
               or (f"#{_irt(doc, annot.xref)}" if _grouped(doc, annot.xref) else "")}
     vertices = annot.vertices or []
@@ -814,6 +814,21 @@ def _pdf_rect_of(doc: pymupdf.Document, page: pymupdf.Page, xref: int) -> pymupd
     return pymupdf.Rect(x0, y0, x1, y1) * page.transformation_matrix
 
 
+TYPEWRITER = "FreeTextTypeWriter"  # (the intent of a text box written as with a typewriter: no border, no fill)
+
+
+def _intent(doc: pymupdf.Document, annot: pymupdf.Annot) -> str:
+    """The intent (/IT) of ANNOT that Annotation.intent keeps: of a strikeout or an insert-text mark,
+    any; of a text box, only the typewriter's (a callout's makes it a callout)."""
+    kind, value = doc.xref_get_key(annot.xref, "IT")
+    if kind != "name":
+        return ""
+    value = value.lstrip("/")
+    if annot.type[0] in (pymupdf.PDF_ANNOT_CARET, pymupdf.PDF_ANNOT_STRIKE_OUT):
+        return value
+    return value if annot.type[0] == pymupdf.PDF_ANNOT_FREE_TEXT and value == TYPEWRITER else ""
+
+
 def _layer_of(doc: pymupdf.Document, xref: int) -> str:
     """The name of the layer (optional content group) of the annotation XREF; '' if it has none."""
     kind, value = doc.xref_get_key(xref, "OC")
@@ -940,7 +955,7 @@ def _labels_keys(doc: pymupdf.Document, xref: int, a: Annotation) -> None:
     for key, values in ((TAGS_KEY, a.tags), (CATEGORIES_KEY, a.categories)):
         doc.xref_set_key(xref, key, pymupdf.get_pdf_str(", ".join(values)) if values else "null")
     doc.xref_set_key(xref, GROUP_KEY, pymupdf.get_pdf_str(a.group) if a.group else "null")
-    if a.kind in ("caret", "strikeout"):
+    if a.kind in ("caret", "strikeout", "freetext"):
         doc.xref_set_key(xref, "IT", f"/{a.intent}" if re.fullmatch(r"[A-Za-z]+", a.intent) else "null")
     if a.layer != _layer_of(doc, xref):
         doc.xref_set_key(xref, "OC", f"{layer_xref(doc, a.layer)} 0 R" if a.layer else "null")

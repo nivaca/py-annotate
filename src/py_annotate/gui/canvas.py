@@ -47,11 +47,12 @@ SELECTED = QColor(42, 127, 255)
 NEAR_TEXT = 3.0  # points: a drag that starts this close to a word selects text
 FREETEXT_SIZE = (180.0, 40.0)  # points: a text box made by a click
 NOTE_EDITOR = (220.0, 110.0)  # points: the field where the text of a note is written
-BOXES = ("freetext", "area", "rect", "ellipse", "cloud")  # (tools that drag a box)
+BOXES = ("freetext", "typewriter", "area", "rect", "ellipse", "cloud")  # (tools that drag a box)
 LINES = ("line", "arrow")
 TEXT_TOOLS = MARKUP + ("replace",)  # (the tools that are dragged over text)
 POLYGONS = ("polygon", "polyline")  # (tools that click point after point)
-CLICKS = ("note", "caret", "stamp", "callout")
+CLICKS = ("note", "caret", "stamp", "callout", "mark")
+MARK_SIZE = 12.0  # points: of a check mark, a cross...
 
 
 def page_image(page: pymupdf.Page, scale: float) -> QImage:
@@ -1420,12 +1421,12 @@ class PageCanvas(QGraphicsView):
             annotation = drag["item"].annot
             self.scene().removeItem(drag["item"])
             r = qrect(annotation.rect)
-            if self.mode == "freetext" and (r.width() < MIN_SIZE * 4 or r.height() < MIN_SIZE * 4):
+            if self.mode in ("freetext", "typewriter") and (r.width() < MIN_SIZE * 4 or r.height() < MIN_SIZE * 4):
                 w, h = FREETEXT_SIZE
                 bounds = page.rect()
                 x = max(min(drag["start"].x(), bounds.right() - w), bounds.left())
                 y = max(min(drag["start"].y(), bounds.bottom() - h), bounds.top())
-                self.drawn.emit(self._new("freetext", n, (round(x, 2), round(y, 2), round(x + w, 2),
+                self.drawn.emit(self._new(self.mode, n, (round(x, 2), round(y, 2), round(x + w, 2),
                                                           round(y + h, 2))))
             elif r.width() >= MIN_SIZE and r.height() >= MIN_SIZE:
                 rounded = tuple(round(v, 2) for v in (r.left(), r.top(), r.right(), r.bottom()))
@@ -1475,6 +1476,12 @@ class PageCanvas(QGraphicsView):
             self.scene().removeItem(drag["item"])
             box = self._callout_box(page, start, self._clamp(page, point))
             self.drawn.emit(self._new("callout", n, box, (((round(start.x(), 2), round(start.y(), 2)),),)))
+            return
+        if self.mode == "mark":  # (a check mark, a cross...: centred where the click was)
+            s = MARK_SIZE / 2
+            x = max(min(start.x(), bounds.right() - s), bounds.left() + s)
+            y = max(min(start.y(), bounds.bottom() - s), bounds.top() + s)
+            self.drawn.emit(self._new("mark", n, (round(x - s, 2), round(y - s, 2), round(x + s, 2), round(y + s, 2))))
             return
         if self.mode == "stamp":
             end = self._clamp(page, point)
