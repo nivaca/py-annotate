@@ -1162,3 +1162,22 @@ def test_signature(window):
     window.draw_signature = lambda: (_ for _ in ()).throw(AssertionError("asked again"))
     click(window, (100, 700))  # (kept: not asked again)
     assert len(window.annotations) == 2
+
+
+def test_find_dialog_steps_and_history(window):
+    """Previous and Next go round the places found; the searches made are remembered."""
+    from py_annotate.gui.finder import FindDialog
+
+    dialog = FindDialog(window)
+    dialog.query.setText("line")
+    dialog.search()
+    assert len(dialog.matches) == 6
+    dialog.step(1)
+    assert dialog.results.currentRow() == 0
+    dialog.step(-1)
+    assert dialog.results.currentRow() == 5  # (round)
+    dialog.step(1)
+    assert dialog.results.currentRow() == 0
+    assert dialog.history[0] == "line"
+    again = FindDialog(window)
+    assert again.history[0] == "line" and again.accents.isChecked()

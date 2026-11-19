@@ -22,7 +22,7 @@ file, so that a signed document keeps its signatures valid for what they
 signed.
 
 It has a window, in English and in Spanish, and works on Linux, Windows and
-macOS. This is version 1.0.7.
+macOS. This is version 1.1.0.
 
 I am Nicolas Vaughan (<nicolasvaughan@proton.me>), and I wrote it in 2026.
 It is free software, under the GNU General Public License, version 3 or
@@ -191,8 +191,14 @@ place for its text, its comment, its properties, or nothing).
 
 Tools > Find and highlight (Ctrl+F) looks for a word, a phrase or a regular
 expression, on all the pages or from the page shown, lists the places found
-with the words around them, and highlights (or underlines, strikes out...)
-all of them, or those chosen.
+with the words around them, goes from one to the next (Previous, Next),
+and highlights (or underlines, strikes out...) all of them, or those chosen.
+A word hyphenated at the end of a line is found whole. It can find without
+minding accents (accion finds acción; caesar, cæsar), with u and v, i and j
+as one letter, as in Latin and medieval texts (iustitia finds justitia), and
+with wildcards (iust* finds iustitia, iustus, iusto; ? is one letter). The
+searches made are offered again as you type. The search of the panel's list
+doesn't mind accents either.
 
 Editing annotations
 -------------------

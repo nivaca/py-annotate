@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
     QToolBar, QToolButton, QVBoxLayout, QWidget,
 )
 
-from .. import __version__, annots, config, conform, exchange, interface, recovery, settings
+from .. import __version__, annots, config, conform, exchange, interface, recovery, search, settings
 from ..annots import (
     FILLED, KINDS, MARKUP, NAMES, STAMPS, STATES, TEXTUAL, AnnotateError, Annotation, PasswordError, Rect, Reply,
     date_text,
@@ -1882,13 +1882,14 @@ class MainWindow(FilesMixin, QMainWindow):
             return False
         if tag and tag not in a.tags or category and category not in a.categories:
             return False
-        words = self.search.text().lower().split()
+        words = search.fold(self.search.text().lower())[0].split()  # (accents not minded)
         if words:
             c = a.critical
             text = " ".join((a.contents, a.author, a.name(), a.layer, self.marked_text(a), " ".join(a.tags),
                              " ".join((c.name(), c.lemma, c.reading, c.witness, c.location, c.source, c.rationale))
                              if c else "",
                              " ".join(a.categories), " ".join(f"{r.author} {r.contents}" for r in a.replies))).lower()
+            text = search.fold(text)[0]
             return all(w in text for w in words)
         return True
 

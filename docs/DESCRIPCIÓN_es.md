@@ -1,4 +1,4 @@
-# py-annotate 1.0.7: descripción
+# py-annotate 1.1.0: descripción
 
 ## Análisis
 
@@ -12,7 +12,7 @@ La especificación pedía además lo que hace útil una herramienta de lectura y
 
 El trabajo con el PDF lo hace PyMuPDF, que lee y escribe cada clase de anotación del estándar. Una anotación es un registro inmutable con su clase, su página, su rectángulo, sus colores, su opacidad, su comentario, su autor, los puntos de sus líneas, sus respuestas, sus etiquetas y sus categorías. Se mide sobre la página tal como se ve, con su giro; al escribirla se pasa a las coordenadas propias de la página.
 
-El programa se divide en módulos pequeños. `annots.py` define la anotación y la respuesta, y lee y escribe las anotaciones; `exchange.py` exporta e importa (JSON, Markdown, CSV, XFDF, otra copia del PDF) y hace las copias aplanadas, sin anotaciones y el resumen de los comentarios; `search.py` busca texto en las páginas; `compare.py` compara dos versiones de un texto, alineando sus palabras con un patience diff (las que aparecen una sola vez en cada una sirven de anclas, y solo los tramos entre ellas se comparan palabra por palabra); `recovery.py` guarda las copias de recuperación; `conform.py` pasa a PDF/A y PDF/X con pdf2iso; `settings.py` y `config.py` guardan la configuración, e `interface.py` traduce la ventana. En `gui/` están la ventana (`window.py`), las páginas con sus anotaciones (`canvas.py`, `paint.py`), el panel de las anotaciones (`listing.py`), buscar y resaltar (`finder.py`), la impresión (`printing.py`), las copias, las exportaciones y las importaciones (`files.py`) y los diálogos.
+El programa se divide en módulos pequeños. `annots.py` define la anotación y la respuesta, y lee y escribe las anotaciones; `exchange.py` exporta e importa (JSON, Markdown, CSV, XFDF, otra copia del PDF) y hace las copias aplanadas, sin anotaciones y el resumen de los comentarios; `search.py` busca texto en las páginas (con comodines, sin distinguir acentos y, si se pide, con u = v, i = j, y uniendo las palabras cortadas al final de línea); `compare.py` compara dos versiones de un texto, alineando sus palabras con un patience diff (las que aparecen una sola vez en cada una sirven de anclas, y solo los tramos entre ellas se comparan palabra por palabra); `recovery.py` guarda las copias de recuperación; `conform.py` pasa a PDF/A y PDF/X con pdf2iso; `settings.py` y `config.py` guardan la configuración, e `interface.py` traduce la ventana. En `gui/` están la ventana (`window.py`), las páginas con sus anotaciones (`canvas.py`, `paint.py`), el panel de las anotaciones (`listing.py`), buscar y resaltar (`finder.py`), la impresión (`printing.py`), las copias, las exportaciones y las importaciones (`files.py`) y los diálogos.
 
 ### Cómo se guardan las anotaciones
 
@@ -50,7 +50,7 @@ Con un documento de 300 páginas y 3000 anotaciones, la primera letra escrita en
 
 ## Validación
 
-Hay 104 pruebas automáticas (`uv run pytest`). Las de las anotaciones escriben una de cada clase en una página normal y en una girada y las vuelven a leer; comprueban que una anotación cambiada conserva su número y las claves de otros programas, que guardar en el documento solo añade a su final, y que se conservan las respuestas, los estados, las etiquetas y las categorías; y pasan todo por JSON y por XFDF y de vuelta.
+Hay 106 pruebas automáticas (`uv run pytest`). Las de las anotaciones escriben una de cada clase en una página normal y en una girada y las vuelven a leer; comprueban que una anotación cambiada conserva su número y las claves de otros programas, que guardar en el documento solo añade a su final, y que se conservan las respuestas, los estados, las etiquetas y las categorías; y pasan todo por JSON y por XFDF y de vuelta.
 
 La ventana se prueba manejándola como lo haría un usuario, con eventos del ratón sobre las páginas: cada herramienta, mover, redimensionar y cambiar la forma, la goma de borrar, el panel y sus filtros, escribir en la página, deshacer después de guardar, guardar cuando otro programa cambió el archivo, las páginas dibujadas en otro proceso sin las anotaciones que la ventana dibuja, y las copias como PDF/A, con un pdf2iso hecho para la prueba que deja fuera los polígonos, como Ghostscript. Una prueba comprueba que cada texto de la ventana tenga su traducción al español, y ninguna otra.
 

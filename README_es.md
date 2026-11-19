@@ -23,7 +23,7 @@ añaden al final del archivo, así que un documento firmado conserva sus
 firmas válidas para lo que firmaron.
 
 Tiene una ventana, en español y en inglés, y funciona en Linux, Windows y
-macOS. Esta es la versión 1.0.7.
+macOS. Esta es la versión 1.1.0.
 
 Soy Nicolas Vaughan (<nicolasvaughan@proton.me>) y lo escribí en 2026. Es
 software libre, bajo la Licencia Pública General de GNU, versión 3 o
@@ -194,8 +194,15 @@ lugar para su texto, su comentario, sus propiedades o nada).
 
 Herramientas > Buscar y resaltar (Ctrl+F) busca una palabra, una frase o una
 expresión regular, en todas las páginas o desde la página que se ve, lista
-los lugares encontrados con las palabras de alrededor y los resalta (o los
-subraya, los tacha…) todos, o los elegidos.
+los lugares encontrados con las palabras de alrededor, pasa de uno al
+siguiente (Anterior, Siguiente) y los resalta (o los subraya, los tacha…)
+todos, o los elegidos. Una palabra cortada con guion al final de una línea
+se encuentra entera. Puede buscar sin distinguir acentos (accion encuentra
+acción; caesar, cæsar), con u y v, i y j como una sola letra, como en los
+textos latinos y medievales (iustitia encuentra justitia), y con comodines
+(iust* encuentra iustitia, iustus, iusto; ? es una letra). Las búsquedas
+hechas se vuelven a ofrecer al escribir. La búsqueda de la lista del panel
+tampoco distingue acentos.
 
 Cómo se editan
 --------------

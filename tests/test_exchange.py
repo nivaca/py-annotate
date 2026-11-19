@@ -298,3 +298,30 @@ def test_compare_long_texts():
     for op, i1, i2, j1, j2 in compare.opcodes(a, b):
         rebuilt += a[i1:i2] if op == "equal" else b[j1:j2]
     assert rebuilt == b
+
+
+def test_search_enhanced(tmp_path):
+    """Words hyphenated at a line's end are found whole; accents, ligatures and (if asked) u/v and i/j
+    are not minded; * and ? are wildcards; the text of the pages read is kept for the next search."""
+    import pymupdf
+
+    from py_annotate.search import find_text, fold
+
+    doc = pymupdf.open()
+    page = doc.new_page()
+    page.insert_text((72, 100), "The question of jus-", fontsize=12)
+    page.insert_text((72, 116), "tice is old. Acción y cæsar.", fontsize=12)
+    page.insert_text((72, 132), "Iustitia est uirtus; justitia, virtus. Iustus, iusto.", fontsize=12)
+    found = find_text(doc, "justice")
+    assert len(found) == 1 and len(found[0].rects) == 2  # (on two lines, one word)
+    assert find_text(doc, "accion") == [] and len(find_text(doc, "accion", accents=True)) == 1
+    assert len(find_text(doc, "caesar", accents=True)) == 1
+    assert len(find_text(doc, "iustitia")) == 1 and len(find_text(doc, "iustitia", uv=True)) == 2
+    assert len(find_text(doc, "virtus", uv=True)) == 2
+    assert {m.text for m in find_text(doc, "iust*", wildcards=True)} == {"Iustitia", "Iustus", "iusto"}
+    assert {m.text for m in find_text(doc, "iust?", wildcards=True, whole_words=True)} == {"iusto"}  # (one letter)
+    assert find_text(doc, "acción", accents=True)[0].text == "Acción"  # (the text found, as it is written)
+    cache: dict = {}
+    find_text(doc, "old", cache=cache)
+    assert 0 in cache and len(find_text(doc, "old", cache=cache)) == 1
+    assert fold("Æneas, ſtrange") == ("AEneas, strange", [0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])

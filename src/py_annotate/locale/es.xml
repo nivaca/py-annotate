@@ -2439,4 +2439,36 @@
     <en>Draw my signature again…</en>
     <tr>Dibujar de nuevo mi firma…</tr>
   </text>
+  <text>
+    <en>Ignore accents</en>
+    <tr>Sin distinguir acentos</tr>
+  </text>
+  <text>
+    <en>accion finds acción; caesar, cæsar</en>
+    <tr>accion encuentra acción; caesar, cæsar</tr>
+  </text>
+  <text>
+    <en>u = v, i = j</en>
+    <tr>u = v, i = j</tr>
+  </text>
+  <text>
+    <en>As in Latin and medieval texts: iustitia finds justitia; uirtus, virtus</en>
+    <tr>Como en los textos latinos y medievales: iustitia encuentra justitia; uirtus, virtus</tr>
+  </text>
+  <text>
+    <en>Wildcards</en>
+    <tr>Comodines</tr>
+  </text>
+  <text>
+    <en>* stands for any letters, ? for one: iust* finds iustitia, iustus, iusto…</en>
+    <tr>* vale por cualesquiera letras, ? por una: iust* encuentra iustitia, iustus, iusto…</tr>
+  </text>
+  <text>
+    <en>Previous</en>
+    <tr>Anterior</tr>
+  </text>
+  <text>
+    <en>Next</en>
+    <tr>Siguiente</tr>
+  </text>
 </interface>

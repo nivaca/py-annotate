@@ -1,21 +1,24 @@
-"""Find and highlight: look for a word, a phrase or a regular expression, on
-all the pages or on the page shown, see where it is, and highlight (or
-underline, strike out...) all the places found, or those chosen."""
+"""Find and highlight: look for a word, a phrase, words with wildcards or a
+regular expression (without minding accents, if asked; with u and v, i and j as
+one, for Latin and medieval texts), on all the pages or on the page shown, go
+from one place found to the next, and highlight (or underline, strike out...)
+all the places found, or those chosen. The searches made are remembered."""
 
 from __future__ import annotations
 
 import re
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSettings, QStringListModel, Qt, Signal
 from PySide6.QtWidgets import (
-    QApplication, QCheckBox, QComboBox, QDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
-    QListWidgetItem, QPushButton, QVBoxLayout,
+    QApplication, QCheckBox, QComboBox, QCompleter, QDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit,
+    QListWidget, QListWidgetItem, QPushButton, QVBoxLayout,
 )
 
 from ..annots import MARKUP, NAMES
 from ..interface import N_, ntr, tr
 from ..search import Match, find_text
 
+HISTORY = 20  # searches remembered
 SCOPES = [("all", N_("All pages")), ("page", N_("This page")), ("from", N_("From this page to the end"))]
 
 
@@ -36,9 +39,27 @@ class FindDialog(QDialog):
         self.query = QLineEdit()
         self.query.setPlaceholderText(tr("Text to find"))
         self.query.returnPressed.connect(self.search)
+        self.settings = QSettings()
+        self.history = [h for h in (self.settings.value("find_history", []) or []) if isinstance(h, str)][:HISTORY]
+        self.history_model = QStringListModel(self.history)
+        completer = QCompleter(self.history_model, self)
+        completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        self.query.setCompleter(completer)
         self.case = QCheckBox(tr("Match case"))
         self.whole = QCheckBox(tr("Whole words"))
         self.regex = QCheckBox(tr("Regular expression"))
+        self.accents = QCheckBox(tr("Ignore accents"))
+        self.accents.setToolTip(tr("accion finds acción; caesar, cæsar"))
+        self.uv = QCheckBox(tr("u = v, i = j"))
+        self.uv.setToolTip(tr("As in Latin and medieval texts: iustitia finds justitia; uirtus, virtus"))
+        self.wildcards = QCheckBox(tr("Wildcards"))
+        self.wildcards.setToolTip(tr("* stands for any letters, ? for one: iust* finds iustitia, iustus, iusto…"))
+        for box, key, usual in ((self.accents, "find_accents", True), (self.uv, "find_uv", False),
+                                (self.wildcards, "find_wildcards", True)):
+            box.setChecked(self.settings.value(key, usual, type=bool))
+            box.toggled.connect(lambda on, k=key: self.settings.setValue(k, on))
+        self.cache: dict = {}  # (the text of the pages read: see find_text)
+        self.cache_doc = None
         self.scope = QComboBox()
         for value, name in SCOPES:
             self.scope.addItem(tr(name), value)
@@ -64,15 +85,26 @@ class FindDialog(QDialog):
         for box in (self.case, self.whole, self.regex):
             options.addWidget(box)
         options.addStretch(1)
+        more = QHBoxLayout()
+        for box in (self.accents, self.uv, self.wildcards):
+            more.addWidget(box)
+        more.addStretch(1)
+        self.previous = QPushButton(tr("Previous"))
+        self.previous.clicked.connect(lambda: self.step(-1))
+        self.next = QPushButton(tr("Next"))
+        self.next.clicked.connect(lambda: self.step(1))
         form = QFormLayout()
         row = QHBoxLayout()
         row.addWidget(self.query, 1)
         row.addWidget(self.find_button)
         form.addRow(tr("Find:"), row)
         form.addRow("", options)
+        form.addRow("", more)
         form.addRow(tr("Where:"), self.scope)
         form.addRow(tr("Mark as:"), self.kind)
         buttons = QHBoxLayout()
+        buttons.addWidget(self.previous)
+        buttons.addWidget(self.next)
         buttons.addWidget(self.mark_all)
         buttons.addWidget(self.mark_chosen)
         buttons.addStretch(1)
@@ -97,7 +129,22 @@ class FindDialog(QDialog):
     def _match(self, item: QListWidgetItem) -> Match:
         return self.matches[item.data(Qt.ItemDataRole.UserRole)]
 
+    def step(self, by: int):
+        """Show the place found BY places after (or before) the one shown, going round."""
+        if not self.matches:
+            return
+        row = self.results.currentRow()
+        row = (row + by) % len(self.matches) if row >= 0 else (0 if by > 0 else len(self.matches) - 1)
+        self.results.setCurrentRow(row)
+
+    def _remember(self, query: str):
+        self.history = [query] + [h for h in self.history if h != query][:HISTORY - 1]
+        self.history_model.setStringList(self.history)
+        self.settings.setValue("find_history", self.history)
+
     def _enable(self):
+        self.previous.setEnabled(len(self.matches) > 1 and not self.searching)
+        self.next.setEnabled(len(self.matches) > 1 and not self.searching)
         self.mark_all.setEnabled(bool(self.matches) and not self.searching)
         self.mark_chosen.setEnabled(bool(self.matches) and not self.searching)
 
@@ -132,8 +179,14 @@ class FindDialog(QDialog):
 
         error = ""
         try:
+            if self.cache_doc is not doc:  # (another document: its pages are read again)
+                self.cache, self.cache_doc = {}, doc
             self.matches = find_text(doc, self.query.text(), self.pages(), self.case.isChecked(),
-                                     self.whole.isChecked(), self.regex.isChecked(), progress)
+                                     self.whole.isChecked(), self.regex.isChecked(), progress,
+                                     accents=self.accents.isChecked(), uv=self.uv.isChecked(),
+                                     wildcards=self.wildcards.isChecked() and not self.regex.isChecked(),
+                                     cache=self.cache)
+            self._remember(self.query.text().strip())
         except re.error as e:
             error = tr("The regular expression is not right: {error}", error=e)
             self.matches = []
