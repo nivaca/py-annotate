@@ -40,7 +40,7 @@ ACTION_NAMES = {"select": N_("Select"), "hand": N_("Hand"), "eraser": N_("Eraser
                 "comment": N_("Comment on the annotation selected"), "next": N_("Next annotation"),
                 "previous": N_("Previous annotation"), "copy": N_("Copy"), "paste": N_("Paste"),
                 "duplicate": N_("Duplicate"), "properties": N_("Properties"),
-                "group": N_("Group"), "ungroup": N_("Ungroup")}
+                "group": N_("Group"), "ungroup": N_("Ungroup"), "replace": N_("Replace text")}
 
 
 def action_name(action: str) -> str:

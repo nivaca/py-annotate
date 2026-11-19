@@ -52,7 +52,9 @@ TOOLS = [
      ("underline", "format-text-underline", N_("Drag over text to underline it")),
      ("strikeout", "format-text-strikethrough", N_("Drag over text to strike it out")),
      ("squiggly", "format-text-underline-squiggle", N_("Drag over text to underline it with a wavy line")),
-     ("caret", "insert-text", N_("Click where text should be inserted, and write it"))],
+     ("caret", "insert-text", N_("Click where text should be inserted, and write it")),
+     ("replace", "replace-text", N_("Drag over text to replace it: it is struck out, and the new text written at "
+                                    "its end"))],
     [("note", "note", N_("Click on the page to add a note")),
      ("freetext", "draw-text", N_("Drag a box on the page (or click) to write a text in it")),
      ("callout", "draw-callout", N_("Press on the place to point at, and drag to where its text goes")),
@@ -67,7 +69,7 @@ TOOLS = [
      ("ink", "draw-freehand", N_("Draw on the page by hand (with a tablet's pen, pressing harder draws wider)")),
      ("marker", "draw-marker", N_("Highlight by hand, where there is no text to drag over"))],
 ]
-TOOL_NAMES = {"select": N_("Select"), "hand": N_("Hand"), "eraser": N_("Eraser")}
+TOOL_NAMES = {"select": N_("Select"), "hand": N_("Hand"), "eraser": N_("Eraser"), "replace": N_("Replace text")}
 SORTS = {"page": N_("By page"), "changed": N_("Last changed first"), "kind": N_("By kind"),
          "author": N_("By author"), "status": N_("By status")}
 _CLIPBOARD: list[Annotation] = []  # (annotations copied, for all the windows)
@@ -1006,6 +1008,12 @@ class MainWindow(FilesMixin, QMainWindow):
     def text_done(self, index: int, annotation: Annotation):
         """The text of ANNOTATION, written on the page: a new one (INDEX -1), or the one at INDEX."""
         if index < 0:
+            struck, self._replacing = getattr(self, "_replacing", None), None
+            if struck is not None and annotation.group == struck.group:  # (a replacement: the mark and its strikeout)
+                if annotation.contents.strip():
+                    n = len(self.annotations)
+                    self.change(self.annotations + [annotation, struck], [n, n + 1])
+                return
             if annotation.contents.strip():
                 self.add(annotation)
             return
@@ -1016,8 +1024,30 @@ class MainWindow(FilesMixin, QMainWindow):
 
     def add_markup(self, page: int, rects: list[Rect], kind: str | None = None):
         """A highlight (or the kind of markup of the tool) over the lines of text RECTS of PAGE."""
-        kind = kind or (self.canvas.mode if self.canvas.mode in MARKUP else "highlight")
+        kind = kind or (self.canvas.mode if self.canvas.mode in MARKUP + ("replace",) else "highlight")
+        if kind == "replace":
+            self.replace_text(page, rects)
+            return
         self.add(self.new_annotation(kind, page, annots.union(rects), quads=tuple(rects)))
+
+    def replace_text(self, page: int, rects: list[Rect], text: str | None = None):
+        """Propose a replacement for the text under RECTS of PAGE: it is struck out, and an insert-text
+        mark at its end holds TEXT (or what is written there), the two one group, as PDF programs
+        write it (the mark answers nothing: the strikeout is in its group, /IT /StrikeOutTextEdit, and
+        the mark has /IT /Replace)."""
+        group = uuid.uuid4().hex[:12]
+        struck = dataclasses.replace(self.new_annotation("strikeout", page, annots.union(rects), quads=tuple(rects)),
+                                     intent="StrikeOutTextEdit", group=group)
+        x, bottom = rects[-1][2], rects[-1][3]
+        w, h = annots.CARET_SIZE
+        caret = dataclasses.replace(self.new_annotation("caret", page, (x - w / 2, bottom - h / 2, x + w / 2,
+                                                                         bottom + h / 2)),
+                                    intent="Replace", group=group, contents=text or "")
+        self._replacing = struck
+        if text is None:
+            self.canvas.edit_text(caret, -1)
+        else:
+            self.text_done(-1, caret)
 
     def double_clicked(self, index: int, page: int, point: tuple):
         """An annotation: its text, written on the page (a text box, a note...), or its properties.

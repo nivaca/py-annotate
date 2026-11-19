@@ -281,7 +281,7 @@ freehand highlight was never drawn in the window, only in the file.
 Testing
 -------
 
-The program has 96 tests (`uv run pytest`). The tests of the annotations
+The program has 97 tests (`uv run pytest`). The tests of the annotations
 write one of each kind on a plain page and on a turned one and read them
 back, and also text boxes with formatted text and groups made here or by
 another program; check that a changed annotation keeps its number and the keys of

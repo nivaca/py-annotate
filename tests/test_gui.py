@@ -1030,3 +1030,29 @@ def test_pen_dots_and_freehand_highlight(window, monkeypatch):
     paint(p, marker)
     p.end()
     assert image.pixelColor(200, 600) != image.pixelColor(200, 700)  # (it is there, where it was drawn)
+
+
+def test_replace_text(window, sample):
+    """Replace text strikes out what it is dragged over and writes the new text in an insert-text mark
+    at its end, the two one group; written as PDF programs write it, and read back so."""
+    window.set_tool("replace")
+    window.typed = "Primera línea"
+    drag(window, (75, 95), (140, 100))
+    assert len(window.annotations) == 2
+    caret, struck = window.annotations
+    assert (caret.kind, caret.intent, caret.contents) == ("caret", "Replace", "Primera línea")
+    assert (struck.kind, struck.intent) == ("strikeout", "StrikeOutTextEdit")
+    assert caret.group == struck.group and caret.name() == "Replacement"
+    assert "First" in window.marked_text(struck)
+    assert abs(caret.rect[0] + annots.CARET_SIZE[0] / 2 - struck.quads[-1][2]) < 1  # (at the end of the text)
+    assert window.save()
+    doc = annots.open_pdf(sample)
+    got = annots.read(doc)
+    assert sorted((a.kind, a.intent) for a in got) == [("caret", "Replace"), ("strikeout", "StrikeOutTextEdit")]
+    first = next(a for a in got if a.kind == "caret")  # (written first: the one the other answers)
+    other = next(a for a in got if a.kind == "strikeout")
+    assert doc.xref_get_key(other.xref, "IRT")[1] == f"{first.xref} 0 R"
+    assert doc.xref_get_key(other.xref, "RT")[1] == "/Group"
+    window.typed = None  # (given up: nothing is made)
+    drag(window, (75, 120), (140, 125))
+    assert len(window.annotations) == 2

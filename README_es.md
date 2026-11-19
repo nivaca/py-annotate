@@ -23,7 +23,7 @@ añaden al final del archivo, así que un documento firmado conserva sus
 firmas válidas para lo que firmaron.
 
 Tiene una ventana, en español y en inglés, y funciona en Linux, Windows y
-macOS. Esta es la versión 1.0.3.
+macOS. Esta es la versión 1.0.4.
 
 Soy Nicolas Vaughan (<nicolasvaughan@proton.me>) y lo escribí en 2026. Es
 software libre, bajo la Licencia Pública General de GNU, versión 3 o
@@ -134,6 +134,7 @@ su tecla (las teclas se pueden cambiar: véase «Configuración»):
 | Tachado                   | S       | arrastrar sobre el texto                                       |
 | Subrayado ondulado        | Q       | arrastrar sobre el texto                                       |
 | Insertar texto            | I       | hacer clic donde falta texto, y escribirlo                     |
+| Reemplazar texto          | Mayús+I | arrastrar sobre el texto: se tacha, y el nuevo se escribe a su final |
 | Nota                      | N       | hacer clic en la página, y escribir la nota                    |
 | Cuadro de texto           | T       | arrastrar un recuadro (o hacer clic) y escribir el texto       |
 | Llamada                   | Mayús+T | pulsar en el lugar señalado y arrastrar hasta donde va el texto |
@@ -151,7 +152,10 @@ su tecla (las teclas se pueden cambiar: véase «Configuración»):
 El texto de un cuadro de texto, una llamada, una nota o una marca de
 insertar texto se escribe en la página, donde va: Ctrl+Intro, o un clic en
 otro sitio, lo guarda, y Escape lo descarta. Con doble clic sobre una de
-ellas se vuelve a escribir su texto. En un cuadro de texto o una llamada,
+ellas se vuelve a escribir su texto. Reemplazar texto propone una
+corrección como la escriben los programas de PDF: un tachado y una marca de
+insertar texto con el texto nuevo, en un grupo, que otros visores muestran
+como un reemplazo. En un cuadro de texto o una llamada,
 Ctrl+B, Ctrl+I y Ctrl+U ponen el texto elegido en negrita, en cursiva o
 subrayado, y el menú del clic derecho le da otro color u otra letra (Helvetica, Times o Courier); el
 borde puede tener un color propio, en las propiedades.

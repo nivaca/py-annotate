@@ -22,7 +22,7 @@ file, so that a signed document keeps its signatures valid for what they
 signed.
 
 It has a window, in English and in Spanish, and works on Linux, Windows and
-macOS. This is version 1.0.3.
+macOS. This is version 1.0.4.
 
 I am Nicolas Vaughan (<nicolasvaughan@proton.me>), and I wrote it in 2026.
 It is free software, under the GNU General Public License, version 3 or
@@ -131,6 +131,7 @@ Choose a tool in the second toolbar, in the Tools menu, or with its key
 | Strikeout          | S       | drag over text                                               |
 | Squiggly underline | Q       | drag over text                                               |
 | Insert text        | I       | click where text is missing, and write it                     |
+| Replace text       | Shift+I | drag over text: it is struck out, and the new text written at its end |
 | Note               | N       | click on the page, and write the note                         |
 | Text box           | T       | drag a box, or click, and write the text                      |
 | Callout            | Shift+T | press on the place to point at, drag to where the text goes   |
@@ -148,6 +149,9 @@ Choose a tool in the second toolbar, in the Tools menu, or with its key
 The text of a text box, a callout, a note or an insert-text mark is written
 on the page, where it goes: Ctrl+Enter, or a click elsewhere, keeps it, and
 Escape gives it up. A double-click on one of them writes its text again.
+Replace text proposes a correction as PDF programs write it: a strikeout
+and an insert-text mark holding the new text, one group, which other
+viewers show as a replacement.
 In a text box or a callout, Ctrl+B, Ctrl+I and Ctrl+U make the chosen text
 bold, italic or underlined, and the right-click menu gives it another colour
 or font (Helvetica, Times or Courier); the border can have a colour of its

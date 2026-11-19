@@ -201,11 +201,16 @@ class Annotation:
     group: str = ""
     critical: Critical | None = None  # an entry of textual criticism, if it has one
     other: str = ""  # of an annotation of another kind (OTHER): its kind, as the PDF names it ('Link'...)
+    # what a mark over text, or an insert-text mark, means (the PDF's /IT): 'Replace' (an insert-text mark
+    # holding the text that replaces what its group strikes out), 'StrikeOutTextEdit' (that strikeout); '' none
+    intent: str = ""
     layer: str = ""  # the name of its layer (the PDF's optional content, which viewers show or hide); '' for none
     replies: tuple[Reply, ...] = ()  # in the order they were made
     xref: int = 0  # of the annotation in the document it was read from; 0 if new
 
     def name(self) -> str:
+        if self.kind == "caret" and self.intent == "Replace":
+            return tr("Replacement")
         if self.kind == OTHER:
             return tr(OTHER_NAMES[self.other]) if self.other in OTHER_NAMES else self.other
         return tr(NAMES[self.kind])
@@ -624,6 +629,9 @@ def read_annotation(doc: pymupdf.Document, page: pymupdf.Page, annot: pymupdf.An
               "categories": _labels(_pdf_text(doc, annot.xref, CATEGORIES_KEY)), "xref": annot.xref,
               "critical": critical_of(_pdf_text(doc, annot.xref, CRITICAL_KEY)),
               "layer": _layer_of(doc, annot.xref),
+              "intent": doc.xref_get_key(annot.xref, "IT")[1].lstrip("/")
+              if annot.type[0] in (pymupdf.PDF_ANNOT_CARET, pymupdf.PDF_ANNOT_STRIKE_OUT)
+              and doc.xref_get_key(annot.xref, "IT")[0] == "name" else "",
               "group": _pdf_text(doc, annot.xref, GROUP_KEY)
               or (f"#{_irt(doc, annot.xref)}" if _grouped(doc, annot.xref) else "")}
     vertices = annot.vertices or []
@@ -932,6 +940,8 @@ def _labels_keys(doc: pymupdf.Document, xref: int, a: Annotation) -> None:
     for key, values in ((TAGS_KEY, a.tags), (CATEGORIES_KEY, a.categories)):
         doc.xref_set_key(xref, key, pymupdf.get_pdf_str(", ".join(values)) if values else "null")
     doc.xref_set_key(xref, GROUP_KEY, pymupdf.get_pdf_str(a.group) if a.group else "null")
+    if a.kind in ("caret", "strikeout"):
+        doc.xref_set_key(xref, "IT", f"/{a.intent}" if re.fullmatch(r"[A-Za-z]+", a.intent) else "null")
     if a.layer != _layer_of(doc, xref):
         doc.xref_set_key(xref, "OC", f"{layer_xref(doc, a.layer)} 0 R" if a.layer else "null")
     entry = json.dumps({k: v for k, v in dataclasses.asdict(a.critical).items() if v}, ensure_ascii=False) \

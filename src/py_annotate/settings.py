@@ -109,7 +109,7 @@ SHORTCUTS = {
     "rect": "R", "ellipse": "O", "polygon": "G", "cloud": "Shift+G", "line": "L", "arrow": "A",
     "polyline": "Shift+L", "ink": "P", "stamp": "Shift+S", "comment": "C", "next": "Alt+Down",
     "previous": "Alt+Up", "marker": "Shift+P", "copy": "Ctrl+C", "paste": "Ctrl+V", "duplicate": "Ctrl+D", "properties": "Alt+Return",
-    "group": "Ctrl+G", "ungroup": "Ctrl+Shift+G",
+    "group": "Ctrl+G", "ungroup": "Ctrl+Shift+G", "replace": "Shift+I",
 }
 
 

@@ -49,6 +49,7 @@ FREETEXT_SIZE = (180.0, 40.0)  # points: a text box made by a click
 NOTE_EDITOR = (220.0, 110.0)  # points: the field where the text of a note is written
 BOXES = ("freetext", "area", "rect", "ellipse", "cloud")  # (tools that drag a box)
 LINES = ("line", "arrow")
+TEXT_TOOLS = MARKUP + ("replace",)  # (the tools that are dragged over text)
 POLYGONS = ("polygon", "polyline")  # (tools that click point after point)
 CLICKS = ("note", "caret", "stamp", "callout")
 
@@ -1072,7 +1073,7 @@ class PageCanvas(QGraphicsView):
         if not self.editable or page is None:
             return
         item, _ = self._hit(event.position().toPoint())
-        if item is not None and self.mode in MARKUP and item.annot.kind in MARKUP:
+        if item is not None and self.mode in TEXT_TOOLS and item.annot.kind in MARKUP:
             item = None  # (with a markup tool, the word under a mark is marked too)
         self._remove_drag_items()
         self._drag = None
@@ -1113,7 +1114,7 @@ class PageCanvas(QGraphicsView):
         item, edges = self._hit(pos)
         shift = bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
         n = page.number
-        if self.mode in MARKUP and (item is None or item.annot.kind in MARKUP or shift):
+        if self.mode in TEXT_TOOLS and (item is None or item.annot.kind in MARKUP or shift):
             # (over a mark, dragging marks text too; a click selects the mark)
             self._drag = {"kind": "text", "page": page, "start": point, "marks": [], "candidate": item}
             if item is None:
@@ -1222,9 +1223,9 @@ class PageCanvas(QGraphicsView):
                     shape = Qt.CursorShape.ArrowCursor
                 elif self.mode == "eraser":
                     shape = Qt.CursorShape.CrossCursor
-                elif item is not None and not (self.mode in MARKUP and item.annot.kind in MARKUP):
+                elif item is not None and not (self.mode in TEXT_TOOLS and item.annot.kind in MARKUP):
                     shape = self._cursor(edges, item.movable())
-                elif self.mode in MARKUP:
+                elif self.mode in TEXT_TOOLS:
                     shape = Qt.CursorShape.IBeamCursor if self.near_text(page.number, point) \
                         else Qt.CursorShape.ArrowCursor
                 elif self.mode != "select":

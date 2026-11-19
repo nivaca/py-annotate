@@ -2287,4 +2287,16 @@
     <en>Along each stroke (cut into pieces of different widths)</en>
     <tr>A lo largo de cada trazo (cortado en trozos de grosores distintos)</tr>
   </text>
+  <text>
+    <en>Replace text</en>
+    <tr>Reemplazar texto</tr>
+  </text>
+  <text>
+    <en>Replacement</en>
+    <tr>Reemplazo</tr>
+  </text>
+  <text>
+    <en>Drag over text to replace it: it is struck out, and the new text written at its end</en>
+    <tr>Arrastre sobre el texto para reemplazarlo: se tacha, y el texto nuevo se escribe a su final</tr>
+  </text>
 </interface>
