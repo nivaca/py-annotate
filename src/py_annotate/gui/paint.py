@@ -198,6 +198,19 @@ def paint(p: QPainter, a: Annotation, thumbnail: bool = False) -> None:
         p.drawPath(path)
     elif a.kind == "note":
         _note(p, qrect(a.rect), color, a.icon)
+    elif a.kind == "attachment":  # (a paperclip)
+        r = qrect(a.rect)
+        p.setPen(_pen(a.color, max(r.width() / 10, 1)))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        clip = QPainterPath()
+        x, y, w, h = r.left(), r.top(), r.width(), r.height()
+        clip.moveTo(x + w * 0.62, y + h * 0.30)
+        clip.lineTo(x + w * 0.62, y + h * 0.72)
+        clip.arcTo(QRectF(x + w * 0.30, y + h * 0.60, w * 0.32, h * 0.30), 0, -180)
+        clip.lineTo(x + w * 0.30, y + h * 0.22)
+        clip.arcTo(QRectF(x + w * 0.30, y + h * 0.05, w * 0.46, h * 0.34), 180, -180)
+        clip.lineTo(x + w * 0.76, y + h * 0.70)
+        p.drawPath(clip)
     elif a.kind in ("freetext", "callout"):
         r = qrect(a.rect)
         if a.kind == "callout" and a.paths:

@@ -60,6 +60,9 @@ TOOLS = [
      ("callout", "draw-callout", N_("Press on the place to point at, and drag to where its text goes")),
      ("typewriter", "typewriter", N_("Click on the page and write there, as with a typewriter: no box, no "
                                      "border")),
+     ("signature", "signature", N_("Click where your signature goes (drawn once, by hand: right-click the tool "
+                                   "to draw it again)")),
+     ("attachment", "mail-attachment", N_("Click where a file is to be attached, and choose it")),
      ("mark", "check-mark", N_("Click to put a check mark, a cross, a dot or a dash, as on a form (right-click "
                                "the tool to choose it)")),
      ("stamp", "stamp", N_("Click on the page to put a stamp (right-click the tool to choose it)"))],
@@ -74,7 +77,7 @@ TOOLS = [
      ("marker", "draw-marker", N_("Highlight by hand, where there is no text to drag over"))],
 ]
 TOOL_NAMES = {"select": N_("Select"), "hand": N_("Hand"), "eraser": N_("Eraser"), "replace": N_("Replace text"),
-              "typewriter": N_("Typewriter"), "mark": N_("Check mark")}
+              "typewriter": N_("Typewriter"), "mark": N_("Check mark"), "signature": N_("Signature")}
 # the marks of the Check mark tool, drawn in a square of side 1: strokes (a drawing), or None (a dot: a disc)
 MARKS = {"check": (N_("Check mark ✓"), (((0.1, 0.55), (0.4, 0.85), (0.9, 0.15)),)),
          "cross": (N_("Cross ✕"), (((0.15, 0.15), (0.85, 0.85)), ((0.85, 0.15), (0.15, 0.85)))),
@@ -878,6 +881,8 @@ class MainWindow(FilesMixin, QMainWindow):
                 act.setChecked(bool(custom))
             menu.addSeparator()
             menu.addAction(tr("Properties of the tool…"), lambda: self.tool_dialog(tool))
+        if tool == "signature":
+            menu.addAction(tr("Draw my signature again…"), self.draw_signature)
         if tool == "mark":
             for key, (name, _) in MARKS.items():
                 act = menu.addAction(tr(name), lambda k=key: self.set_mark(k))
@@ -979,6 +984,8 @@ class MainWindow(FilesMixin, QMainWindow):
             return dataclasses.replace(a, width=0, fill="", intent=annots.TYPEWRITER)
         if kind == "mark":
             return self._mark(page, rect)
+        if kind == "signature":
+            return self._signature(page, rect)
         style = self.prefs.style(kind)
         a = Annotation(kind, page, rect, style.color, fill=style.fill if kind in FILLED else "",
                        opacity=style.opacity, width=style.width, author=self.prefs.author,
@@ -988,6 +995,66 @@ class MainWindow(FilesMixin, QMainWindow):
         if kind == "stamp":
             a = self._stamp(a, style)
         return a
+
+    SIGNATURE_WIDTH = 120.0  # points
+
+    def _signature(self, page: int, rect: Rect) -> Annotation:
+        """The signature kept (see gui/signature.py), as a drawing SIGNATURE_WIDTH wide, its top left
+        corner at RECT's (or an empty drawing, if there is none yet)."""
+        from . import signature
+
+        style = self.prefs.style("ink")
+        x0, y0 = rect[0], rect[1]
+        s = self.SIGNATURE_WIDTH
+        paths = tuple(tuple((round(x0 + u * s, 2), round(y0 + v * s, 2)) for u, v in stroke)
+                      for stroke in signature.load(self.settings))
+        width = max(style.width, 1.2)
+        return Annotation("ink", page, annots.frame("ink", paths, width) if paths else rect, style.color, width=width,
+                          paths=paths, author=self.prefs.author, contents=tr("Signature"), layer=self.layer)
+
+    def draw_signature(self) -> bool:
+        """Draw the signature again (Signature tool, right-click)."""
+        from . import signature
+
+        dialog = signature.SignatureDialog(self)
+        if dialog.exec() != QDialog.DialogCode.Accepted or not dialog.strokes():
+            return False
+        signature.store(self.settings, dialog.strokes())
+        self.status(tr("Signature kept: click with the Signature tool where it goes"))
+        return True
+
+    def ask_attachment(self) -> Path | None:
+        name, _ = QFileDialog.getOpenFileName(self, tr("Attach a file"), self.last_dir())
+        return Path(name) if name else None
+
+    def save_attachment(self, a: Annotation, target: Path | None = None) -> Path | None:
+        """Save the file attached in A (as TARGET, or where the user says)."""
+        if target is None:
+            name, _ = QFileDialog.getSaveFileName(self, tr("Save the attached file"),
+                                                  str(Path(self.last_dir()) / (a.filename or "file")))
+            if not name:
+                return None
+            target = Path(name)
+        try:
+            target.write_bytes(a.data)
+        except OSError as e:
+            self.status(tr("{path} cannot be written: {error}", path=target, error=e), error=True)
+            return None
+        self.status(tr("Saved {path}", path=target))
+        return target
+
+    def open_attachment(self, a: Annotation):
+        """Open the file attached in A with the program the desktop opens such files with (a copy of it,
+        in a folder of its own)."""
+        import tempfile
+
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+
+        folder = Path(tempfile.mkdtemp(prefix="py-annotate-"))
+        path = self.save_attachment(a, folder / Path(a.filename or "file").name)
+        if path is not None:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
 
     def _mark(self, page: int, rect: Rect) -> Annotation:
         """The mark chosen for the Check mark tool (see MARKS) in RECT: a drawing, or a disc for a dot,
@@ -1046,7 +1113,22 @@ class MainWindow(FilesMixin, QMainWindow):
 
     def add_drawn(self, annotation: Annotation):
         """An annotation drawn on a page; a text box, a callout, a note or a caret has its text written
-        first, on the page (if its tool says so: see text_done)."""
+        first, on the page (if its tool says so: see text_done); an attached file, its file chosen."""
+        if annotation.kind == "ink" and annotation.contents == tr("Signature") and not annotation.paths:
+            if not self.draw_signature():  # (none yet: drawn first)
+                return
+            annotation = self._signature(annotation.page, annotation.rect)
+        if annotation.kind == "attachment":
+            path = self.ask_attachment()
+            if path is None:
+                return
+            try:
+                data = path.read_bytes()
+            except OSError as e:
+                self.status(tr("{path} cannot be read: {error}", path=path, error=e), error=True)
+                return
+            annotation = dataclasses.replace(annotation, data=data, filename=path.name, icon="Paperclip",
+                                             contents=annotation.contents or path.name)
         if annotation.kind in TEXTUAL + ("note", "caret") and self.prefs.style(annotation.kind).show == "text":
             self.canvas.edit_text(annotation, -1)
             return
@@ -1504,6 +1586,9 @@ class MainWindow(FilesMixin, QMainWindow):
                     act = menu.addAction(tr("Copy it as a quotation"), lambda: QApplication.clipboard().setText(
                         exchange.quotation(self.doc, chosen[0], self.path.name if self.path else "")))
                     act.setToolTip(tr("The text marked, in quotation marks, with the document and its page"))
+            if len(chosen) == 1 and chosen[0].kind == "attachment" and chosen[0].data:
+                menu.addAction(tr("Open the attached file"), lambda: self.open_attachment(chosen[0]))
+                menu.addAction(tr("Save the attached file…"), lambda: self.save_attachment(chosen[0]))
             if len(chosen) == 1 and chosen[0].kind in TEXTUAL + ("note", "caret") and not chosen[0].locked:
                 menu.addAction(tr("Write its text…"), lambda: self.canvas.edit_text(chosen[0], self.selected[0]))
             status = menu.addMenu(tr("Status"))

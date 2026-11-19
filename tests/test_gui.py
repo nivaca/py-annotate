@@ -745,20 +745,20 @@ def test_textual_criticism_in_the_window(window):
 
 
 def test_other_kinds_listed_not_changed(app, sample, tmp_path, monkeypatch):
-    """A link and an attached file are listed, but are neither deleted, changed nor copied; saving
+    """A link and a redaction mark are listed, but are neither deleted, changed nor copied; saving
     keeps them as they were."""
     import pymupdf
 
     monkeypatch.setenv("HOME", str(tmp_path))
     doc = pymupdf.open(sample)
-    doc[0].add_file_annot((300, 300), b"data", "data.txt")
+    doc[0].add_redact_annot((300, 300, 400, 320))
     doc[0].insert_link({"kind": pymupdf.LINK_URI, "from": pymupdf.Rect(60, 60, 200, 80), "uri": "https://example.org"})
     path = tmp_path / "linked.pdf"
     doc.save(path)
     w = MainWindow()
     w.ask_recover = lambda when: False
     assert w.open_path(path)
-    assert sorted(a.name() for a in w.annotations) == ["Attached file", "Link"]
+    assert sorted(a.name() for a in w.annotations) == ["Link", "Redaction mark"]
     assert len(w._rows) == 2
     w.pick([0, 1], False)
     w.delete_selected()
@@ -770,7 +770,7 @@ def test_other_kinds_listed_not_changed(app, sample, tmp_path, monkeypatch):
     drag(w, (100, 400), (150, 440))
     assert w.save()
     out = annots.open_pdf(path)
-    assert sorted(a.other for a in annots.read(out) if a.kind == "other") == ["FileAttachment", "Link"]
+    assert sorted(a.other for a in annots.read(out) if a.kind == "other") == ["Link", "Redact"]
     assert out[0].get_links()[0]["uri"] == "https://example.org"
     w.annotations = w.saved = []
     w.close()
@@ -1108,3 +1108,57 @@ def test_typewriter_and_marks(window, sample):
     assert got[0].intent == "FreeTextTypeWriter" and got[0].name() == "Typewriter"
     doc = annots.open_pdf(sample)
     assert doc.xref_get_key(got[0].xref, "IT")[1] == "/FreeTextTypeWriter"
+
+
+def test_attach_a_file(window, sample, tmp_path):
+    """The attach tool puts the file chosen where the click was; it can be saved again."""
+    source = tmp_path / "notes.txt"
+    source.write_bytes(b"my notes")
+    window.ask_attachment = lambda: source
+    window.set_tool("attachment")
+    click(window, (300, 600))
+    a = window.annotations[0]
+    assert (a.kind, a.data, a.filename, a.contents) == ("attachment", b"my notes", "notes.txt", "notes.txt")
+    out = window.save_attachment(a, tmp_path / "copy.txt")
+    assert out.read_bytes() == b"my notes"
+    window.ask_attachment = lambda: None  # (given up: nothing)
+    click(window, (400, 600))
+    assert len(window.annotations) == 1
+    assert window.save()
+    assert annots.read(annots.open_pdf(sample))[0].data == b"my notes"
+
+
+def test_signature(window):
+    """The signature drawn once is kept and put where the Signature tool is clicked, as a drawing
+    120 points wide; with none kept yet, it is asked for first (and nothing is put if it is not given)."""
+    from PySide6.QtGui import QMouseEvent
+
+    from py_annotate.gui import signature
+
+    window.settings.remove(signature.KEY)
+    window.draw_signature = lambda: False  # (none drawn: nothing)
+    window.set_tool("signature")
+    click(window, (100, 600))
+    assert window.annotations == []
+
+    pad = signature.Pad()
+    for kind, x, y in ((QEvent.Type.MouseButtonPress, 10, 50), (QEvent.Type.MouseMove, 60, 20),
+                       (QEvent.Type.MouseMove, 110, 60), (QEvent.Type.MouseMove, 210, 30)):
+        event = QMouseEvent(kind, QPointF(x, y), QPointF(x, y), Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton,
+                            Qt.KeyboardModifier.NoModifier)
+        (pad.mousePressEvent if kind == QEvent.Type.MouseButtonPress else pad.mouseMoveEvent)(event)
+    assert len(pad.strokes) == 1 and len(pad.strokes[0]) == 4
+
+    def drawn():
+        signature.store(window.settings, pad.strokes)
+        return True
+
+    window.draw_signature = drawn
+    click(window, (100, 600))
+    a = window.annotations[0]
+    assert a.kind == "ink" and len(a.paths) == 1 and len(a.paths[0]) == 4
+    xs = [x for x, _ in a.paths[0]]
+    assert abs(min(xs) - 100) < 1 and abs(max(xs) - min(xs) - window.SIGNATURE_WIDTH) < 1
+    window.draw_signature = lambda: (_ for _ in ()).throw(AssertionError("asked again"))
+    click(window, (100, 700))  # (kept: not asked again)
+    assert len(window.annotations) == 2

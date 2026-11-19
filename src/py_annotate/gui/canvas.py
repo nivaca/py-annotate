@@ -51,7 +51,7 @@ BOXES = ("freetext", "typewriter", "area", "rect", "ellipse", "cloud")  # (tools
 LINES = ("line", "arrow")
 TEXT_TOOLS = MARKUP + ("replace",)  # (the tools that are dragged over text)
 POLYGONS = ("polygon", "polyline")  # (tools that click point after point)
-CLICKS = ("note", "caret", "stamp", "callout", "mark")
+CLICKS = ("note", "caret", "stamp", "callout", "mark", "attachment", "signature")
 MARK_SIZE = 12.0  # points: of a check mark, a cross...
 
 
@@ -1477,6 +1477,9 @@ class PageCanvas(QGraphicsView):
             box = self._callout_box(page, start, self._clamp(page, point))
             self.drawn.emit(self._new("callout", n, box, (((round(start.x(), 2), round(start.y(), 2)),),)))
             return
+        if self.mode == "signature":  # (its top left corner where the click was: the window knows its size)
+            self.drawn.emit(self._new("signature", n, (start.x(), start.y(), start.x(), start.y())))
+            return
         if self.mode == "mark":  # (a check mark, a cross...: centred where the click was)
             s = MARK_SIZE / 2
             x = max(min(start.x(), bounds.right() - s), bounds.left() + s)
@@ -1491,7 +1494,7 @@ class PageCanvas(QGraphicsView):
             else:  # (a click: of its usual size, there; the window knows it)
                 self.drawn.emit(self._new("stamp", n, (start.x(), start.y(), start.x(), start.y())))
             return
-        w, h = (NOTE_SIZE, NOTE_SIZE) if self.mode == "note" else \
+        w, h = (NOTE_SIZE, NOTE_SIZE) if self.mode in ("note", "attachment") else \
             annots.shown_size(self.doc[n].rotation if self.doc is not None else 0, CARET_SIZE)
         if self.mode == "caret":  # (the caret's point where the click was)
             x, y = start.x() - w / 2, start.y() - h

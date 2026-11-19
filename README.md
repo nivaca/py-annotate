@@ -22,7 +22,7 @@ file, so that a signed document keeps its signatures valid for what they
 signed.
 
 It has a window, in English and in Spanish, and works on Linux, Windows and
-macOS. This is version 1.0.6.
+macOS. This is version 1.0.7.
 
 I am Nicolas Vaughan (<nicolasvaughan@proton.me>), and I wrote it in 2026.
 It is free software, under the GNU General Public License, version 3 or
@@ -137,6 +137,8 @@ Choose a tool in the second toolbar, in the Tools menu, or with its key
 | Callout            | Shift+T | press on the place to point at, drag to where the text goes   |
 | Typewriter         | Y       | click and write there: no box, no border (as on a form)       |
 | Check mark         | K       | click to put ✓, ✕, ● or ─ (right-click the tool to choose)    |
+| Signature          | Shift+K | click where your signature goes (drawn once, by hand)         |
+| Attach a file      | Shift+A | click where the file goes, and choose it                      |
 | Stamp              | Shift+S | click (or drag, for its width) where the stamp goes           |
 | Rectangle          | R       | drag on the page                                             |
 | Ellipse            | O       | drag on the page                                             |
@@ -151,7 +153,12 @@ Choose a tool in the second toolbar, in the Tools menu, or with its key
 The text of a text box, a callout, a note or an insert-text mark is written
 on the page, where it goes: Ctrl+Enter, or a click elsewhere, keeps it, and
 Escape gives it up. A double-click on one of them writes its text again.
-Replace text proposes a correction as PDF programs write it: a strikeout
+The Signature tool asks, the first time, for the signature to be drawn by
+hand, and keeps it (on this computer only, in py-annotate's settings; the
+tool's right-click menu draws it again); then each click puts it there, a
+drawing that can be moved and resized. A file attached (a draft, a source,
+a picture) goes in the PDF with its annotation; the annotation's
+right-click menu opens it, or saves it elsewhere. Replace text proposes a correction as PDF programs write it: a strikeout
 and an insert-text mark holding the new text, one group, which other
 viewers show as a replacement.
 In a text box or a callout, Ctrl+B, Ctrl+I and Ctrl+U make the chosen text
@@ -368,7 +375,7 @@ What it does not do yet
 -----------------------
 
 * Annotations that rotate are not there yet.
-* Annotations of other kinds (links, attached files, sounds, measurements)
+* Annotations of other kinds (links, sounds, measurements, redaction marks)
   are shown in the list, locked, but cannot be edited; they are kept as they
   are, and left out of the exports unless the list shows only them.
 * The text of a text box has one size, and only Helvetica, Times and Courier.

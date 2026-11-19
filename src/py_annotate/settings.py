@@ -68,7 +68,7 @@ STYLES = {
     "area": Style("#ffeb3b", fill="#ffeb3b", opacity=0.4, width=0),
     "rect": Style("#e53935"), "ellipse": Style("#e53935"), "polygon": Style("#e53935"), "cloud": Style("#e53935"),
     "line": Style("#e53935"), "arrow": Style("#e53935", end="OpenArrow"), "polyline": Style("#e53935"),
-    "ink": Style("#1e88e5", width=2.0), "marker": Style("#ffeb3b", width=12.0, opacity=0.4), "stamp": Style("#c62828", stamp="Approved"),
+    "ink": Style("#1e88e5", width=2.0), "marker": Style("#ffeb3b", width=12.0, opacity=0.4), "stamp": Style("#c62828", stamp="Approved"), "attachment": Style("#1e88e5"),
 }
 STYLE_FIELDS = tuple(f.name for f in dataclasses.fields(Style))
 
@@ -109,7 +109,7 @@ SHORTCUTS = {
     "rect": "R", "ellipse": "O", "polygon": "G", "cloud": "Shift+G", "line": "L", "arrow": "A",
     "polyline": "Shift+L", "ink": "P", "stamp": "Shift+S", "comment": "C", "next": "Alt+Down",
     "previous": "Alt+Up", "marker": "Shift+P", "copy": "Ctrl+C", "paste": "Ctrl+V", "duplicate": "Ctrl+D", "properties": "Alt+Return",
-    "group": "Ctrl+G", "ungroup": "Ctrl+Shift+G", "replace": "Shift+I", "typewriter": "Y", "mark": "K",
+    "group": "Ctrl+G", "ungroup": "Ctrl+Shift+G", "replace": "Shift+I", "typewriter": "Y", "mark": "K", "attachment": "Shift+A", "signature": "Shift+K",
 }
 
 

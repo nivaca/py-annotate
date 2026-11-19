@@ -2375,4 +2375,68 @@
     <en>Dash ─</en>
     <tr>Raya ─</tr>
   </text>
+  <text>
+    <en>Paperclip</en>
+    <tr>Clip</tr>
+  </text>
+  <text>
+    <en>Push pin</en>
+    <tr>Chincheta</tr>
+  </text>
+  <text>
+    <en>Graph</en>
+    <tr>Gráfico</tr>
+  </text>
+  <text>
+    <en>Tag</en>
+    <tr>Etiqueta</tr>
+  </text>
+  <text>
+    <en>Click where a file is to be attached, and choose it</en>
+    <tr>Hacer clic donde va a adjuntarse un archivo, y elegirlo</tr>
+  </text>
+  <text>
+    <en>Attach a file</en>
+    <tr>Adjuntar un archivo</tr>
+  </text>
+  <text>
+    <en>Save the attached file</en>
+    <tr>Guardar el archivo adjunto</tr>
+  </text>
+  <text>
+    <en>Open the attached file</en>
+    <tr>Abrir el archivo adjunto</tr>
+  </text>
+  <text>
+    <en>Save the attached file…</en>
+    <tr>Guardar el archivo adjunto…</tr>
+  </text>
+  <text>
+    <en>Signature</en>
+    <tr>Firma</tr>
+  </text>
+  <text>
+    <en>My signature</en>
+    <tr>Mi firma</tr>
+  </text>
+  <text>
+    <en>Click where your signature goes (drawn once, by hand: right-click the tool to draw it again)</en>
+    <tr>Hacer clic donde va su firma (dibujada una vez, a mano: con el clic derecho sobre la herramienta se dibuja de nuevo)</tr>
+  </text>
+  <text>
+    <en>Sign above the line, with the pen or the mouse. It is kept on this computer only, in py-annotate's settings, and put on documents with the Signature tool.</en>
+    <tr>Firme sobre la línea, con el lápiz o el ratón. Se guarda solo en este equipo, en la configuración de py-annotate, y se pone en los documentos con la herramienta Firma.</tr>
+  </text>
+  <text>
+    <en>Clear</en>
+    <tr>Borrar</tr>
+  </text>
+  <text>
+    <en>Signature kept: click with the Signature tool where it goes</en>
+    <tr>Firma guardada: haga clic con la herramienta Firma donde va</tr>
+  </text>
+  <text>
+    <en>Draw my signature again…</en>
+    <tr>Dibujar de nuevo mi firma…</tr>
+  </text>
 </interface>

@@ -61,10 +61,10 @@ OTHER_NAMES = {"Link": N_("Link"), "FileAttachment": N_("Attached file"), "Sound
                "Watermark": N_("Watermark"), "PrinterMark": N_("Printer's mark"), "TrapNet": N_("Trap network"),
                "Projection": N_("Projection")}
 KINDS = ("highlight", "underline", "strikeout", "squiggly", "caret", "note", "freetext", "callout", "area", "rect",
-         "ellipse", "polygon", "cloud", "line", "arrow", "polyline", "ink", "marker", "stamp")
+         "ellipse", "polygon", "cloud", "line", "arrow", "polyline", "ink", "marker", "stamp", "attachment")
 NAMES = {"highlight": N_("Highlight"), "underline": N_("Underline"), "strikeout": N_("Strikeout"),
          "squiggly": N_("Squiggly underline"), "caret": N_("Insert text"), "note": N_("Note"),
-         "freetext": N_("Text box"), "callout": N_("Callout"), "area": N_("Area highlight"),
+         "freetext": N_("Text box"), "attachment": N_("Attached file"), "callout": N_("Callout"), "area": N_("Area highlight"),
          "rect": N_("Rectangle"), "ellipse": N_("Ellipse"), "polygon": N_("Polygon"), "cloud": N_("Cloud"),
          "line": N_("Line"), "arrow": N_("Arrow"), "polyline": N_("Polyline"), "ink": N_("Freehand"),
          "marker": N_("Freehand highlight"), "stamp": N_("Stamp")}
@@ -86,6 +86,7 @@ CARET_SIZE = (20.0, 14.0)  # points: the size of a caret's mark (MuPDF's)
 FONTS = {"helv": N_("Helvetica (sans serif)"), "tiro": N_("Times (serif)"), "cour": N_("Courier (monospaced)")}
 _DA_FONTS = {"helv": "helv", "tiro": "tiro", "times": "tiro", "cour": "cour", "courier": "cour"}
 FAMILIES = {"helv": "Helvetica", "tiro": "Times", "cour": "Courier"}  # (the fonts' names in rich text)
+ATTACH_ICONS = {"Paperclip": N_("Paperclip"), "PushPin": N_("Push pin"), "Graph": N_("Graph"), "Tag": N_("Tag")}
 ALIGNS = {"left": N_("Left"), "center": N_("Centre"), "right": N_("Right")}
 ICONS = {"Note": N_("Note"), "Comment": N_("Comment"), "Key": N_("Key"), "Help": N_("Help"),
          "NewParagraph": N_("New paragraph"), "Paragraph": N_("Paragraph"), "Insert": N_("Insert")}
@@ -122,7 +123,7 @@ _TYPES = {pymupdf.PDF_ANNOT_HIGHLIGHT: "highlight", pymupdf.PDF_ANNOT_UNDERLINE:
           pymupdf.PDF_ANNOT_FREE_TEXT: "freetext", pymupdf.PDF_ANNOT_SQUARE: "rect",
           pymupdf.PDF_ANNOT_CIRCLE: "ellipse", pymupdf.PDF_ANNOT_POLYGON: "polygon",
           pymupdf.PDF_ANNOT_POLY_LINE: "polyline", pymupdf.PDF_ANNOT_LINE: "line", pymupdf.PDF_ANNOT_INK: "ink",
-          pymupdf.PDF_ANNOT_STAMP: "stamp"}
+          pymupdf.PDF_ANNOT_STAMP: "stamp", pymupdf.PDF_ANNOT_FILE_ATTACHMENT: "attachment"}
 
 
 # the kinds of entries of textual criticism (see Critical)
@@ -204,6 +205,8 @@ class Annotation:
     # what a mark over text, or an insert-text mark, means (the PDF's /IT): 'Replace' (an insert-text mark
     # holding the text that replaces what its group strikes out), 'StrikeOutTextEdit' (that strikeout); '' none
     intent: str = ""
+    data: bytes = b""  # of an attached file: its bytes
+    filename: str = ""  # of an attached file: its name
     layer: str = ""  # the name of its layer (the PDF's optional content, which viewers show or hide); '' for none
     replies: tuple[Reply, ...] = ()  # in the order they were made
     xref: int = 0  # of the annotation in the document it was read from; 0 if new
@@ -697,6 +700,15 @@ def read_annotation(doc: pymupdf.Document, page: pymupdf.Page, annot: pymupdf.An
         name = doc.xref_get_key(annot.xref, "Name")[1].lstrip("/")
         return Annotation(rect=_shown_rect(page, annot.rect), color=stroke or "#000000",
                           stamp=name if name in STAMPS else "", image=_stamp_image(annot, page), **fields)
+    if kind == "attachment":
+        try:
+            data, found = annot.get_file(), annot.file_info or {}
+        except (RuntimeError, ValueError):
+            data, found = b"", {}
+        icon = doc.xref_get_key(annot.xref, "Name")[1].lstrip("/")
+        return Annotation(rect=_shown_rect(page, annot.rect), color=stroke or "#1e88e5", data=data,
+                          filename=found.get("filename", "") or "", icon=icon if icon in ATTACH_ICONS else "Paperclip",
+                          **fields)
     # (a note, or a caret)
     icon = info.get("name", "") or "Note"
     return Annotation(rect=_shown_rect(page, annot.rect), color=stroke or ("#ffd54f" if kind == "note" else "#1e88e5"),
@@ -1020,6 +1032,11 @@ def add(page: pymupdf.Page, a: Annotation, when: str | None = None) -> pymupdf.A
         annot = _placed(page, lambda p: page.add_text_annot(p, a.contents, icon=a.icon), a.rect,
                         (NOTE_SIZE, NOTE_SIZE))
         annot.set_colors(stroke=stroke)
+    elif a.kind == "attachment":
+        annot = _placed(page, lambda p: page.add_file_annot(p, a.data, a.filename or "file",
+                                                            icon=a.icon if a.icon in ATTACH_ICONS else "Paperclip"),
+                        a.rect, (NOTE_SIZE, NOTE_SIZE))
+        annot.set_colors(stroke=stroke)
     elif a.kind == "caret":
         annot = _placed(page, page.add_caret_annot, a.rect, CARET_SIZE)
         annot.set_colors(stroke=stroke)
@@ -1097,8 +1114,8 @@ def change(page: pymupdf.Page, annot: pymupdf.Annot, old: Annotation, a: Annotat
     """Change ANNOT (which was OLD) where it is into A, keeping all else it has. Returns
     whether that could be done (False: it has to be taken out and written again)."""
     doc = page.parent
-    if old.kind != a.kind or old.page != a.page or a.kind == "callout":
-        return False
+    if old.kind != a.kind or old.page != a.page or a.kind in ("callout", "attachment"):
+        return False  # (an attached file: written again, with its file)
     look = ("contents", "rich", "border", "color", "font", "font_size", "align")
     if (a.rich or a.border or old.rich or old.border) and any(getattr(a, f) != getattr(old, f) for f in look):
         return False  # (rich text whose text or look changed: written again, with its /RC and /DS)

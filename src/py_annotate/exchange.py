@@ -46,6 +46,7 @@ def to_data(a: Annotation) -> dict:
     data = dataclasses.asdict(a)
     data.pop("xref")
     data["image"] = base64.b64encode(a.image).decode("ascii") if a.image else ""
+    data["data"] = base64.b64encode(a.data).decode("ascii") if a.data else ""
     data["replies"] = [{k: v for k, v in dataclasses.asdict(r).items() if k != "xref"} for r in a.replies]
     return data
 
@@ -67,7 +68,7 @@ def from_data(data: dict, keep_xref: bool = False) -> Annotation | None:
         for name, value in data.items():
             if name not in fields or (name == "xref" and not keep_xref):
                 continue
-            if name == "image":
+            if name in ("image", "data"):
                 value = base64.b64decode(value) if value else b""
             elif name == "rect":
                 value = tuple(float(v) for v in value)
@@ -392,7 +393,7 @@ def export_xfdf(doc: pymupdf.Document, path: Path, annotations: list[Annotation]
     root = ET.Element("xfdf", {"xmlns": XFDF_NS, "xml:space": "preserve"})
     ET.SubElement(root, "f", {"href": path.name})
     items = ET.SubElement(root, "annots")
-    for n, a in enumerate((a for a in annotations if a.kind != annots.OTHER), 1):
+    for n, a in enumerate((a for a in annotations if a.kind not in (annots.OTHER, "attachment")), 1):
         if not 0 <= a.page < doc.page_count:
             continue
         page = doc[a.page]

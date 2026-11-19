@@ -7,7 +7,7 @@ import dataclasses
 import pymupdf
 import pytest
 
-from py_annotate import annots
+from py_annotate import annots, exchange
 from py_annotate.annots import Annotation
 
 
@@ -116,24 +116,40 @@ def test_only_changes_are_written(sample, tmp_path):
 
 
 def test_other_annotations_are_kept(sample, tmp_path):
-    """Annotations of other kinds (an attached file, a link) are read, to be listed, locked, and
+    """Annotations of other kinds (a redaction mark, a link) are read, to be listed, locked, and
     kept as they are: neither changed nor taken out, whatever is given for them."""
     doc = pymupdf.open(sample)
-    doc[0].add_file_annot((300, 300), b"data", "data.txt", desc="the data")
+    doc[0].add_redact_annot((300, 300, 400, 320))
     doc[0].insert_link({"kind": pymupdf.LINK_URI, "from": pymupdf.Rect(60, 60, 200, 80), "uri": "https://example.org"})
     doc.save(tmp_path / "stamped.pdf")
     found = annots.read(annots.open_pdf(tmp_path / "stamped.pdf"))
-    assert sorted((a.kind, a.other, a.locked) for a in found) == [("other", "FileAttachment", True),
-                                                                  ("other", "Link", True)]
+    assert sorted((a.kind, a.other, a.locked) for a in found) == [("other", "Link", True), ("other", "Redact", True)]
     link = next(a for a in found if a.other == "Link")
     assert link.contents == "https://example.org" and abs(link.rect[0] - 60) < 1 and abs(link.rect[1] - 60) < 1
-    attached = next(a for a in found if a.other == "FileAttachment")
-    assert attached.contents.startswith("data.txt") and attached.name() == "Attached file"
-    changed = [dataclasses.replace(attached, color="#ff0000", contents="no")]  # (and the link left out)
+    mark = next(a for a in found if a.other == "Redact")
+    assert mark.name() == "Redaction mark"
+    changed = [dataclasses.replace(mark, color="#ff0000", contents="no")]  # (and the link left out)
     annots.write(tmp_path / "stamped.pdf", changed, tmp_path / "out.pdf")
     out = annots.open_pdf(tmp_path / "out.pdf")
-    assert [a.type[1] for a in out[0].annots()] == ["FileAttachment"] and len(out[0].get_links()) == 1
-    assert sorted(a.other for a in annots.read(out)) == ["FileAttachment", "Link"]
+    assert [a.type[1] for a in out[0].annots()] == ["Redact"] and len(out[0].get_links()) == 1
+    assert sorted(a.other for a in annots.read(out)) == ["Link", "Redact"]
+
+
+def test_attached_files(sample, tmp_path):
+    """An attached file is written with its file and icon, read back, moved (written again, with its
+    file), and kept through JSON."""
+    path = tmp_path / "doc.pdf"
+    a = Annotation("attachment", 0, (300, 300, 316, 316), "#1e88e5", contents="the draft", data=b"\x00draft\xff",
+                   filename="draft.odt", icon="PushPin")
+    annots.write(sample, [a], path)
+    got = annots.read(annots.open_pdf(path))[0]
+    assert (got.kind, got.data, got.filename, got.icon, got.contents) == ("attachment", b"\x00draft\xff",
+                                                                         "draft.odt", "PushPin", "the draft")
+    assert annots.same(a, got)
+    annots.write(path, [annots.moved(got, 20, 10)], path)
+    again = annots.read(annots.open_pdf(path))[0]
+    assert again.data == a.data and abs(again.rect[0] - 320) < 1
+    assert exchange.from_data(exchange.to_data(a)) == a
 
 
 def test_remove_editable(sample, tmp_path):

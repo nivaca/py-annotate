@@ -23,7 +23,7 @@ añaden al final del archivo, así que un documento firmado conserva sus
 firmas válidas para lo que firmaron.
 
 Tiene una ventana, en español y en inglés, y funciona en Linux, Windows y
-macOS. Esta es la versión 1.0.6.
+macOS. Esta es la versión 1.0.7.
 
 Soy Nicolas Vaughan (<nicolasvaughan@proton.me>) y lo escribí en 2026. Es
 software libre, bajo la Licencia Pública General de GNU, versión 3 o
@@ -140,6 +140,8 @@ su tecla (las teclas se pueden cambiar: véase «Configuración»):
 | Llamada                   | Mayús+T | pulsar en el lugar señalado y arrastrar hasta donde va el texto |
 | Máquina de escribir       | Y       | hacer clic y escribir allí: sin cuadro ni borde (como en un formulario) |
 | Marca de verificación     | K       | hacer clic para poner ✓, ✕, ● o ─ (con el clic derecho se elige) |
+| Firma                     | Mayús+K | hacer clic donde va su firma (dibujada una vez, a mano)        |
+| Adjuntar un archivo       | Mayús+A | hacer clic donde va el archivo, y elegirlo                     |
 | Sello                     | Mayús+S | hacer clic (o arrastrar, para darle el ancho) donde va el sello |
 | Rectángulo                | R       | arrastrar en la página                                         |
 | Elipse                    | O       | arrastrar en la página                                         |
@@ -154,7 +156,13 @@ su tecla (las teclas se pueden cambiar: véase «Configuración»):
 El texto de un cuadro de texto, una llamada, una nota o una marca de
 insertar texto se escribe en la página, donde va: Ctrl+Intro, o un clic en
 otro sitio, lo guarda, y Escape lo descarta. Con doble clic sobre una de
-ellas se vuelve a escribir su texto. Reemplazar texto propone una
+ellas se vuelve a escribir su texto. La herramienta Firma pide, la primera vez, que la firma se
+dibuje a mano, y la guarda (solo en este equipo, en la configuración de
+py-annotate; el menú del clic derecho sobre la herramienta la dibuja de
+nuevo); luego cada clic la pone allí, un dibujo que se puede mover y
+cambiar de tamaño. Un archivo adjunto (un borrador, una fuente, una imagen)
+va en el PDF con su anotación; el menú del clic derecho sobre ella lo abre
+o lo guarda en otro sitio. Reemplazar texto propone una
 corrección como la escriben los programas de PDF: un tachado y una marca de
 insertar texto con el texto nuevo, en un grupo, que otros visores muestran
 como un reemplazo. En un cuadro de texto o una llamada,
@@ -374,7 +382,7 @@ Lo que todavía no hace
 ----------------------
 
 * Faltan las anotaciones giradas.
-* Las anotaciones de otros tipos (enlaces, archivos adjuntos, sonidos,
+* Las anotaciones de otros tipos (enlaces, sonidos, marcas de censura,
   medidas) aparecen en la lista, bloqueadas, pero no se pueden editar; se
   conservan tal cual, y quedan fuera de las exportaciones salvo que la lista
   muestre solo esas.
