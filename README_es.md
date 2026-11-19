@@ -23,7 +23,7 @@ añaden al final del archivo, así que un documento firmado conserva sus
 firmas válidas para lo que firmaron.
 
 Tiene una ventana, en español y en inglés, y funciona en Linux, Windows y
-macOS. Esta es la versión 0.3.6.
+macOS. Esta es la versión 0.3.7.
 
 Soy Nicolas Vaughan (<nicolasvaughan@proton.me>) y lo escribí en 2026. Es
 software libre, bajo la Licencia Pública General de GNU, versión 3 o
@@ -194,7 +194,11 @@ subrayado; usar su estilo para las anotaciones nuevas; alinear varias.
 En el menú Editar están Copiar, Pegar y Duplicar (lo copiado se puede pegar
 en otra página o en otro documento), Bloquear, Alinear (bordes, centros, el
 mismo tamaño, repartir) y la selección de las anotaciones de una página o de
-las del mismo tipo.
+las del mismo tipo. Agrupar (Ctrl+G) hace de las anotaciones seleccionadas
+un grupo, aunque estén en páginas distintas: un clic en una las selecciona
+todas, y se mueven, se copian y se borran juntas; Desagrupar (Ctrl+Mayús+G)
+lo deshace. Se guardan como grupos del PDF, que otros visores que los
+conocen también mantienen juntos.
 
 El panel de las anotaciones
 ---------------------------
@@ -302,7 +306,7 @@ cuenta en [docs/DESCRIPCIÓN_es.md](docs/DESCRIPCIÓN_es.md).
 Lo que todavía no hace
 ----------------------
 
-* Faltan los grupos y las capas de anotaciones, y las anotaciones giradas.
+* Faltan las capas de anotaciones y las anotaciones giradas.
 * Las anotaciones de otros tipos (enlaces, sonidos, archivos adjuntos,
   medidas) se conservan tal cual, pero no aparecen en la lista ni se pueden
   editar.

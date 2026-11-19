@@ -22,7 +22,7 @@ file, so that a signed document keeps its signatures valid for what they
 signed.
 
 It has a window, in English and in Spanish, and works on Linux, Windows and
-macOS. This is version 0.3.6.
+macOS. This is version 0.3.7.
 
 I am Nicolas Vaughan (<nicolasvaughan@proton.me>), and I wrote it in 2026.
 It is free software, under the GNU General Public License, version 3 or
@@ -190,7 +190,11 @@ annotations; align several.
 The Edit menu has Copy, Paste and Duplicate (annotations can be pasted on
 another page, or in another document), Lock, Align (sides, centres, the
 same size, spread evenly), and the selection of the annotations of a page,
-or of those of the same kind.
+or of those of the same kind. Group (Ctrl+G) makes the selected annotations
+one group, even across pages: a click on one selects them all, and they are
+moved, copied and deleted together; Ungroup (Ctrl+Shift+G) undoes it. They
+are written as PDF groups, which other viewers that know them also keep
+together.
 
 The panel of the annotations
 ----------------------------
@@ -298,8 +302,7 @@ told in [docs/DESCRIPTION.md](docs/DESCRIPTION.md).
 What it does not do yet
 -----------------------
 
-* Groups and layers of annotations, and annotations that rotate, are not
-  there yet.
+* Layers of annotations, and annotations that rotate, are not there yet.
 * Annotations of other kinds (links, sounds, file attachments, measurements)
   are kept as they are, but are not shown in the list and cannot be edited.
 * The text of a text box has one size, and only Helvetica, Times and Courier.

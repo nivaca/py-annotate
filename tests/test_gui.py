@@ -687,3 +687,33 @@ def test_border_colour_in_the_properties(window):
     assert dialog.border.text() == "As the text"
     dialog.border.set_color("#00aa00")
     assert dialog.apply(window.annotations[0]).border == "#00aa00"
+
+
+def test_groups_in_the_window(window, sample):
+    """Annotations grouped are selected together by a click, deleted together, kept in the file;
+    copies of a group make another group; ungrouped, each is on its own again."""
+    window.set_tool("rect")
+    drag(window, (100, 300), (150, 340))
+    drag(window, (200, 300), (250, 340))
+    drag(window, (300, 300), (350, 340))
+    window.set_tool("select")
+    window.pick([0, 1], False)
+    window.group_selected()
+    group = window.annotations[0].group
+    assert group and window.annotations[1].group == group and not window.annotations[2].group
+    window.pick([], False)
+    click(window, (125, 320))  # (one of the group: both are selected)
+    assert sorted(window.selected) == [0, 1]
+    window.duplicate()
+    copies = window.annotations[3:]
+    assert len(copies) == 2 and copies[0].group == copies[1].group and copies[0].group != group
+    assert window.save()
+    assert sorted(a.group for a in annots.read(annots.open_pdf(sample))).count(group) == 2
+    window.pick([0], False)
+    window.delete_selected()
+    assert len(window.annotations) == 3 and all(a.group != group for a in window.annotations)
+    window.pick([1], False)  # (a copy: its group is selected with it)
+    assert sorted(window.selected) == [1, 2]
+    window.ungroup_selected()
+    window.pick([1], False)
+    assert window.selected == [1]

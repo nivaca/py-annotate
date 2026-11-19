@@ -315,3 +315,48 @@ def test_rich_text_changed(sample, tmp_path):
         annots.write(path, [a], path)
         got = annots.read(annots.open_pdf(path))
         assert len(got) == 1 and annots.same(a, got[0], tolerance=2), (change, got[0])
+
+
+def test_groups(sample, tmp_path):
+    """A group is written as the PDF writes them (the others answer the first, as its group), read
+    back, survives taking out its first annotation, and a grouped note is not taken for a reply."""
+    path = tmp_path / "doc.pdf"
+    made = [Annotation("rect", 0, (60, 60, 120, 120), "#ff0000", group="g1"),
+            Annotation("note", 0, (200, 60, 216, 76), "#ffd54f", contents="in the group", group="g1"),
+            Annotation("ellipse", 1, (60, 60, 120, 120), "#0000ff", group="g1"),
+            Annotation("rect", 0, (300, 300, 350, 350), "#000000")]
+    annots.write(sample, made, path)
+    doc = annots.open_pdf(path)
+    got = annots.read(doc)
+    assert [a.group for a in got] == ["g1", "g1", "", "g1"]  # (page by page)
+    first = next(a for a in got if a.kind == "rect" and a.group)
+    for a in got:
+        if a.group and a is not first:
+            assert doc.xref_get_key(a.xref, "IRT")[1] == f"{first.xref} 0 R"
+            assert doc.xref_get_key(a.xref, "RT")[1] == "/Group"
+    assert all(not a.replies for a in got)
+    rest = [a for a in got if a.xref != first.xref]  # (the first taken out: the others stay, still a group)
+    annots.write(path, rest, path)
+    again = annots.read(annots.open_pdf(path))
+    assert sorted(a.kind for a in again) == ["ellipse", "note", "rect"]
+    assert sorted(a.group for a in again) == ["", "g1", "g1"]
+
+
+def test_group_of_another_program(sample, tmp_path):
+    """A group made by another program (only /IRT and /RT /Group) is read as a group, and kept."""
+    path = tmp_path / "doc.pdf"
+    annots.write(sample, [Annotation("rect", 0, (60, 60, 120, 120), "#ff0000"),
+                          Annotation("rect", 0, (200, 60, 260, 120), "#00ff00")], path)
+    doc = annots.open_pdf(path)
+    a, b = annots.read(doc)
+    doc.xref_set_key(b.xref, "IRT", f"{a.xref} 0 R")
+    doc.xref_set_key(b.xref, "RT", "/Group")
+    doc.save(tmp_path / "grouped.pdf")
+    grouped = annots.read(annots.open_pdf(tmp_path / "grouped.pdf"))
+    assert len(grouped) == 2 and grouped[0].group == grouped[1].group == f"#{a.xref}"
+    moved = [grouped[0], annots.moved(grouped[1], 5, 5)]
+    annots.write(tmp_path / "grouped.pdf", moved, tmp_path / "grouped.pdf")
+    doc = annots.open_pdf(tmp_path / "grouped.pdf")
+    again = annots.read(doc)
+    assert [x.group for x in again] == [f"#{a.xref}"] * 2
+    assert doc.xref_get_key(again[1].xref, "RT")[1] == "/Group"

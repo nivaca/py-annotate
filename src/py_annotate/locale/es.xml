@@ -1891,4 +1891,24 @@
     <en>Cut</en>
     <tr>Cortar</tr>
   </text>
+  <text>
+    <en>Group</en>
+    <tr>Agrupar</tr>
+  </text>
+  <text>
+    <en>Ungroup</en>
+    <tr>Desagrupar</tr>
+  </text>
+  <text>
+    <en>Make the selected annotations one group: selected, moved and deleted together</en>
+    <tr>Hacer de las anotaciones seleccionadas un grupo: se seleccionan, se mueven y se borran juntas</tr>
+  </text>
+  <text>
+    <en>{count} annotation grouped</en>
+    <tr>{count} anotación agrupada</tr>
+  </text>
+  <text>
+    <en>{count} annotations grouped</en>
+    <tr>{count} anotaciones agrupadas</tr>
+  </text>
 </interface>

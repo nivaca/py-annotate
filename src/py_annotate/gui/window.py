@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import uuid
 from collections import Counter
 from pathlib import Path
 
@@ -335,6 +336,11 @@ class MainWindow(FilesMixin, QMainWindow):
         self.a_paste = self._action(m, tr("Paste"), self.paste)
         self.a_duplicate = self._action(m, tr("Duplicate"), self.duplicate)
         m.addSeparator()
+        self.a_group = self._action(m, tr("Group"), self.group_selected,
+                                    tip=tr("Make the selected annotations one group: selected, moved and deleted "
+                                           "together"))
+        self.a_ungroup = self._action(m, tr("Ungroup"), self.ungroup_selected)
+        m.addSeparator()
         self.a_props = self._action(m, tr("Properties…"), self.properties_dialog)
         self.a_comment = self._action(m, tr("Comment on the annotation selected"), self.comment_action,
                                       tip=tr("Write the comment of the annotation selected; with none, add a note"))
@@ -479,7 +485,7 @@ class MainWindow(FilesMixin, QMainWindow):
         actions = dict(self.tool_actions)
         actions.update({"comment": self.a_comment, "next": self.a_next_annot, "previous": self.a_prev_annot,
                         "copy": self.a_copy, "paste": self.a_paste, "duplicate": self.a_duplicate,
-                        "properties": self.a_props})
+                        "properties": self.a_props, "group": self.a_group, "ungroup": self.a_ungroup})
         for name, act in actions.items():
             act.setShortcut(QKeySequence(self.prefs.shortcut(name)))
         self._toolbar_tips()
@@ -1122,13 +1128,15 @@ class MainWindow(FilesMixin, QMainWindow):
         if not _CLIPBOARD or self.doc is None:
             return
         page = self.doc[self.page].rect
-        new = []
+        new, renamed = [], {}
         for a in _CLIPBOARD:
             shift = (10.0 if a.page == self.page else 0.0) if offset is None else offset
             if a.kind in MARKUP:
                 shift = 0.0
+            # (copies of a group make a group of their own)
+            group = renamed.setdefault(a.group, uuid.uuid4().hex[:12]) if a.group else ""
             b = dataclasses.replace(a, page=self.page, xref=0, created="", modified="", locked=False,
-                                    replies=())
+                                    replies=(), group=group)
             x0, y0, x1, y1 = b.rect
             dx = max(-x0, min(shift, page.width - x1))
             dy = max(-y0, min(shift, page.height - y1))
@@ -1446,6 +1454,8 @@ class MainWindow(FilesMixin, QMainWindow):
         self.a_lock.setText(tr("Unlock") if self.selected and all(self.annotations[i].locked for i in self.selected)
                             else tr("Lock"))
         self.m_align.setEnabled(len(self._movable()) > 1)
+        self.a_group.setEnabled(n > 1 and len({self.annotations[i].group or i for i in self.selected}) > 1)
+        self.a_ungroup.setEnabled(any(self.annotations[i].group for i in self.selected))
         self.a_undo.setText(tr("Undo") if not self.undo_stack else tr("Undo ({count})", count=len(self.undo_stack)))
 
     def undo(self):
@@ -1502,10 +1512,35 @@ class MainWindow(FilesMixin, QMainWindow):
                     chosen.append(i)
         else:
             chosen = list(indices)
+        chosen = self._with_groups(chosen, indices if add else None)
         if chosen != self.selected:
             self.selected = chosen
             self.refresh(pages=False, table=False)
             self._select_rows()
+
+    def _with_groups(self, chosen: list[int], toggled: list[int] | None = None) -> list[int]:
+        """CHOSEN, with the others of their groups (those of TOGGLED that were taken out, without theirs)."""
+        dropped = {self.annotations[i].group for i in toggled or [] if i not in chosen and i < len(self.annotations)}
+        groups = {self.annotations[i].group for i in chosen if i < len(self.annotations)} - {""} - dropped
+        out = [i for i in chosen if i < len(self.annotations) and self.annotations[i].group not in dropped - {""}]
+        return out + [i for i, a in enumerate(self.annotations) if a.group in groups and i not in out]
+
+    def group_selected(self):
+        """The annotations selected (and the others of their groups), made one group."""
+        if len(self.selected) < 2:
+            return
+        name = uuid.uuid4().hex[:12]
+        chosen = set(self.selected)
+        self.change([dataclasses.replace(a, group=name) if i in chosen else a for i, a in enumerate(self.annotations)],
+                    sorted(chosen))
+        self.status(ntr("{count} annotation grouped", "{count} annotations grouped", len(chosen)))
+
+    def ungroup_selected(self):
+        groups = {self.annotations[i].group for i in self.selected} - {""}
+        if not groups:
+            return
+        self.change([dataclasses.replace(a, group="") if a.group in groups else a for a in self.annotations],
+                    list(self.selected))
 
     def select_page(self):
         self.pick([i for i, a in enumerate(self.annotations) if a.page == self.page], False)

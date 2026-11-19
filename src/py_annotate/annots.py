@@ -102,6 +102,9 @@ SUBJECTS = {"area": AREA_SUBJECT, "marker": MARKER_SUBJECT}
 STATES = {"Accepted": N_("Accepted"), "Rejected": N_("Rejected"), "Cancelled": N_("Cancelled"),
           "Completed": N_("Completed"), "None": N_("No status")}
 TAGS_KEY, CATEGORIES_KEY = "PyAnnotateTags", "PyAnnotateCategories"
+# the group of an annotation (see Annotation.group), besides the PDF's own (/IRT and /RT /Group, which
+# _link_groups writes): with it, the group is known while those links are out (see apply)
+GROUP_KEY = "PyAnnotateGroup"
 DASHES = (3, 3)
 
 _TYPES = {pymupdf.PDF_ANNOT_HIGHLIGHT: "highlight", pymupdf.PDF_ANNOT_UNDERLINE: "underline",
@@ -156,6 +159,9 @@ class Annotation:
     modified: str = ""
     tags: tuple[str, ...] = ()
     categories: tuple[str, ...] = ()
+    # the annotations with the same group (on any page) are moved, selected and deleted together; '' for none.
+    # Written as the PDF writes groups: the others answer the first (/IRT) as its group (/RT /Group)
+    group: str = ""
     replies: tuple[Reply, ...] = ()  # in the order they were made
     xref: int = 0  # of the annotation in the document it was read from; 0 if new
 
@@ -319,7 +325,7 @@ def open_pdf(path: Path, password: str = "") -> pymupdf.Document:
 def kind_of(doc: pymupdf.Document, annot: pymupdf.Annot) -> str | None:
     """The kind of ANNOT, if py-annotate can edit it (None for the others, and for replies)."""
     kind = _TYPES.get(annot.type[0])
-    if kind is None or doc.xref_get_key(annot.xref, "IRT")[0] != "null":
+    if kind is None or (doc.xref_get_key(annot.xref, "IRT")[0] != "null" and not _grouped(doc, annot.xref)):
         return None
     if kind == "line" and any(_END_NAMES.get(end, "").endswith("Arrow") for end in annot.line_ends or ()):
         return "arrow"
@@ -518,7 +524,9 @@ def read_annotation(doc: pymupdf.Document, page: pymupdf.Page, annot: pymupdf.An
               "locked": bool(annot.flags & pymupdf.PDF_ANNOT_IS_LOCKED),
               "dashed": bool(border.get("dashes")) or border.get("style") == "D",
               "tags": _labels(_pdf_text(doc, annot.xref, TAGS_KEY)),
-              "categories": _labels(_pdf_text(doc, annot.xref, CATEGORIES_KEY)), "xref": annot.xref}
+              "categories": _labels(_pdf_text(doc, annot.xref, CATEGORIES_KEY)), "xref": annot.xref,
+              "group": _pdf_text(doc, annot.xref, GROUP_KEY)
+              or (f"#{_irt(doc, annot.xref)}" if _grouped(doc, annot.xref) else "")}
     vertices = annot.vertices or []
     if kind in MARKUP:
         quads = [_shown_rect(page, bounds(vertices[i:i + 4])) for i in range(0, len(vertices) - 3, 4)]
@@ -592,7 +600,8 @@ def _reply_roots(doc: pymupdf.Document, page: pymupdf.Page) -> dict[int, int]:
     """{xref of a reply: xref of the annotation it answers, at the root of the thread} on PAGE."""
     parent = {}
     for annot in page.annots() or []:
-        if annot.type[0] == pymupdf.PDF_ANNOT_TEXT and doc.xref_get_key(annot.xref, "IRT")[0] == "xref":
+        if annot.type[0] == pymupdf.PDF_ANNOT_TEXT and doc.xref_get_key(annot.xref, "IRT")[0] == "xref" \
+                and not _grouped(doc, annot.xref):  # (a note in the group of another isn't a reply to it)
             parent[annot.xref] = annot.irt_xref
     roots = {}
     for xref in parent:
@@ -636,12 +645,56 @@ def read(doc: pymupdf.Document, known: dict[int, Annotation] | None = None) -> l
                                                                  r.xref))
                 a = dataclasses.replace(a, replies=tuple(thread))
             out.append(a)
-    return out
+    # (the first of a group made by another program: it has no GROUP_KEY, but the others answer it)
+    firsts = {a.group for a in out if a.group.startswith("#")}
+    return [dataclasses.replace(a, group=f"#{a.xref}") if not a.group and f"#{a.xref}" in firsts else a
+            for a in out]
 
 
 def _editable(doc: pymupdf.Document, annot: pymupdf.Annot) -> bool:
     """Whether read() gives ANNOT (the same as kind_of(...) is not None, but quicker)."""
-    return annot.type[0] in _TYPES and doc.xref_get_key(annot.xref, "IRT")[0] == "null"
+    return annot.type[0] in _TYPES and (doc.xref_get_key(annot.xref, "IRT")[0] == "null"
+                                        or _grouped(doc, annot.xref))
+
+
+def _grouped(doc: pymupdf.Document, xref: int) -> bool:
+    """Whether the annotation XREF is in the group of another (not a reply to it)."""
+    return doc.xref_get_key(xref, "RT")[1] == "/Group"
+
+
+def _irt(doc: pymupdf.Document, xref: int) -> int:
+    kind, value = doc.xref_get_key(xref, "IRT")
+    return int(value.split()[0]) if kind == "xref" else 0
+
+
+def _unlink_groups(doc: pymupdf.Document, pages: list[int] | None = None) -> None:
+    """Take out the links of the groups (/IRT, /RT) of PAGES (all if None), keeping each group in
+    GROUP_KEY (so that taking out the first of a group doesn't take the others with it, as MuPDF does
+    with what answers it)."""
+    for page in (doc if pages is None else (doc[n] for n in pages)):
+        for xref, _, _ in page.annot_xrefs():
+            if _grouped(doc, xref) and (first := _irt(doc, xref)):
+                for x in (xref, first):
+                    if doc.xref_get_key(x, GROUP_KEY)[0] == "null":
+                        doc.xref_set_key(x, GROUP_KEY, pymupdf.get_pdf_str(f"#{first}"))
+                doc.xref_set_key(xref, "IRT", "null")
+                doc.xref_set_key(xref, "RT", "null")
+
+
+def _link_groups(doc: pymupdf.Document) -> None:
+    """Write the groups as the PDF does: each annotation of a group (GROUP_KEY) after the first
+    answers it (/IRT) as its group (/RT /Group)."""
+    first: dict[str, int] = {}
+    for page in doc:
+        for xref, _, _ in page.annot_xrefs():
+            kind, group = doc.xref_get_key(xref, GROUP_KEY)
+            if kind != "string" or not group:
+                continue
+            if group not in first:
+                first[group] = xref
+            elif _irt(doc, xref) != first[group]:
+                doc.xref_set_key(xref, "IRT", f"{first[group]} 0 R")
+                doc.xref_set_key(xref, "RT", "/Group")
 
 
 def _delete(page: pymupdf.Page, xref: int) -> None:
@@ -654,6 +707,7 @@ def _delete(page: pymupdf.Page, xref: int) -> None:
 def remove_editable(doc: pymupdf.Document, pages: list[int] | None = None) -> None:
     """Take out of DOC (of its PAGES: all if None) the annotations that read() gives, and their
     replies (for showing its pages without them: the window draws them itself)."""
+    _unlink_groups(doc, pages)
     for page in (doc if pages is None else (doc[n] for n in pages)):
         if page.first_annot is None:
             continue
@@ -695,6 +749,7 @@ def _info(annot: pymupdf.Annot, a: Annotation, when: str) -> None:
 def _labels_keys(doc: pymupdf.Document, xref: int, a: Annotation) -> None:
     for key, values in ((TAGS_KEY, a.tags), (CATEGORIES_KEY, a.categories)):
         doc.xref_set_key(xref, key, pymupdf.get_pdf_str(", ".join(values)) if values else "null")
+    doc.xref_set_key(xref, GROUP_KEY, pymupdf.get_pdf_str(a.group) if a.group else "null")
 
 
 def add(page: pymupdf.Page, a: Annotation, when: str | None = None) -> pymupdf.Annot:
@@ -934,6 +989,7 @@ def apply(doc: pymupdf.Document, annotations: list[Annotation], when: str | None
     (as read() gave them, the file not changed since): they are not read again. Returns how many
     annotations were written."""
     when = when or now()
+    _unlink_groups(doc)
     original = {a.xref: a for a in (read(doc) if original is None else original)}
     model = {a.xref: a for a in annotations if a.xref and a.xref in original}
     written = 0
@@ -968,6 +1024,7 @@ def apply(doc: pymupdf.Document, annotations: list[Annotation], when: str | None
         add(doc[a.page], dataclasses.replace(a, replies=tuple(dataclasses.replace(r, xref=0) for r in a.replies)),
             when)
         written += 1
+    _link_groups(doc)
     return written
 
 
