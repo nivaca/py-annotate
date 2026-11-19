@@ -20,7 +20,9 @@ from collections.abc import Callable
 
 import pymupdf
 from PySide6.QtCore import QEvent, QPointF, QRectF, Qt, QTimer, Signal
-from PySide6.QtGui import QBrush, QColor, QCursor, QImage, QKeySequence, QPainter, QPen, QPixmap, QTextOption
+from PySide6.QtGui import (
+    QBrush, QColor, QCursor, QImage, QKeySequence, QPainter, QPen, QPixmap, QPointingDevice, QTextOption,
+)
 from PySide6.QtWidgets import (
     QApplication, QColorDialog, QGraphicsItem, QGraphicsPixmapItem, QGraphicsRectItem, QGraphicsScene,
     QGraphicsTextItem, QGraphicsView, QMenu,
@@ -390,6 +392,10 @@ class PageCanvas(QGraphicsView):
         self._poly: dict | None = None  # (a polygon being made: its page, its points, and its picture)
         self._editor: dict | None = None  # (a text being written: its item, frame, index and annotation)
         self._pressure: float | None = None  # (of a tablet's pen, while it touches)
+        # how the pen's pressure counts ('along' the stroke, once for the whole 'stroke', or 'off'), and how
+        # hard it must press ('soft', 'normal', 'firm'): see Settings
+        self.pen_pressure, self.pen_curve = "along", "normal"
+        self._pen_tool: str | None = None  # (the tool chosen, while the eraser end of the pen erases)
         self._quiet = False  # (scrolled by the program: the page in view is said by it)
         self.render_timer = QTimer(self, singleShot=True, interval=90)
         self.render_timer.timeout.connect(self._render_visible)
@@ -807,19 +813,62 @@ class PageCanvas(QGraphicsView):
 
     # ----------------------------------------------------------------- a tablet's pen
 
+    CURVES = {"soft": 0.6, "normal": 1.0, "firm": 1.6}  # (the pressure, to this power)
+
     def viewportEvent(self, event):
         kind = event.type()
         if kind in (QEvent.Type.TabletPress, QEvent.Type.TabletMove):
-            self._pressure = event.pressure()
-            if self._drag is not None and self._drag.get("kind") == "ink":
-                self._drag.setdefault("pressures", []).append(event.pressure())
+            self._pressure = max(event.pressure(), 0.0) ** self.CURVES.get(self.pen_curve, 1.0) \
+                if self.pen_pressure != "off" else None
+            if kind == QEvent.Type.TabletPress and self._drag is None and self._pen_tool is None \
+                    and event.pointerType() == QPointingDevice.PointerType.Eraser and self.mode != "eraser":
+                self._pen_tool, self.mode = self.mode, "eraser"  # (the pen turned over: it erases, while it touches)
+            drag = self._drag
+            if drag is not None and drag.get("kind") == "ink":
+                if self._pressure is not None:
+                    drag.setdefault("pressures", []).append(self._pressure)
+                if kind == QEvent.Type.TabletMove:  # (the pen's own place, finer and more often than the mouse's)
+                    scene = self.viewportTransform().inverted()[0].map(event.position())
+                    self._ink_to(drag, drag["page"].mapFromScene(scene))
+                    drag["tablet"] = True
+                    event.accept()
+                    return True
             event.ignore()  # (Qt then gives the same as mouse events)
             return False
         if kind == QEvent.Type.TabletRelease:
             self._pressure = None
+            if self._pen_tool is not None:  # (after the mouse's release, which ends the erasing)
+                QTimer.singleShot(0, self._end_pen_eraser)
             event.ignore()
             return False
         return super().viewportEvent(event)
+
+    def _end_pen_eraser(self):
+        if self._pen_tool is not None and self._drag is None:
+            self.mode, self._pen_tool = self._pen_tool, None
+
+    def _ink_to(self, drag: dict, point: QPointF):
+        """The stroke being drawn (DRAG), on to POINT (of its page)."""
+        page = drag["page"]
+        p = self._clamp(page, point)
+        if math.hypot(p.x() - drag["points"][-1][0], p.y() - drag["points"][-1][1]) * self.zoom() >= 1.5:
+            drag["points"].append((p.x(), p.y()))
+            drag.setdefault("at", []).append(self._pressure)
+        paths = (tuple(drag["points"]),)
+        new = self._new(self.mode, page.number, annots.frame(self.mode, paths, 1), paths)
+        drag["item"].set_annotation(self._pressed(new, drag))
+
+    @staticmethod
+    def smoothed(points: list, at: list) -> tuple[list, list]:
+        """POINTS (with the pressure AT each) made a little smoother: each, but the first and the last,
+        moved toward its neighbours (a pen's hand trembles; the tablet records it)."""
+        if len(points) < 4:
+            return points, at
+        out = [points[0]]
+        for i in range(1, len(points) - 1):
+            (ax, ay), (bx, by), (cx, cy) = points[i - 1], points[i], points[i + 1]
+            out.append(((ax + 2 * bx + cx) / 4, (ay + 2 * by + cy) / 4))
+        return out + [points[-1]], at
 
     # ----------------------------------------------------------------- polygons, one click at a time
     # (a double-click, Enter or a click on the first point ends it, Escape gives it up)
@@ -1152,7 +1201,7 @@ class PageCanvas(QGraphicsView):
             super().mouseMoveEvent(event)
             return
         page = drag["page"]
-        point = page.mapFromScene(self.mapToScene(pos))
+        point = page.mapFromScene(self.viewportTransform().inverted()[0].map(event.position()))  # (not rounded)
         kind = drag["kind"]
         n = page.number
         if kind == "text":
@@ -1169,16 +1218,13 @@ class PageCanvas(QGraphicsView):
             r = QRectF(drag["start"], self._clamp(page, point)).normalized()
             a, b = (r.left(), r.top()), (r.right(), r.bottom())
             drag["item"].set_annotation(self._new(self.mode, n, (*a, *b), self._box_paths(a, b)))
-        elif kind in ("line", "ink"):
+        elif kind == "ink":
+            self._ink_to(drag, point)
+        elif kind == "line":
             p = self._clamp(page, point)
-            if kind == "line":
-                drag["points"] = [drag["points"][0], (p.x(), p.y())]
-            elif math.hypot(p.x() - drag["points"][-1][0], p.y() - drag["points"][-1][1]) * self.zoom() >= 2:
-                drag["points"].append((p.x(), p.y()))
-                drag.setdefault("at", []).append(self._pressure)
+            drag["points"] = [drag["points"][0], (p.x(), p.y())]
             paths = (tuple(drag["points"]),)
-            new = self._new(self.mode, n, annots.frame(self.mode, paths, 1), paths)
-            drag["item"].set_annotation(self._pressed(new, drag))
+            drag["item"].set_annotation(self._new(self.mode, n, annots.frame(self.mode, paths, 1), paths))
         elif kind == "edit":
             new = self._edited(drag, point)
             if new is not None:
@@ -1331,14 +1377,17 @@ class PageCanvas(QGraphicsView):
                 self.drawn.emit(annotation)
         elif kind in ("line", "ink"):
             self.scene().removeItem(drag["item"])
-            points = tuple((round(x, 2), round(y, 2)) for x, y in drag["points"])
+            raw, at = drag["points"], drag.get("at", [])
+            if kind == "ink" and drag.get("tablet"):
+                raw, at = self.smoothed(raw, at)
+            points = tuple((round(x, 2), round(y, 2)) for x, y in raw)
             if kind == "line":
                 p = self._clamp(page, point)
                 points = (points[0], (round(p.x(), 2), round(p.y(), 2)))
             length = sum(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(points, points[1:]))
             if length >= MIN_SIZE:
                 base = self._new(self.mode, n, (0, 0, 0, 0), (points,))
-                pieces = self._pieces(base, points, drag.get("at", [])) if kind == "ink" else []
+                pieces = self._pieces(base, points, at) if kind == "ink" and self.pen_pressure == "along" else []
                 if len(pieces) > 1:
                     self.drawn_many.emit(pieces)
                 else:

@@ -9,7 +9,7 @@ annotations, which any viewer shows and can edit. Nicolas Vaughan made it
 in November 2026, starting from two other PDF programs of his, py-redact
 (redaction) and py-foliation (the page labels of a PDF), and from a
 specification of what a full annotation tool should have. Here I explain
-how it was made, in thirteen stages.
+how it was made, in fifteen stages.
 
 It is free software, under the GNU General Public License, version 3 or
 later. The annotations are read and written by PyMuPDF (GNU AGPL 3), and
@@ -229,10 +229,39 @@ now counts along a stroke, not only for the whole of it: since a drawing
 in PDF has one width, a stroke whose pressure changes is cut into drawings
 of up to five widths, which make one group.
 
+14. Layers, and scanned pages
+-----------------------------
+
+Layers are the PDF's optional content: an annotation names its layer
+(/OC), and the document says which layers are shown. py-annotate writes
+them so, and a layer hidden in the window is hidden in other viewers once
+saved; I checked that MuPDF itself no longer draws it. Since hiding a layer
+changes no annotation, it had to count as a change to save on its own.
+
+A scanned page has no text, so none of the tools that mark text could be
+used on it. A copy of the document can now be made in which Tesseract,
+through PyMuPDF, has read the scanned pages, and each word is written under
+the image, invisible, where the image shows it and as wide. Turned pages
+were the difficulty: Tesseract reads the page as it is shown, but the words
+must be written in the page's own coordinates, turned back. The tests make
+a scan, read it, and check that the invisible words are where a second
+reading of the copy finds them.
+
+15. The pen of a tablet
+-----------------------
+
+Until then the pen was used only through the mouse events Qt makes of it,
+which are rounded to whole pixels and come less often. A stroke now follows
+the pen's own events, which keep the fractions, and is smoothed a little,
+since a tablet records the trembling of the hand. The eraser end of the pen
+erases while it touches, whatever tool is chosen, and Settings say how the
+pressure counts and how hard the pen must press. The tests send the window
+the events of a pen, and of its eraser end, as a tablet would.
+
 Testing
 -------
 
-The program has 82 tests (`uv run pytest`). The tests of the annotations
+The program has 90 tests (`uv run pytest`). The tests of the annotations
 write one of each kind on a plain page and on a turned one and read them
 back, and also text boxes with formatted text and groups made here or by
 another program; check that a changed annotation keeps its number and the keys of
@@ -245,7 +274,8 @@ undo after saving, a save after the file was changed by another program,
 the pages rendered in another process without the annotations the window
 draws, formatted text written on the page, groups, entries of textual
 criticism, the links listed but not changed, a stroke of changing pressure,
-and the copies as PDF/A (with a pdf2iso made for the
+layers, searchable copies of scanned pages (when Tesseract is installed),
+the pen and its eraser end, and the copies as PDF/A (with a pdf2iso made for the
 test that leaves out polygons, as Ghostscript does). A test checks that
 every text of the window has its Spanish translation, and no other. The
 tests are also run with nothing of mine on the PATH, as Copr runs them, and
@@ -253,5 +283,5 @@ the RPM runs them again with Fedora's own Python, PyMuPDF and PySide6. On
 GitHub they run on Linux, macOS and Windows, against the program as each
 installer installs it. The
 pictures were checked by eye, in both languages. A document of 300 pages with
-3,000 annotations was used to time the window. The program has 38 files,
-around 11,000 lines.
+3,000 annotations was used to time the window. The program has 39 files,
+around 11,600 lines.

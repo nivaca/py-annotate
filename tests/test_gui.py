@@ -863,3 +863,68 @@ def test_searchable_copy(window, tmp_path):
     assert window.save_searchable(tmp_path / "scan-ocr.pdf")
     assert window.path == tmp_path / "scan-ocr.pdf" and len(window.annotations) == 1
     assert any(t == "justice" for _, t in annots.page_text(window.doc[0]))
+
+
+def tablet(w, kind, point, pressure=0.5, eraser=False):
+    """A tablet's pen event at POINT (in points of the page in view), its eraser end if ERASER."""
+    from PySide6.QtGui import QInputDevice, QPointingDevice, QTabletEvent
+
+    pointer = QPointingDevice.PointerType.Eraser if eraser else QPointingDevice.PointerType.Pen
+    device = QPointingDevice("pen", 1, QInputDevice.DeviceType.Stylus, pointer,
+                             QInputDevice.Capability.Position | QInputDevice.Capability.Pressure, 1, 2)
+    w._devices = getattr(w, "_devices", []) + [device]  # (kept alive while the events use it)
+    c = w.canvas
+    pos = QPointF(c.mapFromScene(c.pages[w.page].mapToScene(QPointF(*point))))
+    pos += QPointF(0.37, 0.61)  # (between two pixels: the pen is finer than the mouse)
+    buttons = Qt.MouseButton.NoButton if kind == QEvent.Type.TabletRelease else Qt.MouseButton.LeftButton
+    event = QTabletEvent(kind, device, pos, pos, pressure, 0, 0, 0, 0, 0, Qt.KeyboardModifier.NoModifier,
+                         Qt.MouseButton.LeftButton, buttons)
+    return c.viewportEvent(event)
+
+
+def test_pen_eraser_end(window):
+    """Turned over, the pen erases whatever tool is chosen, and the tool comes back after."""
+    window.set_tool("rect")
+    drag(window, (100, 300), (200, 400))
+    assert len(window.annotations) == 1
+    tablet(window, QEvent.Type.TabletPress, (110, 300), eraser=True)
+    assert window.canvas.mode == "eraser"
+    drag(window, (90, 350), (150, 350), (210, 350))
+    tablet(window, QEvent.Type.TabletRelease, (210, 350), eraser=True)
+    QApplication.processEvents()
+    assert window.annotations == [] and window.canvas.mode == "rect"
+
+
+def test_pen_strokes(window):
+    """The pen's own moves draw (finer than the mouse's, and smoothed); with the pressure counted once
+    per stroke, a stroke of changing pressure is one drawing."""
+    canvas = window.canvas
+    window.set_tool("ink")
+    points = [(100 + 8 * i, 300 + (i % 2)) for i in range(15)]
+    tablet(window, QEvent.Type.TabletPress, points[0], 0.1)
+    mouse(window, QEvent.Type.MouseButtonPress, points[0])
+    for i, p in enumerate(points[1:]):
+        assert tablet(window, QEvent.Type.TabletMove, p, 0.1 if i < 7 else 0.9)  # (taken: no mouse move made)
+    tablet(window, QEvent.Type.TabletRelease, points[-1])
+    mouse(window, QEvent.Type.MouseButtonRelease, points[-1])
+    drawn = window.annotations
+    assert len(drawn) == 2 and drawn[0].group == drawn[1].group  # (along the stroke: two widths)
+    xs = [x for a in drawn for x, _ in a.paths[0]]
+    assert any(abs(x - round(x)) > 0.05 for x in xs)  # (not on whole pixels)
+    ys = [y for _, y in drawn[0].paths[0][1:-1]]
+    assert max(ys) - min(ys) < 1.0  # (the zigzag of one point, smoothed)
+    canvas.pen_pressure = "stroke"
+    tablet(window, QEvent.Type.TabletPress, (100, 500), 0.1)
+    mouse(window, QEvent.Type.MouseButtonPress, (100, 500))
+    for i in range(1, 12):
+        tablet(window, QEvent.Type.TabletMove, (100 + 8 * i, 500), 0.1 if i < 6 else 0.9)
+    tablet(window, QEvent.Type.TabletRelease, (188, 500))
+    mouse(window, QEvent.Type.MouseButtonRelease, (188, 500))
+    assert len(window.annotations) == 3 and not window.annotations[-1].group
+
+
+def test_pen_settings_kept(tmp_path, monkeypatch):
+    prefs = dataclasses.replace(settings.Settings(), pen_pressure="off", pen_curve="firm", ocr_language="lat+eng")
+    settings.save(prefs)
+    got = settings.load()
+    assert (got.pen_pressure, got.pen_curve, got.ocr_language) == ("off", "firm", "lat+eng")

@@ -1,4 +1,4 @@
-# py-annotate 0.4.2: descripción
+# py-annotate 0.4.3: descripción
 
 ## Análisis
 
@@ -22,11 +22,11 @@ Al guardar, cada anotación se compara con lo que tiene el archivo. La que no ca
 
 ### Grupos, crítica textual y otros tipos
 
-Un grupo se escribe como los escribe el PDF: cada anotación responde a la primera (/IRT) como su grupo (/RT /Group), y el grupo queda además en una clave propia. Como MuPDF, al quitar una anotación, quita todo lo que le responde, los vínculos de los grupos se sacan mientras se escriben las anotaciones y se ponen de nuevo al final. Cualquier anotación puede llevar una entrada de crítica textual (uno de los dieciséis tipos de la especificación, con la lectura del texto y la otra, el testimonio, la fuente, la justificación y la seguridad), guardada como JSON en otra clave propia; con ellas se exporta el aparato crítico. Los enlaces, los archivos adjuntos y las demás anotaciones que py-annotate no edita aparecen en la lista, bloqueadas, y al guardar no se tocan.
+Un grupo se escribe como los escribe el PDF: cada anotación responde a la primera (/IRT) como su grupo (/RT /Group), y el grupo queda además en una clave propia. Como MuPDF, al quitar una anotación, quita todo lo que le responde, los vínculos de los grupos se sacan mientras se escriben las anotaciones y se ponen de nuevo al final. Cualquier anotación puede llevar una entrada de crítica textual (uno de los dieciséis tipos de la especificación, con la lectura del texto y la otra, el testimonio, la fuente, la justificación y la seguridad), guardada como JSON en otra clave propia; con ellas se exporta el aparato crítico. Los enlaces, los archivos adjuntos y las demás anotaciones que py-annotate no edita aparecen en la lista, bloqueadas, y al guardar no se tocan. Las capas son el contenido opcional del PDF: cada anotación nombra su capa (/OC) y el documento guarda cuáles se ven; ocultar una cuenta como un cambio por guardar.
 
 ## Implementación
 
-Está escrito en Python 3.14 o superior, con PyMuPDF y PySide6 (Qt 6). Son 38 archivos, unas 11 000 líneas. Cada texto de la ventana se busca por su inglés en `locale/es.xml` (531 textos), y cada valor de la configuración, un archivo TOML, se comprueba al leerlo.
+Está escrito en Python 3.14 o superior, con PyMuPDF y PySide6 (Qt 6). Son 39 archivos, unas 11 600 líneas. Cada texto de la ventana se busca por su inglés en `locale/es.xml` (567 textos), y cada valor de la configuración, un archivo TOML, se comprueba al leerlo.
 
 ### Las páginas
 
@@ -38,7 +38,7 @@ Las pruebas con cada clase de anotación, en una página normal y en una girada,
 
 ### Texto con formato
 
-El texto de un cuadro de texto puede tener negrita, cursiva, subrayado, colores y otras letras, y su borde un color propio. El PDF lo guarda como XHTML (/RC), con su aspecto por omisión en /DS. PyMuPDF escribe mal el espacio de nombres de XHTML y quita /RC en cuanto se le da el texto simple, así que py-annotate escribe /RC y /DS al final; con texto con formato, el color de /DA es el del borde. La ventana pinta ese texto con Qt, igual que MuPDF. Un trazo cuya presión cambia se corta en dibujos de hasta cinco grosores, que forman un grupo.
+El texto de un cuadro de texto puede tener negrita, cursiva, subrayado, colores y otras letras, y su borde un color propio. El PDF lo guarda como XHTML (/RC), con su aspecto por omisión en /DS. PyMuPDF escribe mal el espacio de nombres de XHTML y quita /RC en cuanto se le da el texto simple, así que py-annotate escribe /RC y /DS al final; con texto con formato, el color de /DA es el del borde. La ventana pinta ese texto con Qt, igual que MuPDF. Un trazo cuya presión cambia se corta en dibujos de hasta cinco grosores, que forman un grupo. Con el lápiz de una tableta, el trazo sigue los eventos del lápiz mismo, que conservan las fracciones de píxel, y se suaviza un poco; el extremo de borrador borra mientras toca.
 
 ### Lista, intercambio y PDF/A
 
@@ -50,7 +50,7 @@ Con un documento de 300 páginas y 3000 anotaciones, la primera letra escrita en
 
 ## Validación
 
-Hay 82 pruebas automáticas (`uv run pytest`). Las de las anotaciones escriben una de cada clase en una página normal y en una girada y las vuelven a leer; comprueban que una anotación cambiada conserva su número y las claves de otros programas, que guardar en el documento solo añade a su final, y que se conservan las respuestas, los estados, las etiquetas y las categorías; y pasan todo por JSON y por XFDF y de vuelta.
+Hay 90 pruebas automáticas (`uv run pytest`). Las de las anotaciones escriben una de cada clase en una página normal y en una girada y las vuelven a leer; comprueban que una anotación cambiada conserva su número y las claves de otros programas, que guardar en el documento solo añade a su final, y que se conservan las respuestas, los estados, las etiquetas y las categorías; y pasan todo por JSON y por XFDF y de vuelta.
 
 La ventana se prueba manejándola como lo haría un usuario, con eventos del ratón sobre las páginas: cada herramienta, mover, redimensionar y cambiar la forma, la goma de borrar, el panel y sus filtros, escribir en la página, deshacer después de guardar, guardar cuando otro programa cambió el archivo, las páginas dibujadas en otro proceso sin las anotaciones que la ventana dibuja, y las copias como PDF/A, con un pdf2iso hecho para la prueba que deja fuera los polígonos, como Ghostscript. Una prueba comprueba que cada texto de la ventana tenga su traducción al español, y ninguna otra.
 
@@ -58,7 +58,7 @@ Las pruebas se corren también sin nada del autor en el PATH, como las corre Cop
 
 ## Plataforma
 
-Funciona en Linux, Windows y macOS. La AppImage lleva su propio Python, Qt y PyMuPDF, y corre en cualquier Linux con glibc 2.34 o posterior; el RPM es para Fedora 45 y posteriores, y Copr lo construye para cada versión. En Windows y macOS (y en Linux, si se prefiere) se instala desde el código con los instaladores de `install/`, que solo necesitan Python 3.14 o posterior. Desde el código fuente, a mano, bastan Python 3.14 y uv. Para PDF/A y PDF/X hace falta pdf2iso, con Ghostscript.
+Funciona en Linux, Windows y macOS. La AppImage lleva su propio Python, Qt y PyMuPDF, y corre en cualquier Linux con glibc 2.34 o posterior; el RPM es para Fedora 45 y posteriores, y Copr lo construye para cada versión. En Windows y macOS (y en Linux, si se prefiere) se instala desde el código con los instaladores de `install/`, que solo necesitan Python 3.14 o posterior. Desde el código fuente, a mano, bastan Python 3.14 y uv. Para PDF/A y PDF/X hace falta pdf2iso, con Ghostscript. Para las copias con texto buscable de las páginas escaneadas hace falta Tesseract, con los idiomas que se vayan a leer; el RPM lo recomienda. El OCR se hace en el equipo.
 
 Es una aplicación de escritorio y no necesita internet. Nada sale del equipo: los documentos, la configuración y las copias de recuperación se quedan en él.
 

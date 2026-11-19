@@ -10,6 +10,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
@@ -92,6 +93,17 @@ class SettingsDialog(QDialog):
                                      + (tr("Installed: {languages}", languages=", ".join(found)) if found
                                         else tr("Tesseract is not installed: there is no OCR")))
         form.addRow(tr("OCR languages:"), self.ocr_language)
+        self.pen_pressure = QComboBox()
+        for key, name in settings.PEN_PRESSURE.items():
+            self.pen_pressure.addItem(tr(name), key)
+        self.pen_pressure.setCurrentIndex(max(self.pen_pressure.findData(prefs.pen_pressure), 0))
+        self.pen_pressure.setToolTip(tr("For drawing with the pen of a tablet; its eraser end always erases"))
+        form.addRow(tr("Pen pressure:"), self.pen_pressure)
+        self.pen_curve = QComboBox()
+        for key, name in settings.PEN_CURVES.items():
+            self.pen_curve.addItem(tr(name), key)
+        self.pen_curve.setCurrentIndex(max(self.pen_curve.findData(prefs.pen_curve), 0))
+        form.addRow(tr("Pen touch:"), self.pen_curve)
         self.reset = QCheckBox(tr("Put the tools back as they were at first"))
         self.reset.setToolTip(tr("The colours, lines, fonts and opacity of the annotations each tool makes, and "
                                  "how it behaves"))
@@ -238,6 +250,8 @@ class SettingsDialog(QDialog):
         prefs = dataclasses.replace(self.prefs, author=author, autosave=self.autosave.value(),
                                     pdfconform=self.pdfconform.text().strip(),
                                     ocr_language=self._ocr_language(),
+                                    pen_pressure=self.pen_pressure.currentData(),
+                                    pen_curve=self.pen_curve.currentData(),
                                     categories=self._categories(),
                                     palette=tuple(palette), shortcuts=tuple(self.shortcuts().items()))
         if self.reset.isChecked():

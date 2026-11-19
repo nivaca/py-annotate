@@ -14,6 +14,9 @@
   look for it; see conform.py);
 * ``ocr_language``: the languages of the text of scanned pages, for OCR
   (Tesseract's names: ``"eng"``, or several, ``"lat+eng"``);
+* ``pen_pressure`` and ``pen_curve``: how the pressure of a tablet's pen counts
+  (``along`` the stroke, once for the whole ``stroke``, or ``off``), and how
+  hard it must press (``soft``, ``normal``, ``firm``);
 * ``autosave``: every how many minutes a recovery copy of the annotations
   is kept (0: never; see recovery.py).
 
@@ -109,6 +112,13 @@ SHORTCUTS = {
 }
 
 
+# how the pressure of a tablet's pen counts, and how hard it must press for it
+PEN_PRESSURE = {"along": N_("Along each stroke (wider where it presses harder)"),
+                "stroke": N_("Once for each stroke"), "off": N_("Not at all")}
+PEN_CURVES = {"soft": N_("Soft (a light touch is enough)"), "normal": N_("Normal"),
+              "firm": N_("Firm (it must press harder)")}
+
+
 # the usual categories (translated where they are shown, while they are the usual ones)
 CATEGORIES = (N_("Main arguments"), N_("Definitions"), N_("Historical references"), N_("Primary sources"),
               N_("Secondary literature"), N_("Important quotations"), N_("Questions"), N_("Contradictions"),
@@ -125,6 +135,8 @@ class Settings:
     pdfconform: str = ""  # the path of pdf2iso; '' to look for it (see conform.find)
     categories: tuple[str, ...] | None = None  # None: the usual ones (CATEGORIES, translated)
     ocr_language: str = "eng"  # of the text of scanned pages (see ocr.py)
+    pen_pressure: str = "along"  # see PEN_PRESSURE
+    pen_curve: str = "normal"  # see PEN_CURVES
 
     def category_list(self) -> list[str]:
         from .interface import tr
@@ -183,6 +195,10 @@ def valid(field: str, value) -> bool:
         return isinstance(value, str) and "\n" not in value and len(value) <= 1000
     if field == "ocr_language":
         return isinstance(value, str) and bool(re.fullmatch(r"[A-Za-z_]+(\+[A-Za-z_]+)*", value)) and len(value) <= 200
+    if field == "pen_pressure":
+        return value in PEN_PRESSURE
+    if field == "pen_curve":
+        return value in PEN_CURVES
     if field == "autosave":
         return isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 120
     return False
@@ -229,7 +245,9 @@ def load() -> Settings:
                     pdfconform if valid("pdfconform", pdfconform) else "",
                     tuple(c.strip() for c in categories.split(";") if c.strip())
                     if valid("categories", categories) else None,
-                    params["ocr_language"] if valid("ocr_language", params.get("ocr_language")) else "eng")
+                    params["ocr_language"] if valid("ocr_language", params.get("ocr_language")) else "eng",
+                    params["pen_pressure"] if valid("pen_pressure", params.get("pen_pressure")) else "along",
+                    params["pen_curve"] if valid("pen_curve", params.get("pen_curve")) else "normal")
 
 
 def save(settings: Settings) -> None:
@@ -263,6 +281,10 @@ def save(settings: Settings) -> None:
     if not valid("ocr_language", settings.ocr_language):
         raise ValueError(f"ocr_language = {settings.ocr_language!r}")
     values["ocr_language"] = settings.ocr_language if settings.ocr_language != "eng" else None
+    for name, usual in (("pen_pressure", "along"), ("pen_curve", "normal")):
+        if not valid(name, getattr(settings, name)):
+            raise ValueError(f"{name} = {getattr(settings, name)!r}")
+        values[name] = getattr(settings, name) if getattr(settings, name) != usual else None
     if settings.categories is not None and any(";" in c or "\n" in c for c in settings.categories):
         raise ValueError(f"categories = {settings.categories!r}")
     values["categories"] = "; ".join(settings.categories) if settings.categories is not None else None

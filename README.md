@@ -22,7 +22,7 @@ file, so that a signed document keeps its signatures valid for what they
 signed.
 
 It has a window, in English and in Spanish, and works on Linux, Windows and
-macOS. This is version 0.4.2.
+macOS. This is version 0.4.3.
 
 I am Nicolas Vaughan (<nicolasvaughan@proton.me>), and I wrote it in 2026.
 It is free software, under the GNU General Public License, version 3 or
@@ -152,6 +152,14 @@ In a text box or a callout, Ctrl+B, Ctrl+I and Ctrl+U make the chosen text
 bold, italic or underlined, and the right-click menu gives it another colour
 or font (Helvetica, Times or Courier); the border can have a colour of its
 own, in the properties.
+
+With the pen of a tablet (a Wacom, for instance), the freehand tools follow
+the pen itself, which is finer and quicker than the mouse it also moves,
+and the line is smoothed a little; pressing harder draws wider. Turned
+over, the pen's eraser end erases, whatever tool is chosen, until it is
+lifted. Settings say how the pressure counts (along each stroke, once for
+each stroke, or not at all) and how hard the pen must press (soft, normal
+or firm).
 
 Right-clicking a tool in the toolbar gives its colours, the stamp it puts
 (the standard ones, such as Approved, Draft or Confidential, or one of your

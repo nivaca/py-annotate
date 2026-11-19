@@ -2231,4 +2231,40 @@
     <en>OCR languages:</en>
     <tr>Idiomas del OCR:</tr>
   </text>
+  <text>
+    <en>Along each stroke (wider where it presses harder)</en>
+    <tr>A lo largo de cada trazo (más ancho donde aprieta más)</tr>
+  </text>
+  <text>
+    <en>Once for each stroke</en>
+    <tr>Una vez por trazo</tr>
+  </text>
+  <text>
+    <en>Not at all</en>
+    <tr>Nada</tr>
+  </text>
+  <text>
+    <en>Soft (a light touch is enough)</en>
+    <tr>Suave (basta un toque ligero)</tr>
+  </text>
+  <text>
+    <en>Normal</en>
+    <tr>Normal</tr>
+  </text>
+  <text>
+    <en>Firm (it must press harder)</en>
+    <tr>Firme (hay que apretar más)</tr>
+  </text>
+  <text>
+    <en>For drawing with the pen of a tablet; its eraser end always erases</en>
+    <tr>Para dibujar con el lápiz de una tableta; su extremo de borrador siempre borra</tr>
+  </text>
+  <text>
+    <en>Pen pressure:</en>
+    <tr>Presión del lápiz:</tr>
+  </text>
+  <text>
+    <en>Pen touch:</en>
+    <tr>Toque del lápiz:</tr>
+  </text>
 </interface>
