@@ -22,7 +22,7 @@ file, so that a signed document keeps its signatures valid for what they
 signed.
 
 It has a window, in English and in Spanish, and works on Linux, Windows and
-macOS. This is version 0.4.0.
+macOS. This is version 0.4.1.
 
 I am Nicolas Vaughan (<nicolasvaughan@proton.me>), and I wrote it in 2026.
 It is free software, under the GNU General Public License, version 3 or
@@ -196,6 +196,13 @@ moved, copied and deleted together; Ungroup (Ctrl+Shift+G) undoes it. They
 are written as PDF groups, which other viewers that know them also keep
 together.
 
+The Layers menu puts annotations in layers: each layer can be shown or
+hidden, new annotations go to the layer chosen there, and the selected ones
+can be moved to another; a new layer is made there too. A hidden layer is
+neither drawn nor listed. The layers are the PDF's own optional content, so
+other viewers show and hide them too, and the document keeps which are
+shown.
+
 The panel of the annotations
 ----------------------------
 
@@ -317,7 +324,7 @@ told in [docs/DESCRIPTION.md](docs/DESCRIPTION.md).
 What it does not do yet
 -----------------------
 
-* Layers of annotations, and annotations that rotate, are not there yet.
+* Annotations that rotate are not there yet.
 * Annotations of other kinds (links, attached files, sounds, measurements)
   are shown in the list, locked, but cannot be edited; they are kept as they
   are, and left out of the exports unless the list shows only them.

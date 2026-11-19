@@ -817,3 +817,31 @@ def test_pressure_along_a_stroke(window, sample):
     drag(window, (100, 500), (150, 500), (200, 500))
     canvas._pressure = None
     assert len(window.annotations) == 4 and not window.annotations[-1].group
+
+
+def test_layers_in_the_window(window, sample):
+    """New annotations go to the layer chosen; a layer hidden is neither drawn nor listed, and that
+    is a change to save; saved, the document has the layers as they were."""
+    window.new_layer("Mine")
+    window.set_tool("rect")
+    drag(window, (100, 300), (150, 340))
+    window.layer = ""
+    drag(window, (200, 300), (250, 340))
+    assert [a.layer for a in window.annotations] == ["Mine", ""]
+    window.pick([1], False)
+    window.move_to_layer("Other")
+    assert [a.layer for a in window.annotations] == ["Mine", "Other"]
+    assert window.save() and not window.is_modified()
+    window.show_layer("Mine", False)
+    assert window.is_modified()
+    assert window._rows == [1] and [i.index for i in window.canvas.items_] == [1]
+    window.search.setText("other")
+    window.search_timer.timeout.emit()
+    assert window._rows == [1]
+    window.search.clear()
+    window.layers_menu()  # (it is made without trouble)
+    assert window.save()
+    doc = annots.open_pdf(sample)
+    assert annots.layers(doc) == {"Mine": False, "Other": True}
+    assert window.open_path(sample) and window.layers == {"Mine": False, "Other": True}
+    assert window._rows == [1]

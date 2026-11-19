@@ -201,6 +201,7 @@ class Annotation:
     group: str = ""
     critical: Critical | None = None  # an entry of textual criticism, if it has one
     other: str = ""  # of an annotation of another kind (OTHER): its kind, as the PDF names it ('Link'...)
+    layer: str = ""  # the name of its layer (the PDF's optional content, which viewers show or hide); '' for none
     replies: tuple[Reply, ...] = ()  # in the order they were made
     xref: int = 0  # of the annotation in the document it was read from; 0 if new
 
@@ -567,6 +568,7 @@ def read_annotation(doc: pymupdf.Document, page: pymupdf.Page, annot: pymupdf.An
               "tags": _labels(_pdf_text(doc, annot.xref, TAGS_KEY)),
               "categories": _labels(_pdf_text(doc, annot.xref, CATEGORIES_KEY)), "xref": annot.xref,
               "critical": critical_of(_pdf_text(doc, annot.xref, CRITICAL_KEY)),
+              "layer": _layer_of(doc, annot.xref),
               "group": _pdf_text(doc, annot.xref, GROUP_KEY)
               or (f"#{_irt(doc, annot.xref)}" if _grouped(doc, annot.xref) else "")}
     vertices = annot.vertices or []
@@ -749,6 +751,39 @@ def _pdf_rect_of(doc: pymupdf.Document, page: pymupdf.Page, xref: int) -> pymupd
     return pymupdf.Rect(x0, y0, x1, y1) * page.transformation_matrix
 
 
+def _layer_of(doc: pymupdf.Document, xref: int) -> str:
+    """The name of the layer (optional content group) of the annotation XREF; '' if it has none."""
+    kind, value = doc.xref_get_key(xref, "OC")
+    if kind != "xref":
+        return ""
+    oc = int(value.split()[0])
+    return _pdf_text(doc, oc, "Name") if doc.xref_get_key(oc, "Type")[1] == "/OCG" else ""
+
+
+def layers(doc: pymupdf.Document) -> dict[str, bool]:
+    """The layers of DOC: {name: whether it is shown}."""
+    return {info["name"]: bool(info["on"]) for info in (doc.get_ocgs() or {}).values()}
+
+
+def layer_xref(doc: pymupdf.Document, name: str) -> int:
+    """The layer NAME of DOC, made if it has none."""
+    for xref, info in (doc.get_ocgs() or {}).items():
+        if info["name"] == name:
+            return xref
+    return doc.add_ocg(name, on=True)
+
+
+def set_layers(doc: pymupdf.Document, shown: dict[str, bool]) -> None:
+    """Show or hide the layers of DOC as SHOWN says ({name: shown}; those it doesn't name stay as they
+    are), making those it has not."""
+    for name in shown:
+        layer_xref(doc, name)
+    groups = doc.get_ocgs() or {}
+    state = {x: shown.get(info["name"], bool(info["on"])) for x, info in groups.items()}
+    if any(bool(groups[x]["on"]) != on for x, on in state.items()):
+        doc.set_layer(-1, on=[x for x, on in state.items() if on], off=[x for x, on in state.items() if not on])
+
+
 def _grouped(doc: pymupdf.Document, xref: int) -> bool:
     """Whether the annotation XREF is in the group of another (not a reply to it)."""
     return doc.xref_get_key(xref, "RT")[1] == "/Group"
@@ -842,6 +877,8 @@ def _labels_keys(doc: pymupdf.Document, xref: int, a: Annotation) -> None:
     for key, values in ((TAGS_KEY, a.tags), (CATEGORIES_KEY, a.categories)):
         doc.xref_set_key(xref, key, pymupdf.get_pdf_str(", ".join(values)) if values else "null")
     doc.xref_set_key(xref, GROUP_KEY, pymupdf.get_pdf_str(a.group) if a.group else "null")
+    if a.layer != _layer_of(doc, xref):
+        doc.xref_set_key(xref, "OC", f"{layer_xref(doc, a.layer)} 0 R" if a.layer else "null")
     entry = json.dumps({k: v for k, v in dataclasses.asdict(a.critical).items() if v}, ensure_ascii=False) \
         if a.critical else ""
     doc.xref_set_key(xref, CRITICAL_KEY, pymupdf.get_pdf_str(entry) if entry else "null")
@@ -1143,17 +1180,19 @@ def save_doc(doc: pymupdf.Document, target: Path) -> None:
 
 def write(source: Path, annotations: list[Annotation], target: Path, password: str = "",
           kept: set[int] | None = None, result: list[Annotation] | None = None,
-          original: list[Annotation] | None = None) -> int:
+          original: list[Annotation] | None = None, shown: dict[str, bool] | None = None) -> int:
     """SOURCE with ANNOTATIONS (see apply), saved as TARGET. Into SOURCE itself, the
     changes are added at its end (an incremental save: what was signed stays as it was
     signed), unless the file can't take that or has a password; else it is written whole
     (safely, through a file of its own). KEPT: see apply. RESULT, if given, gets the annotations as
     TARGET has them (as read() gives them: no need to read the file again). Returns how many
-    annotations were written. ORIGINAL: see apply."""
+    annotations were written. ORIGINAL: see apply. SHOWN: the layers to show or hide (see set_layers)."""
     doc = open_pdf(source, password)
     try:
         same: dict[int, Annotation] = {}
         written = apply(doc, annotations, kept=kept, untouched=same, original=original)
+        if shown:
+            set_layers(doc, shown)
         if result is not None:  # (saving keeps the numbers of the objects: garbage=1 doesn't renumber them)
             result[:] = read(doc, known=same)
         same_file = target.resolve() == source.resolve()

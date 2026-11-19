@@ -2123,4 +2123,40 @@
     <en>Other kinds (read only)</en>
     <tr>Otros tipos (solo lectura)</tr>
   </text>
+  <text>
+    <en>&amp;Layers</en>
+    <tr>&amp;Capas</tr>
+  </text>
+  <text>
+    <en>Show or hide the annotations of this layer (saved in the document)</en>
+    <tr>Mostrar u ocultar las anotaciones de esta capa (se guarda en el documento)</tr>
+  </text>
+  <text>
+    <en>(no layers yet)</en>
+    <tr>(aún no hay capas)</tr>
+  </text>
+  <text>
+    <en>Make new annotations in</en>
+    <tr>Hacer las anotaciones nuevas en</tr>
+  </text>
+  <text>
+    <en>No layer</en>
+    <tr>Ninguna capa</tr>
+  </text>
+  <text>
+    <en>Move the selected annotations to</en>
+    <tr>Mover las anotaciones seleccionadas a</tr>
+  </text>
+  <text>
+    <en>New layer…</en>
+    <tr>Nueva capa…</tr>
+  </text>
+  <text>
+    <en>New layer</en>
+    <tr>Nueva capa</tr>
+  </text>
+  <text>
+    <en>Name of the layer:</en>
+    <tr>Nombre de la capa:</tr>
+  </text>
 </interface>

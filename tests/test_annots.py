@@ -371,3 +371,26 @@ def test_group_of_another_program(sample, tmp_path):
     again = annots.read(doc)
     assert [x.group for x in again] == [f"#{a.xref}"] * 2
     assert doc.xref_get_key(again[1].xref, "RT")[1] == "/Group"
+
+
+def test_layers(sample, tmp_path):
+    """Annotations in layers: written as optional content, read back, moved to another layer or out
+    of any; a layer hidden is hidden in the file (MuPDF doesn't draw it)."""
+    path = tmp_path / "doc.pdf"
+    made = [Annotation("rect", 0, (60, 60, 160, 160), "#ff0000", width=4, layer="Mine"),
+            Annotation("rect", 0, (300, 60, 400, 160), "#0000ff", width=4, layer="Theirs"),
+            Annotation("rect", 0, (60, 300, 160, 400), "#00ff00", width=4)]
+    annots.write(sample, made, path, shown={"Mine": True, "Theirs": False})
+    doc = annots.open_pdf(path)
+    got = annots.read(doc)
+    assert [a.layer for a in got] == ["Mine", "Theirs", ""]
+    assert annots.layers(doc) == {"Mine": True, "Theirs": False}
+    pix = doc[0].get_pixmap(dpi=72)
+    def ink(x0, x1, y0, y1):
+        return sum(pix.pixel(x, y) != (255, 255, 255) for x in range(x0, x1, 2) for y in range(y0, y1, 2))
+    assert ink(55, 165, 55, 165) and not ink(295, 405, 55, 165)
+    changed = [dataclasses.replace(got[0], layer="Theirs"), dataclasses.replace(got[1], layer=""), got[2]]
+    annots.write(path, changed, path, shown={"Theirs": True})
+    doc = annots.open_pdf(path)
+    assert [a.layer for a in annots.read(doc)] == ["Theirs", "", ""]
+    assert annots.layers(doc) == {"Mine": True, "Theirs": True}

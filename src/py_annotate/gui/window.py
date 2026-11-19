@@ -125,6 +125,9 @@ class MainWindow(FilesMixin, QMainWindow):
         self.count = 0
         self.page = 0  # (0-based) the page in view
         self.annotations: list[Annotation] = []
+        self.layers: dict[str, bool] = {}  # the layers of the annotations: {name: whether they are shown}
+        self.saved_layers: dict[str, bool] = {}  # (as the document has them)
+        self.layer = ""  # the layer of the annotations made (see layers_menu)
         self.saved: list[Annotation] = []  # the annotations as they are in the file
         self.undo_stack: list[list[Annotation]] = []
         self.redo_stack: list[list[Annotation]] = []
@@ -394,6 +397,9 @@ class MainWindow(FilesMixin, QMainWindow):
                                    tr("Find a word, a phrase or a pattern on the pages, and highlight (or underline, "
                                       "strike out…) the places found"))
 
+        self.m_layers = self.menuBar().addMenu(tr("&Layers"))
+        self.m_layers.setToolTipsVisible(True)
+        self.m_layers.aboutToShow.connect(self.layers_menu)
         m = self.menuBar().addMenu(tr("&View"))
         m.setToolTipsVisible(True)
         self.a_show = QAction(tr("Show the annotations"), self, checkable=True, checked=True)
@@ -618,6 +624,10 @@ class MainWindow(FilesMixin, QMainWindow):
         self.settings.setValue("last_dir", str(path.parent))
         self.add_recent(path)
         self.annotations, self.saved = list(found), list(found)
+        used = {a.layer for a in found}  # (the layers of the annotations; not those of the pages' contents)
+        self.layers = {name: on for name, on in annots.layers(self.doc).items() if name in used}
+        self.saved_layers = dict(self.layers)
+        self.layer = ""
         self.undo_stack, self.redo_stack, self.selected = [], [], []
         self.search.clear()
         self.refresh()
@@ -724,7 +734,7 @@ class MainWindow(FilesMixin, QMainWindow):
         try:
             result: list[Annotation] = []
             written = annots.write(source, self.annotations, target, self.password, kept=kept, result=result,
-                                   original=known)
+                                   original=known, shown=self.layers)
         except AnnotateError as e:
             if replacing:
                 self._load(source, self.password, page)
@@ -742,6 +752,7 @@ class MainWindow(FilesMixin, QMainWindow):
         self.undo_stack = [self._remapped(s, kept, replies) for s in self.undo_stack]
         self.redo_stack = [self._remapped(s, kept, replies) for s in self.redo_stack]
         self.annotations, self.saved = list(found), list(found)
+        self.saved_layers = dict(self.layers)
         self.selected = []
         self.settings.setValue("last_dir", str(target.parent))
         self.add_recent(target)
@@ -931,7 +942,8 @@ class MainWindow(FilesMixin, QMainWindow):
         a = Annotation(kind, page, rect, style.color, fill=style.fill if kind in FILLED else "",
                        opacity=style.opacity, width=style.width, author=self.prefs.author,
                        font_size=style.font_size, font=style.font, align=style.align, icon=style.icon,
-                       ends=(style.start, style.end), dashed=style.dashed, quads=quads, paths=paths)
+                       ends=(style.start, style.end), dashed=style.dashed, quads=quads, paths=paths,
+                       layer=self.layer)
         if kind == "stamp":
             a = self._stamp(a, style)
         return a
@@ -1544,6 +1556,63 @@ class MainWindow(FilesMixin, QMainWindow):
             self.refresh(pages=False, table=False)
             self._select_rows()
 
+    # ----------------------------------------------------------------- layers
+
+    def layers_menu(self):
+        """The Layers menu, as things are when it opens: each layer, to show or hide; the layer of the
+        annotations made; moving the selected ones to a layer; a new layer."""
+        m = self.m_layers
+        m.clear()
+        names = sorted(self.layers, key=str.lower)
+        for name in names:
+            act = m.addAction(name, lambda _=False, n=name: self.show_layer(n, not self.layers[n]))
+            act.setCheckable(True)
+            act.setChecked(self.layers[name])
+            act.setToolTip(tr("Show or hide the annotations of this layer (saved in the document)"))
+        if not names:
+            m.addAction(tr("(no layers yet)")).setEnabled(False)
+        m.addSeparator()
+        made = m.addMenu(tr("Make new annotations in"))
+        for name in ["", *names]:
+            act = made.addAction(name or tr("No layer"), lambda _=False, n=name: setattr(self, "layer", n))
+            act.setCheckable(True)
+            act.setChecked(self.layer == name)
+        move = m.addMenu(tr("Move the selected annotations to"))
+        move.setEnabled(bool(self.selected) and self.doc is not None)
+        for name in ["", *names]:
+            move.addAction(name or tr("No layer"), lambda _=False, n=name: self.move_to_layer(n))
+        m.addSeparator()
+        m.addAction(tr("New layer…"), self.new_layer).setEnabled(self.doc is not None)
+
+    def show_layer(self, name: str, on: bool):
+        self.layers[name] = on
+        if not on:
+            self.selected = [i for i in self.selected if self.annotations[i].layer != name]
+        self.refresh()
+        self._update_title()
+
+    def move_to_layer(self, name: str):
+        chosen = set(self.selected)
+        if name:
+            self.layers.setdefault(name, True)
+        self.change([dataclasses.replace(a, layer=name) if i in chosen else a for i, a in enumerate(self.annotations)],
+                    sorted(i for i in chosen if self.layers.get(name, True)))
+
+    def new_layer(self, name: str | None = None) -> str:
+        """A new layer (NAME, or asked), made the layer of new annotations, and of those selected."""
+        if name is None:
+            name, ok = QInputDialog.getText(self, tr("New layer"), tr("Name of the layer:"))
+            if not ok:
+                return ""
+        name = " ".join(name.split())
+        if not name:
+            return ""
+        self.layers.setdefault(name, True)
+        self.layer = name
+        if self.selected:
+            self.move_to_layer(name)
+        return name
+
     def _critical_for_selected(self, kind: str):
         """Give the annotations selected an entry of textual criticism of KIND (keeping what else
         their entries had); '': none."""
@@ -1625,7 +1694,9 @@ class MainWindow(FilesMixin, QMainWindow):
             self.refresh(table=False)
 
     def _passes(self, a: Annotation) -> bool:
-        """Whether A is let through by the search and filters of the list."""
+        """Whether A is let through by the search and filters of the list (and its layer is shown)."""
+        if a.layer and not self.layers.get(a.layer, True):
+            return False
         kind, author, color = self.f_kind.currentData(), self.f_author.currentData(), self.f_color.currentData()
         status, tag, category = self.f_status.currentData(), self.f_tag.currentData(), self.f_category.currentData()
         if kind and a.kind != kind or author is not None and a.author != author or color and a.color != color:
@@ -1637,7 +1708,7 @@ class MainWindow(FilesMixin, QMainWindow):
         words = self.search.text().lower().split()
         if words:
             c = a.critical
-            text = " ".join((a.contents, a.author, a.name(), self.marked_text(a), " ".join(a.tags),
+            text = " ".join((a.contents, a.author, a.name(), a.layer, self.marked_text(a), " ".join(a.tags),
                              " ".join((c.name(), c.lemma, c.reading, c.witness, c.location, c.source, c.rationale))
                              if c else "",
                              " ".join(a.categories), " ".join(f"{r.author} {r.contents}" for r in a.replies))).lower()
@@ -1698,7 +1769,7 @@ class MainWindow(FilesMixin, QMainWindow):
             return []
         if self.a_only_listed.isChecked():
             return sorted(self._rows)
-        return list(range(len(self.annotations)))
+        return [i for i, a in enumerate(self.annotations) if self.layers.get(a.layer, True)]
 
     def show_page(self, page: int):
         """Bring PAGE into view."""
@@ -1962,7 +2033,7 @@ class MainWindow(FilesMixin, QMainWindow):
     # ----------------------------------------------------------------- unsaved changes
 
     def is_modified(self) -> bool:
-        return self.annotations != self.saved
+        return self.annotations != self.saved or self.layers != self.saved_layers
 
     def _update_title(self):
         name = f"{self.path.name}[*] — py-annotate" if self.path else "py-annotate"

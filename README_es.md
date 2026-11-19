@@ -23,7 +23,7 @@ añaden al final del archivo, así que un documento firmado conserva sus
 firmas válidas para lo que firmaron.
 
 Tiene una ventana, en español y en inglés, y funciona en Linux, Windows y
-macOS. Esta es la versión 0.4.0.
+macOS. Esta es la versión 0.4.1.
 
 Soy Nicolas Vaughan (<nicolasvaughan@proton.me>) y lo escribí en 2026. Es
 software libre, bajo la Licencia Pública General de GNU, versión 3 o
@@ -200,6 +200,13 @@ todas, y se mueven, se copian y se borran juntas; Desagrupar (Ctrl+Mayús+G)
 lo deshace. Se guardan como grupos del PDF, que otros visores que los
 conocen también mantienen juntos.
 
+El menú Capas pone las anotaciones en capas: cada capa se puede mostrar u
+ocultar, las anotaciones nuevas van a la capa elegida allí, y las
+seleccionadas se pueden mover a otra; allí también se hace una capa nueva.
+Una capa oculta no se dibuja ni aparece en la lista. Las capas son el
+contenido opcional del propio PDF, así que otros visores también las
+muestran y ocultan, y el documento guarda cuáles se ven.
+
 El panel de las anotaciones
 ---------------------------
 
@@ -321,7 +328,7 @@ cuenta en [docs/DESCRIPCIÓN_es.md](docs/DESCRIPCIÓN_es.md).
 Lo que todavía no hace
 ----------------------
 
-* Faltan las capas de anotaciones y las anotaciones giradas.
+* Faltan las anotaciones giradas.
 * Las anotaciones de otros tipos (enlaces, archivos adjuntos, sonidos,
   medidas) aparecen en la lista, bloqueadas, pero no se pueden editar; se
   conservan tal cual, y quedan fuera de las exportaciones salvo que la lista
