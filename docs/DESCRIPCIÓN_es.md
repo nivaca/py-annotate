@@ -1,4 +1,4 @@
-# py-annotate 0.4.4: descripción
+# py-annotate 1.0.0: descripción
 
 ## Análisis
 

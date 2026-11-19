@@ -257,7 +257,8 @@ since a tablet records the trembling of the hand. The eraser end of the pen
 erases while it touches, whatever tool is chosen; while its side button is
 held, the page follows the pen, instead of the right click Qt made of it;
 and Settings say how the pressure counts and how hard the pen must press. The tests send the window
-the events of a pen, and of its eraser end, as a tablet would.
+the events of a pen, and of its eraser end, as a tablet would. After
+trying it with my own Wacom, I published it as version 1.0.0.
 
 Testing
 -------

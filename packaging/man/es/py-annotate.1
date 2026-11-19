@@ -14,7 +14,12 @@ resaltados, subrayados y tachados sobre el texto, marcas donde falta insertar
 texto, notas, cuadros de texto y llamadas, zonas resaltadas, rectángulos,
 elipses, polígonos, nubes, líneas, flechas, polilíneas, dibujos y resaltados a
 mano alzada, y sellos. Cada una puede llevar un comentario, respuestas, un
-estado de revisión, etiquetas y categorías.
+estado de revisión, etiquetas y categorías, una entrada de crítica textual,
+un grupo y una capa; el texto de un cuadro de texto puede ir en negrita,
+cursiva, en colores y en otras letras. Los enlaces, los archivos adjuntos y
+los demás tipos aparecen en la lista, solo para lectura. Con el lápiz de una
+tableta, cuanto más se aprieta más ancho se dibuja, el extremo de borrador
+borra y el botón lateral mueve la página.
 .PP
 Se escriben como anotaciones PDF corrientes, que cualquier visor de PDF
 muestra y puede editar. Las anotaciones que ya tenga el documento se leen, y
@@ -23,10 +28,12 @@ añaden a su final (un guardado incremental), de modo que sus firmas siguen
 siendo válidas para lo que firmaron.
 .PP
 La ventana también exporta las anotaciones (un informe en Markdown, una tabla
-en CSV, JSON, XFDF, un resumen de los comentarios en PDF), las importa (JSON,
-XFDF, otra copia del PDF), imprime el documento y guarda copias aplanadas, sin
-anotaciones, o como PDF/A o PDF/X (con
-.BR pdf2iso ).
+en CSV, JSON, XFDF, un aparato crítico, un resumen de los comentarios en PDF),
+las importa (JSON, XFDF, otra copia del PDF), imprime el documento y guarda
+copias aplanadas, sin anotaciones, como PDF/A o PDF/X (con
+.BR pdf2iso )
+o con el texto de sus páginas escaneadas hecho buscable (OCR, con
+.BR tesseract ).
 Está en español o en inglés (Configuración > Idioma).
 .SH OPCIONES
 .TP
@@ -48,7 +55,8 @@ indica otra carpeta.
 Copias de las anotaciones aún no guardadas, que se ofrecen si el programa se
 cierra antes de guardarlas.
 .SH VÉASE TAMBIÉN
-.BR pdf2iso (1)
+.BR pdf2iso (1),
+.BR tesseract (1)
 .SH AUTOR
 Nicolas Vaughan <nicolasvaughan@proton.me>. Con licencia GNU General Public
 License, versión 3 o posterior.

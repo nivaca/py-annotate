@@ -14,7 +14,11 @@ highlights, underlines and strikeouts over the text, marks where text is to be
 inserted, notes, text boxes and callouts, highlighted regions, rectangles,
 ellipses, polygons, clouds, lines, arrows, polylines, drawings and highlights
 made by hand, and stamps. Each one can have a comment, replies, a review
-status, tags and categories.
+status, tags and categories, an entry of textual criticism, a group and a
+layer; the text of a text box can be bold, italic, coloured and in other
+fonts. Links, attached files and the other kinds are listed, read only.
+With the pen of a tablet, pressing harder draws wider, the eraser end erases,
+and the side button moves the page.
 .PP
 They are written as ordinary PDF annotations, which any PDF viewer shows and
 can edit. The annotations a document already has are read, and can be changed
@@ -22,10 +26,12 @@ or deleted. Saving into the document adds the changes at its end (an
 incremental save), so that its signatures stay valid for what they signed.
 .PP
 The window can also export the annotations (a report in Markdown, a table in
-CSV, JSON, XFDF, a summary of the comments as a PDF), import them (JSON, XFDF,
-another copy of the PDF), print the document, and save copies of it
-flattened, without annotations, or as PDF/A or PDF/X (with
-.BR pdf2iso ).
+CSV, JSON, XFDF, a critical apparatus, a summary of the comments as a PDF),
+import them (JSON, XFDF, another copy of the PDF), print the document, and
+save copies of it flattened, without annotations, as PDF/A or PDF/X (with
+.BR pdf2iso ),
+or with the text of its scanned pages made searchable (OCR, with
+.BR tesseract ).
 It is in English or Spanish (Settings > Language).
 .SH OPTIONS
 .TP
@@ -47,7 +53,8 @@ names another folder.
 Copies of the annotations not yet saved, offered if the program stops before
 they are saved.
 .SH SEE ALSO
-.BR pdf2iso (1)
+.BR pdf2iso (1),
+.BR tesseract (1)
 .SH AUTHOR
 Nicolas Vaughan <nicolasvaughan@proton.me>. Licensed under the GNU General
 Public License, version 3 or later.
