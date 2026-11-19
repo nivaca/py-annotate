@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+from collections import Counter
 import os
 import tempfile
 from pathlib import Path
@@ -19,6 +20,7 @@ from PySide6.QtWidgets import (
     QColorDialog,
     QComboBox,
     QDialog,
+    QDockWidget,
     QFileDialog,
     QHBoxLayout,
     QHeaderView,
@@ -43,7 +45,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .. import __version__, annots, config, exchange, interface, recovery, settings
+from .. import __version__, annots, config, conform, exchange, interface, recovery, settings
 from ..annots import (
     FILLED,
     KINDS,
@@ -167,6 +169,7 @@ class MainWindow(QMainWindow):
         self.selected: list[int] = []  # indices in self.annotations
         self.prefs = settings.load()
         colors.set_palette(self.prefs.palette)
+        self._have_conform = conform.available(self.prefs.pdfconform)  # (pdf2iso, for PDF/A and PDF/X)
         self._temp: Path | None = None  # the pages without the annotations, on disk, for rendering them elsewhere
         self._thumbs: dict[int, QImage] = {}  # page -> its picture, without the annotations
         self._thumb_shown: dict[int, tuple] = {}  # page -> the annotations its thumbnail shows
@@ -293,7 +296,6 @@ class MainWindow(QMainWindow):
         right = QWidget()
         lay = QVBoxLayout(right)
         lay.setContentsMargins(4, 4, 4, 4)
-        lay.addWidget(QLabel("<b>" + tr("Annotations") + "</b>"))
         lay.addWidget(self.search)
         lay.addLayout(filters)
         lay.addLayout(sort_row)
@@ -308,12 +310,19 @@ class MainWindow(QMainWindow):
         self.splitter = QSplitter()
         self.splitter.addWidget(self.pages)
         self.splitter.addWidget(center)
-        self.splitter.addWidget(right)
         self.splitter.setStretchFactor(0, 0)
-        self.splitter.setStretchFactor(1, 3)
-        self.splitter.setStretchFactor(2, 1)
-        self.splitter.setSizes([150, 720, 400])
+        self.splitter.setStretchFactor(1, 1)
+        self.splitter.setSizes([150, 800])
         self.setCentralWidget(self.splitter)
+        # the list of the annotations, with their authors, and the one selected: a panel on the right that
+        # can be hidden (View, or its close button), moved to the left, or taken out of the window
+        self.panel = QDockWidget(tr("Annotations"), self)
+        self.panel.setObjectName("annotations")
+        self.panel.setWidget(right)
+        self.panel.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
+        right.setMinimumWidth(300)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.panel)
+        self.resizeDocks([self.panel], [500], Qt.Orientation.Horizontal)
 
     def _action(self, menu: QMenu | None, text: str, triggered, shortcut=None, tip: str = "") -> QAction:
         act = QAction(text, self, triggered=triggered)
@@ -344,6 +353,11 @@ class MainWindow(QMainWindow):
         self.a_bare = self._action(sub, tr("Without annotations…"), self.save_without_dialog,
                                    tip=tr("The document as it is without any annotation (links and form fields "
                                           "stay)"))
+        sub.addSeparator()
+        self.standard_actions: dict[str, QAction] = {}
+        for value, name in conform.STANDARDS:
+            act = self._action(sub, tr(name) + "…", lambda _=False, v=value: self.save_standard_dialog(v))
+            self.standard_actions[value] = act
         m.addSeparator()
         sub = m.addMenu(tr("Export the annotations"))
         self.a_export_md = self._action(sub, tr("As a report (Markdown)…"), lambda: self.export_dialog("md"))
@@ -419,6 +433,11 @@ class MainWindow(QMainWindow):
                                          "let through"))
         self.a_only_listed.toggled.connect(lambda _: self.refresh(table=False))
         m.addAction(self.a_only_listed)
+        self.a_panel = self.panel.toggleViewAction()
+        self.a_panel.setText(tr("The panel of the annotations"))
+        self.a_panel.setShortcut(QKeySequence("F4"))
+        self.a_panel.setToolTip(tr("The list of the annotations, with their authors, on the right of the window"))
+        m.addAction(self.a_panel)
         m.addSeparator()
         self.a_next_annot = self._action(m, tr("Next annotation"), lambda: self.go_annotation(1))
         self.a_prev_annot = self._action(m, tr("Previous annotation"), lambda: self.go_annotation(-1))
@@ -507,7 +526,7 @@ class MainWindow(QMainWindow):
             self.restoreGeometry(geo)
         else:
             self.resize(1360, 900)
-        split = self.settings.value("splitter")
+        split = self.settings.value("splitter2")
         if isinstance(split, QByteArray):
             self.splitter.restoreState(split)
         bars = self.settings.value("toolbars")
@@ -516,7 +535,7 @@ class MainWindow(QMainWindow):
 
     def save_settings(self):
         self.settings.setValue("geometry", self.saveGeometry())
-        self.settings.setValue("splitter", self.splitter.saveState())
+        self.settings.setValue("splitter2", self.splitter.saveState())
         self.settings.setValue("toolbars", self.saveState())
         self.settings.sync()
 
@@ -787,6 +806,81 @@ class MainWindow(QMainWindow):
         self.status(tr("Saved {path}", path=target) + " — "
                     + ntr("{count} annotation taken out", "{count} annotations taken out", count))
         return True
+
+    def save_standard_dialog(self, standard: str) -> bool:
+        """Save a copy with the annotations as STANDARD ('a-2b', 'x-4'...), made by pdf2iso."""
+        if self.path is None:
+            return False
+        if not conform.available():
+            self.warn(conform.label(standard), tr("{command} is not installed (or not where Settings say)",
+                                                  command=conform.COMMAND))
+            return False
+        target = self._ask_target(tr("Save a copy as {standard}", standard=conform.label(standard)),
+                                  "-pdfx" if standard.startswith("x") else "-pdfa")
+        if target is None or self._same_file(target):
+            return False
+        return self.save_standard(target, standard)
+
+    def save_standard(self, target: Path, standard: str, flatten: set[str] = frozenset()) -> bool:
+        """Write TARGET: a copy with the annotations (those of the kinds FLATTEN, made part of the
+        pages), made STANDARD by pdf2iso. If Ghostscript leaves out annotations of some kinds,
+        offer to do it again with those flattened."""
+        self.keep_comment()
+        fd, tmp = tempfile.mkstemp(suffix=".pdf", dir=target.parent)
+        os.close(fd)
+        tmp = Path(tmp)
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        self.status(tr("Making {standard} with {command}…", standard=conform.label(standard),
+                       command=conform.COMMAND))
+        QApplication.processEvents()
+        try:
+            if flatten:
+                exchange.save_partly_flattened(self.path, self.annotations, tmp, self.password, set(flatten))
+            else:
+                annots.write(self.path, self.annotations, tmp, self.password)
+            check = conform.convert(tmp, target, standard, self.password)
+            kept = [a for a in self.annotations if a.kind not in flatten]
+            lost = exchange.kinds_lost(kept, target)
+        except (AnnotateError, conform.ConformError) as e:
+            QApplication.restoreOverrideCursor()
+            self.status("", error=False)
+            self.warn(conform.label(standard), tr("The copy could not be made {standard}:\n\n{error}",
+                                                  standard=conform.label(standard), error=e))
+            return False
+        finally:
+            tmp.unlink(missing_ok=True)
+        QApplication.restoreOverrideCursor()
+        if lost:
+            names = ", ".join(f"{tool_name(kind).lower()} ({count})" for kind, count in lost.items())
+            if self.ask_flatten_lost(conform.label(standard), names):
+                kinds = set(lost) | ({"cloud"} if "polygon" in lost else set())
+                return self.save_standard(target, standard, set(flatten) | kinds)
+        message = tr("Saved {path} as {standard}", path=target, standard=conform.label(standard))
+        if check:
+            message += f" ({check})"
+        if flatten:
+            message += " — " + tr("some annotations were made part of the pages")
+        elif lost:
+            message += " — " + ntr("{count} annotation was left out", "{count} annotations were left out",
+                                   sum(lost.values()))
+        if self.password:
+            message += " — " + tr("PDF/A and PDF/X can't be protected: the copy has no password")
+        self.status(message)
+        return True
+
+    def ask_flatten_lost(self, standard: str, names: str) -> bool:
+        """Whether to make part of the pages the annotations (NAMES: their kinds and how many) that
+        Ghostscript could not keep in STANDARD."""
+        box = QMessageBox(QMessageBox.Icon.Warning, standard,
+                          tr("Ghostscript could not keep these annotations in {standard}, and left them out: "
+                             "{kinds}.\n\nThey can be made part of the pages instead: they will be seen and "
+                             "printed, but no longer edited. The other annotations stay as they are.",
+                             standard=standard, kinds=names), QMessageBox.StandardButton.NoButton, self)
+        flatten = box.addButton(tr("Make them part of the pages"), QMessageBox.ButtonRole.AcceptRole)
+        box.addButton(tr("Leave them out"), QMessageBox.ButtonRole.RejectRole)
+        box.setDefaultButton(flatten)
+        box.exec()
+        return box.clickedButton() is flatten
 
     def export_dialog(self, kind: str) -> bool:
         """Export the annotations the list shows (all, if nothing is filtered) as KIND: 'json', 'md' or 'csv'."""
@@ -1313,6 +1407,7 @@ class MainWindow(QMainWindow):
         except (OSError, ValueError) as e:
             self.status(tr("Could not keep the setting: {error}", error=e), error=True)
         colors.set_palette(prefs.palette)
+        self._have_conform = conform.available(prefs.pdfconform)
         self.apply_shortcuts()
         self._start_autosave()
         self._show_panel()
@@ -1509,7 +1604,9 @@ class MainWindow(QMainWindow):
         return True
 
     def _fill_filters(self):
-        """The choices of the filters: the kinds, authors and colours there are."""
+        """The choices of the filters: the kinds, authors (with how many annotations each has) and
+        colours there are."""
+        by_author = Counter(a.author for a in self.annotations)
         for box, everything, values in (
                 (self.f_kind, tr("All kinds"), sorted({a.kind for a in self.annotations},
                                                       key=lambda k: KINDS.index(k))),
@@ -1523,7 +1620,7 @@ class MainWindow(QMainWindow):
                 if box is self.f_kind:
                     box.addItem(tool_name(value), value)
                 elif box is self.f_author:
-                    box.addItem(value or tr("(no author)"), value)
+                    box.addItem(f"{value or tr('(no author)')} ({by_author[value]})", value)
                 else:
                     box.addItem(swatch(value), color_name(value), value)
             index = box.findData(current) if current is not None else 0
@@ -1789,6 +1886,10 @@ class MainWindow(QMainWindow):
                   self.a_zoom_out, self.page_spin, self.a_flat, self.a_bare, self.a_import_json, self.a_import_pdf,
                   *self.tool_actions.values()):
             w.setEnabled(has)
+        for act in self.standard_actions.values():
+            act.setEnabled(has and self._have_conform)
+            act.setToolTip("" if self._have_conform else tr("Needs {command}: install it, or say where it is in "
+                                                            "Settings", command=conform.COMMAND))
         for w in (self.a_export_md, self.a_export_csv, self.a_export_json, self.a_next_annot, self.a_prev_annot):
             w.setEnabled(has and bool(self._rows))
         self.a_save.setEnabled(has and self.is_modified())

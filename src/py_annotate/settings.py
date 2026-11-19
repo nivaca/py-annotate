@@ -8,6 +8,8 @@
 * the colours offered in the menus, with what each one means to the user,
   as ``palette_N_color`` and ``palette_N_meaning`` (N from 1);
 * the keyboard shortcuts, as ``shortcut_ACTION`` (``shortcut_highlight = "H"``);
+* ``pdfconform``: the path of pdf2iso, which makes PDF/A and PDF/X ('' to
+  look for it; see conform.py);
 * ``autosave``: every how many minutes a recovery copy of the annotations
   is kept (0: never; see recovery.py).
 
@@ -109,6 +111,7 @@ class Settings:
     palette: tuple[tuple[str, str | None], ...] = tuple((c, None) for c, _, _ in PALETTE)  # (colour, meaning; None: usual)
     shortcuts: tuple[tuple[str, str], ...] = tuple(SHORTCUTS.items())
     autosave: int = 2  # minutes between recovery copies; 0: none
+    pdfconform: str = ""  # the path of pdf2iso; '' to look for it (see conform.find)
 
     def style(self, kind: str) -> Style:
         return dict(self.styles).get(kind, STYLES[kind])
@@ -156,6 +159,8 @@ def valid(field: str, value) -> bool:
         return value in SHOW
     if field == "shortcut":
         return isinstance(value, str) and "\n" not in value and len(value) <= 40
+    if field == "pdfconform":
+        return isinstance(value, str) and "\n" not in value and len(value) <= 1000
     if field == "autosave":
         return isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 120
     return False
@@ -195,8 +200,10 @@ def load() -> Settings:
         key = params.get(f"shortcut_{action}")
         shortcuts.append((action, key if valid("shortcut", key) else usual))
     autosave = params.get("autosave")
+    pdfconform = params.get("pdfconform", "")
     return Settings(author if valid("author", author) else "", tuple(styles), tuple(palette), tuple(shortcuts),
-                    autosave if valid("autosave", autosave) else DEFAULTS.autosave)
+                    autosave if valid("autosave", autosave) else DEFAULTS.autosave,
+                    pdfconform if valid("pdfconform", pdfconform) else "")
 
 
 def save(settings: Settings) -> None:
@@ -224,4 +231,7 @@ def save(settings: Settings) -> None:
     if not valid("autosave", settings.autosave):
         raise ValueError(f"autosave = {settings.autosave!r}")
     values["autosave"] = settings.autosave if settings.autosave != DEFAULTS.autosave else None
+    if not valid("pdfconform", settings.pdfconform):
+        raise ValueError(f"pdfconform = {settings.pdfconform!r}")
+    values["pdfconform"] = settings.pdfconform or None
     config.set_many(values)

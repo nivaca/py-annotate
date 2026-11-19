@@ -1391,4 +1391,124 @@
     <en>{shown} of {count}</en>
     <tr>{shown} de {count}</tr>
   </text>
+  <text>
+    <en>Choose…</en>
+    <tr>Elegir…</tr>
+  </text>
+  <text>
+    <en>Ghostscript could not keep these annotations in {standard}, and left them out: {kinds}. They can be made part of the pages instead: they will be seen and printed, but no longer edited. The other annotations stay as they are.</en>
+    <tr>Ghostscript no pudo conservar estas anotaciones en {standard} y las dejó fuera: {kinds}. Se pueden hacer parte de las páginas: se verán e imprimirán, pero ya no se podrán editar. Las demás anotaciones quedan como están.</tr>
+  </text>
+  <text>
+    <en>It will be {path}</en>
+    <tr>Será {path}</tr>
+  </text>
+  <text>
+    <en>Leave them out</en>
+    <tr>Dejarlas fuera</tr>
+  </text>
+  <text>
+    <en>Look for it on the PATH, in ~/bin and in ~/.local/bin</en>
+    <tr>Buscarlo en el PATH, en ~/bin y en ~/.local/bin</tr>
+  </text>
+  <text>
+    <en>Make them part of the pages</en>
+    <tr>Hacerlas parte de las páginas</tr>
+  </text>
+  <text>
+    <en>Making {standard} with {command}…</en>
+    <tr>Haciendo {standard} con {command}…</tr>
+  </text>
+  <text>
+    <en>Needs {command}: install it, or say where it is in Settings</en>
+    <tr>Necesita {command}: instálelo, o diga dónde está en la Configuración</tr>
+  </text>
+  <text>
+    <en>Not found: PDF/A and PDF/X can't be made until it is given here</en>
+    <tr>No se encontró: no se pueden hacer PDF/A ni PDF/X hasta que se indique aquí</tr>
+  </text>
+  <text>
+    <en>PDF/A and PDF/X can't be protected: the copy has no password</en>
+    <tr>PDF/A y PDF/X no admiten protección: la copia no tiene contraseña</tr>
+  </text>
+  <text>
+    <en>PDF/A-1b (archiving, the oldest)</en>
+    <tr>PDF/A-1b (archivo, la más antigua)</tr>
+  </text>
+  <text>
+    <en>PDF/A-2b (archiving)</en>
+    <tr>PDF/A-2b (archivo)</tr>
+  </text>
+  <text>
+    <en>PDF/A-3b (archiving, with attachments)</en>
+    <tr>PDF/A-3b (archivo, con adjuntos)</tr>
+  </text>
+  <text>
+    <en>PDF/X-4 (printing)</en>
+    <tr>PDF/X-4 (imprenta)</tr>
+  </text>
+  <text>
+    <en>Save a copy as {standard}</en>
+    <tr>Guardar una copia como {standard}</tr>
+  </text>
+  <text>
+    <en>Saved {path} as {standard}</en>
+    <tr>Guardado {path} como {standard}</tr>
+  </text>
+  <text>
+    <en>The copy could not be made {standard}: {error}</en>
+    <tr>No se pudo convertir la copia en {standard}: {error}</tr>
+  </text>
+  <text>
+    <en>The list of the annotations, with their authors, on the right of the window</en>
+    <tr>La lista de las anotaciones, con sus autores, a la derecha de la ventana</tr>
+  </text>
+  <text>
+    <en>The panel of the annotations</en>
+    <tr>El panel de las anotaciones</tr>
+  </text>
+  <text>
+    <en>The script pdf2iso, which makes PDF/A and PDF/X (with or without the .py extension); empty to look for it</en>
+    <tr>El script pdf2iso, que hace PDF/A y PDF/X (con o sin la extensión .py); vacío para buscarlo</tr>
+  </text>
+  <text>
+    <en>There is no such file</en>
+    <tr>No existe ese archivo</tr>
+  </text>
+  <text>
+    <en>Where is pdf2iso?</en>
+    <tr>¿Dónde está pdf2iso?</tr>
+  </text>
+  <text>
+    <en>pdf2iso:</en>
+    <tr>pdf2iso:</tr>
+  </text>
+  <text>
+    <en>some annotations were made part of the pages</en>
+    <tr>algunas anotaciones se hicieron parte de las páginas</tr>
+  </text>
+  <text>
+    <en>{command} could not make {standard}: {error}</en>
+    <tr>{command} no pudo hacer {standard}: {error}</tr>
+  </text>
+  <text>
+    <en>{command} is not installed (or not on the PATH)</en>
+    <tr>{command} no está instalado (o no está en el PATH)</tr>
+  </text>
+  <text>
+    <en>{command} is not installed (or not where Settings say)</en>
+    <tr>{command} no está instalado (o no está donde dice la Configuración)</tr>
+  </text>
+  <text>
+    <en>{command} took too long</en>
+    <tr>{command} tardó demasiado</tr>
+  </text>
+  <text>
+    <en>{count} annotation was left out</en>
+    <tr>{count} anotación quedó fuera</tr>
+  </text>
+  <text>
+    <en>{count} annotations were left out</en>
+    <tr>{count} anotaciones quedaron fuera</tr>
+  </text>
 </interface>

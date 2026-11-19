@@ -19,7 +19,7 @@ the annotations that changed, and never touches the others, nor links,
 file attachments or form fields.
 
 It has a window, in English and in Spanish, and is meant to work on Linux,
-Windows and macOS. This is version 0.1.0, the first.
+Windows and macOS. This is version 0.2.0.
 
 I am Nicolas Vaughan (<nicolasvaughan@proton.me>), and I wrote it in 2026.
 It is free software, under the GNU General Public License, version 3 or
@@ -100,15 +100,20 @@ or of those of the same kind.
 The list
 --------
 
-The list on the right has all the annotations of the document, with their
-page, kind, author, date and comment (or, for marks over text, the text they
+The panel on the right lists all the annotations of the document, with
+their page, kind, author, date and comment (or, for marks over text, the text they
 mark). It can be sorted by page, by date, by kind or by author, searched
 (comments, texts marked, authors), and filtered by kind, author and colour.
 View > Next annotation (Alt+Down) and Previous annotation (Alt+Up) go
 through the annotations in the order of the list, and only through those it
 shows. View > Show the annotations hides them all, to see the document as
 it is; View > Only those the list shows leaves on the pages only those the
-search and filters let through.
+search and filters let through. The filter of authors says how many
+annotations each author has.
+
+The panel can be hidden (View > The panel of the annotations, or F4), to
+give the page the whole width, moved to the left side of the window, or
+taken out of it (the buttons on its title).
 
 Below the list, the comment of the annotation selected can be written
 directly (C puts the cursor there); it is kept when the field is left.
@@ -120,8 +125,17 @@ File > Save writes the annotations in the document itself; File > Save as
 writes a copy with them, and goes on with the copy. Everything can be
 undone (Ctrl+Z) until the document is saved. File > Save a copy writes a
 flattened copy (the annotations become part of the pages: every viewer
-shows and prints them, but they can no longer be edited) or a copy without
-any annotation.
+shows and prints them, but they can no longer be edited), a copy without
+any annotation, or a copy as PDF/A-1b, PDF/A-2b, PDF/A-3b (for archiving) or
+PDF/X-4 (for printing). These are made by
+[pdf2iso](https://github.com/nivaca/pdf2iso), which must be installed: it
+is looked for on the PATH, in `~/bin` and in `~/.local/bin`, or Settings
+say where it is; without it, those entries are greyed out. Ghostscript,
+which pdf2iso uses, leaves out some kinds of annotations (insert-text marks,
+polygons and clouds, at least). If it does, py-annotate says which, and
+offers to make those part of the pages instead, keeping the others as
+annotations. PDF/A and PDF/X can't have a password, so the copy of a
+protected document has none.
 
 File > Export the annotations writes those the list shows as a report in
 Markdown (how many there are of each kind, colour and author, then each of
@@ -143,7 +157,7 @@ Settings
 Settings > Settings has three parts:
 
 * General: the name written as author in new annotations, how often the
-  recovery copy is kept, and a way to put the tools back as they were at
+  recovery copy is kept, where pdf2iso is (empty: looked for), and a way to put the tools back as they were at
   first.
 * Colours: the colours offered in the menus, and what each one means to you
   (by default, yellow for what is important, green for definitions, blue for
@@ -164,8 +178,7 @@ it. Deleting the file gives back the usual values.
 What it does not do yet
 -----------------------
 
-* It does not save PDF/A or PDF/X, and does not save incrementally: a
-  digital signature is no longer valid once the document is saved.
+* It does not save incrementally: a digital signature is no longer valid once the document is saved.
 * Replies to annotations, review states, tags, categories, groups and
   layers are not there yet. Replies already in a document are kept as they
   are, but are not shown.

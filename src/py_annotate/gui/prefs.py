@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QHBoxLayout,
     QHeaderView,
     QKeySequenceEdit,
     QLabel,
@@ -27,7 +28,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .. import config, settings
+from .. import config, conform, settings
 from ..annots import NAMES
 from ..interface import N_, tr
 from .props import ColorButton
@@ -64,6 +65,22 @@ class SettingsDialog(QDialog):
         self.autosave.setToolTip(tr("A copy of the annotations not yet saved is kept this often, and offered "
                                     "if the program stops before they are saved"))
         form.addRow(tr("Recovery copy every:"), self.autosave)
+        self.pdfconform = QLineEdit(prefs.pdfconform)
+        self.pdfconform.setPlaceholderText(tr("Look for it on the PATH, in ~/bin and in ~/.local/bin"))
+        self.pdfconform.setToolTip(tr("The script pdf2iso, which makes PDF/A and PDF/X (with or without the .py "
+                                      "extension); empty to look for it"))
+        self.pdfconform.textChanged.connect(self._show_pdfconform)
+        choose = QPushButton(tr("Choose…"))
+        choose.clicked.connect(self._choose_pdfconform)
+        row = QHBoxLayout()
+        row.addWidget(self.pdfconform, 1)
+        row.addWidget(choose)
+        form.addRow(tr("pdf2iso:"), row)
+        self.pdfconform_found = QLabel()
+        self.pdfconform_found.setWordWrap(True)
+        self.pdfconform_found.setStyleSheet("color: palette(placeholder-text);")
+        form.addRow("", self.pdfconform_found)
+        self._show_pdfconform()
         self.reset = QCheckBox(tr("Put the tools back as they were at first"))
         self.reset.setToolTip(tr("The colours, lines, fonts and opacity of the annotations each tool makes, and "
                                  "how it behaves"))
@@ -121,6 +138,27 @@ class SettingsDialog(QDialog):
         outer.addWidget(buttons)
         self.resize(560, 620)
 
+    def _show_pdfconform(self, *_):
+        """Which pdf2iso will be used (File > Save a copy > PDF/A, PDF/X)."""
+        path = self.pdfconform.text().strip()
+        found = conform.find(path)
+        if found is not None:
+            self.pdfconform_found.setText(tr("It will be {path}", path=found))
+        elif path:
+            self.pdfconform_found.setText(tr("There is no such file"))
+        else:
+            self.pdfconform_found.setText(tr("Not found: PDF/A and PDF/X can't be made until it is given here"))
+
+    def _choose_pdfconform(self):
+        from pathlib import Path
+
+        from PySide6.QtWidgets import QFileDialog
+
+        start = self.pdfconform.text().strip() or str(Path.home() / "bin")
+        name, _ = QFileDialog.getOpenFileName(self, tr("Where is pdf2iso?"), start)
+        if name:
+            self.pdfconform.setText(name)
+
     def _usual_colours(self):
         for (button, edit), (color, _, meaning) in zip(self.palette_rows, settings.PALETTE):
             button.set_color(color)
@@ -165,6 +203,7 @@ class SettingsDialog(QDialog):
             same = color == usual_color and text == (tr(usual_meaning) if usual_meaning else "")
             palette.append((color, None if same else text))
         prefs = dataclasses.replace(self.prefs, author=author, autosave=self.autosave.value(),
+                                    pdfconform=self.pdfconform.text().strip(),
                                     palette=tuple(palette), shortcuts=tuple(self.shortcuts().items()))
         if self.reset.isChecked():
             prefs = dataclasses.replace(prefs, styles=settings.DEFAULTS.styles)

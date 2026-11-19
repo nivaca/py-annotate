@@ -249,6 +249,40 @@ def save_flattened(source: Path, annotations: list[Annotation], target: Path, pa
         doc.close()
 
 
+def save_partly_flattened(source: Path, annotations: list[Annotation], target: Path, password: str = "",
+                          kinds: set[str] = frozenset()) -> None:
+    """A copy of SOURCE with ANNOTATIONS, those of KINDS made part of the pages
+    and the others left as annotations (raises AnnotateError). For PDF/A and
+    PDF/X: Ghostscript removes some kinds of annotations, which are kept this way."""
+    doc = annots.open_pdf(source, password)
+    try:
+        annots.apply(doc, annotations)
+        # (only those of KINDS stay as annotations, to be flattened; the others are written again after)
+        for page in doc:
+            for xref in [a.xref for a in page.annots() or []
+                         if (kind := annots.kind_of(doc, a)) is not None and kind not in kinds]:
+                page.delete_annot(page.load_annot(xref))
+        doc.bake(annots=True, widgets=False)
+        annots.apply(doc, [dataclasses.replace(a, xref=0) for a in annotations if a.kind not in kinds])
+        annots.save_doc(doc, target)
+    except (OSError, RuntimeError, ValueError) as e:
+        raise AnnotateError(tr("{path} cannot be written: {error}", path=target, error=e)) from None
+    finally:
+        doc.close()
+
+
+def kinds_lost(annotations: list[Annotation], target: Path, password: str = "") -> Counter:
+    """How many annotations of each kind of ANNOTATIONS are not in TARGET (a
+    copy of them made by another program)."""
+    doc = annots.open_pdf(target, password)
+    try:
+        have = Counter("polygon" if a.kind == "cloud" else a.kind for a in annots.read(doc))
+    finally:
+        doc.close()
+    want = Counter("polygon" if a.kind == "cloud" else a.kind for a in annotations)
+    return want - have
+
+
 def save_without(source: Path, target: Path, password: str = "") -> int:
     """A copy of SOURCE without any annotation (links and form fields stay).
     Returns how many were taken out (raises AnnotateError)."""

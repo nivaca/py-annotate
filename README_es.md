@@ -19,7 +19,7 @@ reescriben solo las que cambiaron; las demás no se tocan, ni tampoco los
 enlaces, los archivos adjuntos o los campos de formulario.
 
 Tiene una ventana, en español y en inglés, y está pensado para Linux,
-Windows y macOS. Esta es la versión 0.1.0, la primera.
+Windows y macOS. Esta es la versión 0.2.0.
 
 Soy Nicolas Vaughan (<nicolasvaughan@proton.me>) y lo escribí en 2026. Es
 software libre, bajo la Licencia Pública General de GNU, versión 3 o
@@ -102,7 +102,7 @@ las del mismo tipo.
 La lista
 --------
 
-La lista de la derecha tiene todas las anotaciones del documento, con su
+El panel de la derecha lista todas las anotaciones del documento, con su
 página, tipo, autor, fecha y comentario (o, en las marcas sobre el texto, el
 texto que marcan). Se puede ordenar por página, por fecha, por tipo o por
 autor, buscar en ella (comentarios, textos marcados, autores) y filtrarla
@@ -110,7 +110,12 @@ por tipo, autor y color. Ver > Anotación siguiente (Alt+Abajo) y Anotación
 anterior (Alt+Arriba) recorren las anotaciones en el orden de la lista, y
 solo las que ella muestra. Ver > Mostrar las anotaciones las oculta todas,
 para ver el documento tal cual; Ver > Solo las que muestra la lista deja en
-las páginas solo las que pasan la búsqueda y los filtros.
+las páginas solo las que pasan la búsqueda y los filtros. El filtro de
+autores dice cuántas anotaciones tiene cada uno.
+
+El panel se puede ocultar (Ver > El panel de las anotaciones, o F4), para
+dar a la página todo el ancho, pasar al lado izquierdo de la ventana o
+sacarlo de ella (con los botones de su título).
 
 Debajo de la lista se escribe directamente el comentario de la anotación
 seleccionada (la tecla C pone allí el cursor); se guarda al salir del campo.
@@ -122,8 +127,17 @@ Archivo > Guardar escribe las anotaciones en el propio documento; Archivo >
 Guardar como escribe una copia con ellas y sigue con la copia. Todo se puede
 deshacer (Ctrl+Z) hasta que se guarda. Archivo > Guardar una copia escribe
 una copia aplanada (las anotaciones pasan a formar parte de las páginas:
-cualquier visor las muestra e imprime, pero ya no se pueden editar) o una
-copia sin ninguna anotación.
+cualquier visor las muestra e imprime, pero ya no se pueden editar), una
+copia sin ninguna anotación o una copia como PDF/A-1b, PDF/A-2b, PDF/A-3b
+(para archivo) o PDF/X-4 (para imprenta). Estas las hace
+[pdf2iso](https://github.com/nivaca/pdf2iso), que debe estar instalado: se
+busca en el PATH, en `~/bin` y en `~/.local/bin`, o la Configuración dice
+dónde está; sin él, esas opciones aparecen en gris. Ghostscript, que usa
+pdf2iso, deja fuera algunos tipos de anotaciones (por lo menos las marcas de
+insertar texto, los polígonos y las nubes). Si eso pasa, py-annotate dice
+cuáles y ofrece hacerlas parte de las páginas, y las demás quedan como
+anotaciones. PDF/A y PDF/X no admiten contraseña, así que la copia de un
+documento protegido no la tiene.
 
 Archivo > Exportar las anotaciones escribe las que muestra la lista como
 informe en Markdown (cuántas hay de cada tipo, color y autor, y luego cada
@@ -144,7 +158,8 @@ Configuración
 Configuración > Configuración tiene tres partes:
 
 * General: el nombre que se escribe como autor de las anotaciones nuevas,
-  cada cuánto se guarda la copia de recuperación y un modo de devolver las
+  cada cuánto se guarda la copia de recuperación, dónde está pdf2iso (vacío:
+  se busca) y un modo de devolver las
   herramientas a como estaban al principio.
 * Colores: los colores que ofrecen los menús y lo que significa cada uno
   para usted (de entrada, amarillo para lo importante, verde para las
@@ -166,8 +181,7 @@ de al lado. Si se borra el archivo, vuelven los valores habituales.
 Lo que todavía no hace
 ----------------------
 
-* No guarda PDF/A ni PDF/X, ni guarda de forma incremental: la firma
-  digital de un documento deja de ser válida al guardarlo.
+* No guarda de forma incremental: la firma digital de un documento deja de ser válida al guardarlo.
 * Faltan las respuestas a anotaciones, los estados de revisión, las
   etiquetas, las categorías, los grupos y las capas. Las respuestas que ya
   tenga un documento se conservan tal cual, pero no se muestran.

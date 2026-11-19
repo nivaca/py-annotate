@@ -10,7 +10,7 @@
 # Build with packaging/build-rpm.sh, which makes the source tarball.
 
 Name:           py-annotate
-Version:        0.1.0
+Version:        0.2.0
 Release:        1%{?dist}
 Summary:        Add annotations to PDF documents: highlights, notes, text boxes, shapes, stamps
 
@@ -75,6 +75,11 @@ export HOME="$PWD/check-home" PY_ANNOTATE_CONFIG="$PWD/check-home/config" QT_QPA
 %{_datadir}/icons/hicolor/*/apps/py-annotate.*
 
 %changelog
+* Thu Nov 19 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.2.0-1
+- Version 0.2.0: copies as PDF/A and PDF/X, made by pdf2iso (the annotations
+  Ghostscript leaves out can be made part of the pages); the list of the
+  annotations, with their authors, in a panel that can be hidden (F4)
+
 * Thu Nov 19 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.1.0-1
 - First package: the window, in English or Spanish, with a menu entry that
   also opens PDF files

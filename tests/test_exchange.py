@@ -81,3 +81,45 @@ def test_settings_round_trip():
     assert line.fill == "" and line.font == "helv"
     assert again.author == "Me" and again.autosave == 5 and again.palette[0] == ("#ffeb3b", "Key ideas")
     assert again.shortcut("highlight") == "Ctrl+Alt+H"
+
+
+def test_conform_missing(sample, tmp_path, monkeypatch):
+    from py_annotate import conform
+
+    monkeypatch.setattr(conform, "command", lambda path=None: None)
+    import pytest
+
+    with pytest.raises(conform.ConformError):
+        conform.convert(sample, tmp_path / "x.pdf", "a-2b")
+
+
+def test_finding_pdfconform(tmp_path, monkeypatch):
+    from py_annotate import conform
+
+    home = tmp_path / "home"
+    (home / "bin").mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("PATH", "/usr/bin:/bin")  # (as a session started from the desktop menu may have it)
+    assert conform.find() is None and not conform.available()
+    script = home / "bin" / "pdf2iso"
+    script.write_text("#!/bin/sh\n")
+    script.chmod(0o755)
+    assert conform.find() == script and conform.command() == [str(script)]
+    other = tmp_path / "elsewhere.py"  # (a script that can't be run by itself: run with python3)
+    other.write_text("print()\n")
+    settings.save(settings.Settings(pdfconform=str(other)))
+    cmd = conform.command()
+    assert cmd[-1] == str(other) and cmd[0].endswith("python3")
+    settings.save(settings.Settings(pdfconform=str(tmp_path / "missing")))
+    assert conform.command() is None
+
+
+def test_partly_flattened(sample, tmp_path):
+    tri = ((60.0, 500.0), (160.0, 520.0), (110.0, 580.0))
+    wanted = [Annotation("polygon", 0, annots.frame("polygon", (tri,), 1.5), "#000000", paths=(tri,)),
+              Annotation("rect", 0, (10, 10, 60, 60), "#ff0000")]
+    target = tmp_path / "out.pdf"
+    exchange.save_partly_flattened(sample, wanted, target, kinds={"polygon"})
+    doc = annots.open_pdf(target)
+    assert [a.kind for a in annots.read(doc)] == ["rect"] and doc[0].get_drawings()
+    assert exchange.kinds_lost(wanted, target) == {"polygon": 1}

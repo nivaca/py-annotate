@@ -369,3 +369,57 @@ def test_settings_dialog(window):
     from py_annotate.gui.colors import color_name
 
     assert color_name("#ffeb3b") == "Yellow — Key ideas"
+
+
+def fake_pdf2iso(folder) -> str:
+    """A pdf2iso that copies the file, leaving out polygons, as Ghostscript does."""
+    import sys
+
+    script = folder / "pdf2iso"
+    script.write_text(f"""#!{sys.executable}
+import sys, pymupdf
+args = sys.argv[1:]
+out = args[args.index("-o") + 1]
+doc = pymupdf.open(args[-1])
+if doc.needs_pass:
+    doc.authenticate(args[args.index("-p") + 1])
+for page in doc:
+    for xref in [a.xref for a in page.annots() if a.type[1] == "Polygon"]:
+        page.delete_annot(page.load_annot(xref))
+doc.save(out)
+print("OK  (veraPDF: PASS) in.pdf -> out.pdf [PDF/A-2b]")
+""")
+    script.chmod(0o755)
+    return str(script)
+
+
+def test_save_as_pdfa(window, tmp_path):
+    window.set_prefs(dataclasses.replace(window.prefs, pdfconform=fake_pdf2iso(tmp_path)))
+    assert window.standard_actions["a-2b"].isEnabled()
+    window.set_tool("rect")
+    drag(window, (100, 300), (250, 400))
+    window.set_tool("polygon")
+    for p in ((300, 300), (400, 300), (350, 380)):
+        click(window, p)
+    window.canvas.finish_polygon()
+    asked = []
+    window.ask_flatten_lost = lambda standard, names: asked.append(names) or True
+    target = tmp_path / "copy-pdfa.pdf"
+    assert window.save_standard(target, "a-2b")
+    assert asked == ["polygon (1)"]  # (left out by Ghostscript: made part of the pages instead)
+    doc = annots.open_pdf(target)
+    assert [a.kind for a in annots.read(doc)] == ["rect"] and doc[0].get_drawings()
+    assert "veraPDF: PASS" in window.statusBar().currentMessage()
+    assert window.path != target and window.is_modified()  # (a copy: the document stays as it was)
+
+
+def test_panel_can_be_hidden(window):
+    assert window.panel.isVisible()
+    window.a_panel.trigger()
+    assert not window.panel.isVisible()
+    window.a_panel.trigger()
+    assert window.panel.isVisible()
+    window.set_tool("rect")
+    drag(window, (100, 300), (250, 400))
+    window.replace(0, dataclasses.replace(window.annotations[0], author="B"))
+    assert window.f_author.itemText(window.f_author.findData("B")) == "B (1)"
