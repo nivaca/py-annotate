@@ -278,10 +278,21 @@ with straight lines, so py-annotate rewrites those lines as curves after
 it. Looking at the painting of drawings showed a bug of long standing: the
 freehand highlight was never drawn in the window, only in the file.
 
+From PdfCraft came two more ideas. Replace text writes a correction as PDF
+programs do: a strikeout and an insert-text mark that holds the new text,
+one group. And two versions of a text can be compared: their words, in
+reading order, are lined up, and what differs is marked on the document.
+The first trial, with difflib on a book of 300 pages, took nearly two
+minutes; letting difflib skip the commonest words made it fast but wrong,
+with hundreds of false differences. A patience diff solved it: the words
+found once in each version are lined up first, as anchors, and only the
+short stretches between them are compared word by word. It takes three
+seconds, most of them reading the words.
+
 Testing
 -------
 
-The program has 97 tests (`uv run pytest`). The tests of the annotations
+The program has 100 tests (`uv run pytest`). The tests of the annotations
 write one of each kind on a plain page and on a turned one and read them
 back, and also text boxes with formatted text and groups made here or by
 another program; check that a changed annotation keeps its number and the keys of

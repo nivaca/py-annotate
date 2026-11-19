@@ -22,7 +22,7 @@ file, so that a signed document keeps its signatures valid for what they
 signed.
 
 It has a window, in English and in Spanish, and works on Linux, Windows and
-macOS. This is version 1.0.4.
+macOS. This is version 1.0.5.
 
 I am Nicolas Vaughan (<nicolasvaughan@proton.me>), and I wrote it in 2026.
 It is free software, under the GNU General Public License, version 3 or
@@ -310,6 +310,16 @@ File > Export the annotations writes those the list shows:
 * as a summary of the comments: a PDF with each page that has annotations,
   numbered, beside the list of them, with the text they mark, their
   comments and their replies.
+
+File > Compare with another version marks on the document what differs
+from another version of its text (another edition, a draft, a corrected
+proof): words changed are highlighted in orange, with the other version's
+words in their comment; words only here, in red; and where words of the
+other are missing, an insert-text mark holds them. They are all tagged
+"Compared with" the other's name, so that the list can show them alone, and
+one undo takes them back. The words are compared in reading order, so a
+text set again with other line or page breaks compares well; a scan must
+first have its text (see the searchable copy).
 
 File > Import annotations brings them in from a JSON file, from an XFDF
 file, or from another copy of the PDF, for instance one annotated by

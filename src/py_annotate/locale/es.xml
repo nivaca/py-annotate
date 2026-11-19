@@ -2299,4 +2299,48 @@
     <en>Drag over text to replace it: it is struck out, and the new text written at its end</en>
     <tr>Arrastre sobre el texto para reemplazarlo: se tacha, y el texto nuevo se escribe a su final</tr>
   </text>
+  <text>
+    <en>Compare with another version…</en>
+    <tr>Comparar con otra versión…</tr>
+  </text>
+  <text>
+    <en>Mark here what differs from another version of this text (another edition, a draft): its words, in reading order</en>
+    <tr>Marcar aquí lo que difiere de otra versión de este texto (otra edición, un borrador): sus palabras, en orden de lectura</tr>
+  </text>
+  <text>
+    <en>Compare with another version</en>
+    <tr>Comparar con otra versión</tr>
+  </text>
+  <text>
+    <en>One of the two has no text to compare (a scan? Save a searchable copy first)</en>
+    <tr>Uno de los dos no tiene texto que comparar (¿un escaneo? Guarde antes una copia con texto buscable)</tr>
+  </text>
+  <text>
+    <en>No difference: the words of {name} are those of this document</en>
+    <tr>Ninguna diferencia: las palabras de {name} son las de este documento</tr>
+  </text>
+  <text>
+    <en>Compared with {name}</en>
+    <tr>Comparado con {name}</tr>
+  </text>
+  <text>
+    <en>In {name}, here: {words}</en>
+    <tr>En {name}, aquí: {words}</tr>
+  </text>
+  <text>
+    <en>In {name}: {words}</en>
+    <tr>En {name}: {words}</tr>
+  </text>
+  <text>
+    <en>Not in {name}</en>
+    <tr>No está en {name}</tr>
+  </text>
+  <text>
+    <en>{count} difference marked, tagged “{tag}”</en>
+    <tr>{count} diferencia marcada, con la etiqueta «{tag}»</tr>
+  </text>
+  <text>
+    <en>{count} differences marked, tagged “{tag}”</en>
+    <tr>{count} diferencias marcadas, con la etiqueta «{tag}»</tr>
+  </text>
 </interface>

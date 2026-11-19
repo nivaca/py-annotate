@@ -244,3 +244,57 @@ def test_ocr(tmp_path, rotation):
     again = page.get_text("words", textpage=page.get_textpage_ocr(language="eng", dpi=200, full=True))
     box = next(pymupdf.Rect(w[:4]) for w in again if w[4] == "justice")
     assert hits[0].intersects(box)
+
+
+def version(path, text):
+    import pymupdf
+
+    doc = pymupdf.open()
+    doc.new_page().insert_textbox((72, 72, 520, 760), text, fontsize=12)
+    doc.save(path)
+    return path
+
+
+def test_compare(tmp_path):
+    """The words of two versions lined up: what changed, what is only here, what is only there."""
+    from py_annotate import compare
+
+    here = annots.open_pdf(version(tmp_path / "a.pdf", "Quod iustitia est, quaerimus. The question of justice is "
+                                                       "very old.\nIt was asked by Plato."))
+    there = annots.open_pdf(version(tmp_path / "b.pdf", "Quod iustitia sit, quaerimus. The question of justice is "
+                                                        "old.\nIt was asked long ago by Plato."))
+    found = compare.differences(here, there)
+    assert [(d.kind, d.here, d.there) for d in found] == [
+        ("changed", "est,", "sit,"), ("only_here", "very", ""), ("only_there", "", "long ago")]
+    assert all(d.page == 0 and d.rects for d in found)
+    assert compare.differences(here, here) == []
+    shouting = annots.open_pdf(version(tmp_path / "c.pdf", "QUOD iustitia est, quaerimus. The question of justice "
+                                                           "is very old.\nIt was asked by Plato."))
+    assert len(compare.differences(here, shouting)) == 1 and compare.differences(here, shouting, ignore_case=True) == []
+
+
+def test_compare_long_texts():
+    """Long texts made of the same few words again and again are compared exactly (and quickly):
+    patience diff, anchored on the words found once in each."""
+    import random
+    import time
+
+    from py_annotate import compare
+
+    random.seed(3)
+    vocab = [f"w{i}" for i in range(3000)]
+    weights = [1 / (i + 1) for i in range(3000)]
+    a = random.choices(vocab, weights, k=60000)
+    b = list(a)
+    b[1000] = "CHANGED"
+    del b[30000]
+    b.insert(50000, "ADDED")
+    start = time.monotonic()
+    ops = [op for op in compare.opcodes(a, b) if op[0] != "equal"]
+    assert time.monotonic() - start < 10
+    assert [op[0] for op in ops] == ["replace", "delete", "insert"]
+    assert ops[0][1:3] == (1000, 1001) and ops[1][1:3] == (30000, 30001)
+    rebuilt = []  # (the opcodes make B of A)
+    for op, i1, i2, j1, j2 in compare.opcodes(a, b):
+        rebuilt += a[i1:i2] if op == "equal" else b[j1:j2]
+    assert rebuilt == b

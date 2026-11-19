@@ -23,7 +23,7 @@ añaden al final del archivo, así que un documento firmado conserva sus
 firmas válidas para lo que firmaron.
 
 Tiene una ventana, en español y en inglés, y funciona en Linux, Windows y
-macOS. Esta es la versión 1.0.4.
+macOS. Esta es la versión 1.0.5.
 
 Soy Nicolas Vaughan (<nicolasvaughan@proton.me>) y lo escribí en 2026. Es
 software libre, bajo la Licencia Pública General de GNU, versión 3 o
@@ -314,6 +314,17 @@ Archivo > Exportar las anotaciones escribe las que muestra la lista:
 * como resumen de los comentarios: un PDF con cada página que tiene
   anotaciones, numeradas, junto a la lista de ellas, con el texto que
   marcan, sus comentarios y sus respuestas.
+
+Archivo > Comparar con otra versión marca en el documento lo que difiere de
+otra versión de su texto (otra edición, un borrador, una prueba corregida):
+las palabras cambiadas se resaltan en naranja, con las de la otra versión
+en su comentario; las que solo están aquí, en rojo; y donde faltan palabras
+de la otra, una marca de insertar texto las lleva. Todas llevan la etiqueta
+«Comparado con» el nombre de la otra, para que la lista las muestre solas,
+y un deshacer las retira. Las palabras se comparan en orden de lectura, así
+que un texto compuesto de nuevo, con otros cortes de línea o de página, se
+compara bien; un escaneo necesita antes su texto (véase la copia con texto
+buscable).
 
 Archivo > Importar anotaciones las trae de un JSON, de un XFDF o de otra
 copia del PDF, por ejemplo una que haya anotado otra persona; se conservan

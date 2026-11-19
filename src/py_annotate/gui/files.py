@@ -4,6 +4,7 @@ or reads other files than the document itself."""
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import tempfile
 from pathlib import Path
@@ -176,6 +177,67 @@ class FilesMixin:
         return QMessageBox.question(self, tr("Searchable (OCR)"),
                                     tr("Open {name}, to mark its text?", name=target.name)) \
             == QMessageBox.StandardButton.Yes
+
+    def compare_dialog(self) -> bool:
+        if self.doc is None:
+            return False
+        name, _ = QFileDialog.getOpenFileName(self, tr("Compare with another version"), self.last_dir(),
+                                              tr("PDF files (*.pdf)"))
+        return self.compare_with(Path(name)) if name else False
+
+    COMPARE_COLORS = {"changed": "#ffb74d", "only_here": "#ef9a9a", "only_there": "#1e88e5"}
+
+    def compare_with(self, other: Path) -> bool:
+        """Mark on this document what differs from OTHER (another version of its text): words changed
+        (with the other version's in the comment), words only here, and where words of the other are
+        missing (an insert-text mark, with them); all tagged with the other's name, so that the list
+        shows them alone, and one undo takes them back."""
+        from .. import compare
+
+        password = ""
+        while True:
+            try:
+                there = annots.open_pdf(other, password)
+                break
+            except PasswordError:
+                password = self.ask_password(other, again=bool(password))
+                if password is None:
+                    return False
+            except AnnotateError as e:
+                self.status(str(e), error=True)
+                return False
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            found = compare.differences(self.doc, there)
+            empty = not compare.words(self.doc) or not compare.words(there)
+        finally:
+            there.close()
+            QApplication.restoreOverrideCursor()
+        if empty:
+            self.status(tr("One of the two has no text to compare (a scan? Save a searchable copy first)"),
+                        error=True)
+            return False
+        if not found:
+            self.status(tr("No difference: the words of {name} are those of this document", name=other.name))
+            return True
+        tag = tr("Compared with {name}", name=other.name)
+        w, h = annots.CARET_SIZE
+        new = []
+        for d in found:
+            color = self.COMPARE_COLORS[d.kind]
+            if d.kind == "only_there":
+                x, y = d.rects[0][2], d.rects[0][3]
+                a = self.new_annotation("caret", d.page, (x - w / 2, y - h / 2, x + w / 2, y + h / 2))
+                text = tr("In {name}, here: {words}", name=other.name, words=d.there)
+            else:
+                a = self.new_annotation("highlight", d.page, annots.union(list(d.rects)), quads=d.rects)
+                text = (tr("In {name}: {words}", name=other.name, words=d.there) if d.kind == "changed"
+                        else tr("Not in {name}", name=other.name))
+            new.append(dataclasses.replace(a, color=color, contents=text, tags=(tag,), layer=self.layer))
+        self.change(self.annotations + new, [])
+        self.status(ntr("{count} difference marked, tagged “{tag}”", "{count} differences marked, tagged “{tag}”",
+                        len(new), tag=tag))
+        return True
 
     def ask_flatten_lost(self, standard: str, names: str) -> bool:
         """Whether to make part of the pages the annotations (NAMES: their kinds and how many) that

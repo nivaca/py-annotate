@@ -343,6 +343,9 @@ class MainWindow(FilesMixin, QMainWindow):
         self.a_import_pdf = self._action(sub, tr("From another copy of the PDF…"), lambda: self.import_dialog("pdf"),
                                          tip=tr("Bring in the annotations of another copy of this document, such as "
                                                 "one annotated by someone else; those already here are left out"))
+        self.a_compare = self._action(m, tr("Compare with another version…"), self.compare_dialog,
+                                      tip=tr("Mark here what differs from another version of this text (another "
+                                             "edition, a draft): its words, in reading order"))
         m.addSeparator()
         self._action(m, tr("Quit"), self.close, QKeySequence.StandardKey.Quit)
 
@@ -2063,7 +2066,7 @@ class MainWindow(FilesMixin, QMainWindow):
         has = self.doc is not None
         for w in (self.a_save_as, self.a_first, self.a_last, self.a_fit, self.a_fit_width, self.a_zoom_in,
                   self.a_zoom_out, self.page_spin, self.a_flat, self.a_bare, self.a_import_json, self.a_import_pdf,
-                  self.a_import_xfdf, self.a_print, self.a_find, *self.tool_actions.values()):
+                  self.a_import_xfdf, self.a_print, self.a_find, self.a_compare, *self.tool_actions.values()):
             w.setEnabled(has)
         from .. import ocr
 

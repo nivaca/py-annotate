@@ -1056,3 +1056,24 @@ def test_replace_text(window, sample):
     window.typed = None  # (given up: nothing is made)
     drag(window, (75, 120), (140, 125))
     assert len(window.annotations) == 2
+
+
+def test_compare_in_the_window(window, sample, tmp_path):
+    """File > Compare with another version marks the differences here, tagged with the other's name,
+    and one undo takes them all back."""
+    import pymupdf
+    from test_exchange import version
+
+    other = tmp_path / "other.pdf"
+    doc = pymupdf.open(sample)
+    page_text = doc[0].get_text().split()
+    version(other, " ".join(page_text[:2] + ["CHANGED"] + page_text[3:]))
+    assert window.compare_with(sample)  # (with itself: nothing)
+    assert window.annotations == []
+    assert window.compare_with(other)
+    marked = window.annotations
+    assert marked and all(a.tags == ("Compared with other.pdf",) for a in marked)
+    changed = [a for a in marked if a.contents.startswith("In other.pdf: ")]
+    assert changed and "CHANGED" in changed[0].contents
+    window.undo()
+    assert window.annotations == []
