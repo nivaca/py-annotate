@@ -6,6 +6,7 @@ all the places found, or those chosen. The searches made are remembered."""
 
 from __future__ import annotations
 
+import json
 import re
 
 from PySide6.QtCore import QSettings, QStringListModel, Qt, Signal
@@ -20,6 +21,15 @@ from ..search import Match, find_text
 
 HISTORY = 20  # searches remembered
 SCOPES = [("all", N_("All pages")), ("page", N_("This page")), ("from", N_("From this page to the end"))]
+
+
+def _history(value) -> list[str]:
+    """The searches remembered, from what QSettings gives back (JSON)."""
+    try:
+        found = json.loads(value) if isinstance(value, str) and value else []
+    except ValueError:
+        return []
+    return [h for h in found if isinstance(h, str)][:HISTORY] if isinstance(found, list) else []
 
 
 class FindDialog(QDialog):
@@ -40,7 +50,7 @@ class FindDialog(QDialog):
         self.query.setPlaceholderText(tr("Text to find"))
         self.query.returnPressed.connect(self.search)
         self.settings = QSettings()
-        self.history = [h for h in (self.settings.value("find_history", []) or []) if isinstance(h, str)][:HISTORY]
+        self.history = _history(self.settings.value("find_history", ""))
         self.history_model = QStringListModel(self.history)
         completer = QCompleter(self.history_model, self)
         completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
@@ -140,7 +150,9 @@ class FindDialog(QDialog):
     def _remember(self, query: str):
         self.history = [query] + [h for h in self.history if h != query][:HISTORY - 1]
         self.history_model.setStringList(self.history)
-        self.settings.setValue("find_history", self.history)
+        # (as JSON: a list in QSettings comes back as it went only on some systems; on Windows, one of a
+        # single item comes back as that item)
+        self.settings.setValue("find_history", json.dumps(self.history, ensure_ascii=False))
 
     def _enable(self):
         self.previous.setEnabled(len(self.matches) > 1 and not self.searching)
