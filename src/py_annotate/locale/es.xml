@@ -1855,4 +1855,40 @@
     <en>{count} reply</en>
     <tr>{count} respuesta</tr>
   </text>
+  <text>
+    <en>As the text</en>
+    <tr>Como el texto</tr>
+  </text>
+  <text>
+    <en>Border colour:</en>
+    <tr>Color del borde:</tr>
+  </text>
+  <text>
+    <en>Bold</en>
+    <tr>Negrita</tr>
+  </text>
+  <text>
+    <en>Italic</en>
+    <tr>Cursiva</tr>
+  </text>
+  <text>
+    <en>Colour of the text…</en>
+    <tr>Color del texto…</tr>
+  </text>
+  <text>
+    <en>Colour of the text</en>
+    <tr>Color del texto</tr>
+  </text>
+  <text>
+    <en>Font</en>
+    <tr>Fuente</tr>
+  </text>
+  <text>
+    <en>Plain text</en>
+    <tr>Texto sin formato</tr>
+  </text>
+  <text>
+    <en>Cut</en>
+    <tr>Cortar</tr>
+  </text>
 </interface>

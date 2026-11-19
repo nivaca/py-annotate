@@ -19,9 +19,10 @@ from collections.abc import Callable
 
 import pymupdf
 from PySide6.QtCore import QEvent, QPointF, QRectF, Qt, QTimer, Signal
-from PySide6.QtGui import QBrush, QColor, QCursor, QImage, QPainter, QPen, QPixmap, QTextOption
+from PySide6.QtGui import QBrush, QColor, QCursor, QImage, QKeySequence, QPainter, QPen, QPixmap, QTextOption
 from PySide6.QtWidgets import (
-    QGraphicsItem, QGraphicsPixmapItem, QGraphicsRectItem, QGraphicsScene, QGraphicsTextItem, QGraphicsView,
+    QApplication, QColorDialog, QGraphicsItem, QGraphicsPixmapItem, QGraphicsRectItem, QGraphicsScene,
+    QGraphicsTextItem, QGraphicsView, QMenu,
 )
 
 from .. import annots
@@ -29,6 +30,7 @@ from ..annots import (
     CARET_SIZE, DRAWN, MARKUP, NOTE_SIZE, RESIZABLE, TEXTUAL, VERTICES, Annotation, Rect, nearest_word, text_rects,
     words,
 )
+from ..interface import tr
 from .paint import _font, paint, qrect
 
 GAP = 12  # points between the pages, and around them
@@ -250,15 +252,21 @@ class TextEditor(QGraphicsTextItem):
     """Where the text of a text box, a callout, a note or a caret is written, on the page:
     Ctrl+Enter, or a click elsewhere, keeps it; Escape gives it up."""
 
-    def __init__(self, canvas: PageCanvas, parent):
+    def __init__(self, canvas: PageCanvas, parent, rich: bool = False):
         super().__init__(parent)
         self.canvas = canvas
+        self.rich = rich  # (a text box's text, which can have bold, italic, colours and fonts)
+        self.busy = False  # (while a dialog of its own is open: losing the focus to it doesn't end the writing)
         self.setTextInteractionFlags(Qt.TextInteractionFlag.TextEditorInteraction)
         self.setZValue(6)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
             self.canvas.cancel_text()
+            return
+        keys = {Qt.Key.Key_B: "bold", Qt.Key.Key_I: "italic", Qt.Key.Key_U: "underline"}
+        if self.rich and event.key() in keys and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            self._format(keys[event.key()])
             return
         if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and \
                 event.modifiers() & Qt.KeyboardModifier.ControlModifier:
@@ -268,8 +276,68 @@ class TextEditor(QGraphicsTextItem):
 
     def focusOutEvent(self, event):
         super().focusOutEvent(event)
-        if event.reason() != Qt.FocusReason.PopupFocusReason:  # (not for its own right-click menu)
+        if event.reason() != Qt.FocusReason.PopupFocusReason and not self.busy:  # (not for its own menu)
             QTimer.singleShot(0, lambda: self.canvas.commit_text(only=self))
+
+    def _format(self, what: str, color: str = "", family: str = ""):
+        from . import richtext
+
+        cursor = self.textCursor()
+        if what == "plain":
+            richtext.plain(cursor)
+        elif what in ("bold", "italic", "underline"):
+            richtext.toggle(cursor, what)
+        else:
+            richtext.set_look(cursor, color, family)
+        self.setTextCursor(cursor)
+
+    def contextMenuEvent(self, event):
+        if not self.rich:
+            super().contextMenuEvent(event)
+            return
+        from ..annots import FONTS
+
+        menu = QMenu()
+        for what, name, keys in (("bold", tr("Bold"), "Ctrl+B"), ("italic", tr("Italic"), "Ctrl+I"),
+                                 ("underline", tr("Underline"), "Ctrl+U")):
+            action = menu.addAction(name, lambda w=what: self._format(w))
+            action.setShortcut(QKeySequence(keys))
+        menu.addAction(tr("Colour of the text…"), self._choose_color)
+        fonts = menu.addMenu(tr("Font"))
+        for key, name in FONTS.items():
+            fonts.addAction(tr(name), lambda k=key: self._format("look", family=k))
+        menu.addAction(tr("Plain text"), lambda: self._format("plain"))
+        menu.addSeparator()
+        for name, slot in ((tr("Cut"), self._cut), (tr("Copy"), self._copy), (tr("Paste"), self._paste)):
+            menu.addAction(name, slot)
+        self.busy = True
+        try:
+            menu.exec(event.screenPos())
+        finally:
+            self.busy = False
+        self.setFocus()
+
+    def _choose_color(self):
+        self.busy = True
+        try:
+            chosen = QColorDialog.getColor(self.defaultTextColor(), None, tr("Colour of the text"))
+        finally:
+            self.busy = False
+        if chosen.isValid():
+            self._format("look", color=chosen.name())
+        self.setFocus()
+
+    def _cut(self):
+        self._copy()
+        self.textCursor().removeSelectedText()
+
+    def _copy(self):
+        cursor = self.textCursor()
+        if cursor.hasSelection():  # (as plain text: Ctrl+C keeps the formatting too)
+            QApplication.clipboard().setText(cursor.selectedText().replace("\u2029", "\n"))
+
+    def _paste(self):
+        self.textCursor().insertText(QApplication.clipboard().text())
 
 
 class PageCanvas(QGraphicsView):
@@ -805,7 +873,7 @@ class PageCanvas(QGraphicsView):
             page = self.pages.get(annotation.page)
             if page is None:
                 return
-        editor = TextEditor(self, page)
+        editor = TextEditor(self, page, rich=annotation.kind in TEXTUAL)
         if annotation.kind in TEXTUAL:
             box = qrect(annotation.rect)
             pad = 2 + annotation.width
@@ -835,7 +903,12 @@ class PageCanvas(QGraphicsView):
             annotation.align, Qt.AlignmentFlag.AlignLeft) if annotation.kind in TEXTUAL else Qt.AlignmentFlag.AlignLeft)
         option.setWrapMode(QTextOption.WrapMode.WordWrap)
         editor.document().setDefaultTextOption(option)
-        editor.setPlainText(annotation.contents)
+        if annotation.kind in TEXTUAL:
+            from .richtext import prepare
+
+            prepare(editor.document(), annotation, _font_for(self, annotation), margin=None)
+        else:
+            editor.setPlainText(annotation.contents)
         self._editor = {"item": editor, "frame": frame, "index": index, "annotation": annotation}
         if annotation.kind in TEXTUAL and index >= 0:  # (the box shows the text being written, not the old)
             for item in self.items_:
@@ -858,9 +931,14 @@ class PageCanvas(QGraphicsView):
             return
         editor, self._editor = self._editor, None
         written = editor["item"].toPlainText() if text is None else text
+        before = editor["annotation"]
+        rich = before.rich if text is not None and text == before.contents else ""
+        if text is None and before.kind in TEXTUAL:
+            from .richtext import rich_of
+
+            rich = rich_of(editor["item"].document(), before)
         self._drop_editor(editor)
-        self.text_done.emit(editor["index"], dataclasses.replace(editor["annotation"],
-                                                                 contents=written.strip("\n")))
+        self.text_done.emit(editor["index"], dataclasses.replace(before, contents=written.strip("\n"), rich=rich))
 
     def cancel_text(self):
         editor, self._editor = self._editor, None

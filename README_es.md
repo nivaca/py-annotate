@@ -23,7 +23,7 @@ añaden al final del archivo, así que un documento firmado conserva sus
 firmas válidas para lo que firmaron.
 
 Tiene una ventana, en español y en inglés, y funciona en Linux, Windows y
-macOS. Esta es la versión 0.3.5.
+macOS. Esta es la versión 0.3.6.
 
 Soy Nicolas Vaughan (<nicolasvaughan@proton.me>) y lo escribí en 2026. Es
 software libre, bajo la Licencia Pública General de GNU, versión 3 o
@@ -151,7 +151,10 @@ su tecla (las teclas se pueden cambiar: véase «Configuración»):
 El texto de un cuadro de texto, una llamada, una nota o una marca de
 insertar texto se escribe en la página, donde va: Ctrl+Intro, o un clic en
 otro sitio, lo guarda, y Escape lo descarta. Con doble clic sobre una de
-ellas se vuelve a escribir su texto.
+ellas se vuelve a escribir su texto. En un cuadro de texto o una llamada,
+Ctrl+B, Ctrl+I y Ctrl+U ponen el texto elegido en negrita, en cursiva o
+subrayado, y el menú del clic derecho le da otro color u otra letra (Helvetica, Times o Courier); el
+borde puede tener un color propio, en las propiedades.
 
 Con el clic derecho sobre una herramienta de la barra aparecen sus colores,
 el sello que pone (los habituales, como Aprobado, Borrador o Confidencial, o
@@ -303,8 +306,8 @@ Lo que todavía no hace
 * Las anotaciones de otros tipos (enlaces, sonidos, archivos adjuntos,
   medidas) se conservan tal cual, pero no aparecen en la lista ni se pueden
   editar.
-* Un cuadro de texto tiene una sola letra (Helvetica, Times o Courier) y un
-  solo color para todo su texto, y su borde es del color del texto.
+* El texto de un cuadro de texto tiene un solo tamaño, y solo las letras
+  Helvetica, Times y Courier.
 * Un dibujo tiene un solo grosor de punta a punta: con el lápiz de una
   tableta, la presión da el grosor de cada trazo, no de cada parte de él.
 * Un documento con contraseña se guarda entero, no de forma incremental.

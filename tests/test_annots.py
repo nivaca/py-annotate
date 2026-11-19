@@ -271,3 +271,47 @@ def test_what_write_says_is_what_the_file_has(sample, tmp_path, same_file):
     result: list = []
     annots.write(path, changed, target, result=result)
     assert result == annots.read(annots.open_pdf(target))
+
+
+RICH = ('<p>Plain <span style="font-weight:bold">bold</span> <span style="color:#ff0000">red</span></p>'
+        '<p><span style="font-family:Courier">mono</span></p>')
+
+
+@pytest.mark.parametrize("rotation", [0, 90])
+def test_rich_text_and_border(sample, tmp_path, rotation):
+    """Text boxes and callouts with formatting, a border of another colour, or both, are written
+    and read back as they were; other programs find their text in /Contents."""
+    doc = annots.open_pdf(sample)
+    doc[0].set_rotation(rotation)
+    doc.save(tmp_path / "turned.pdf")
+    path = tmp_path / "turned.pdf"
+    made = [
+        Annotation("freetext", 0, (60, 60, 260, 120), "#0000ff", fill="#ffffcc", contents="Plain bold red\nmono",
+                   rich=RICH),
+        Annotation("freetext", 0, (60, 160, 260, 200), "#0000ff", contents="plain, green border", border="#009900"),
+        Annotation("callout", 0, (300, 300, 480, 350), "#000000", contents="Plain bold red\nmono", rich=RICH,
+                   border="#cc0000", paths=(((200, 250),),), ends=("None", "OpenArrow")),
+        Annotation("freetext", 0, (60, 400, 260, 440), "#000000", contents="just plain"),
+    ]
+    annots.write(path, made, path)
+    doc = annots.open_pdf(path)
+    got = annots.read(doc)
+    assert len(got) == 4
+    for a, b in zip(made, got, strict=True):
+        assert annots.same(a, b, tolerance=2), (a, b)
+        assert doc.xref_get_key(b.xref, "Contents")[1] == a.contents
+    assert doc.xref_get_key(got[3].xref, "RC")[0] == "null"  # (a plain one stays plain)
+    assert "1999/xhtml" in doc.xref_get_key(got[0].xref, "RC")[1]
+    assert doc.xref_get_key(got[1].xref, "CL")[0] == "null"  # (no callout line in a text box)
+
+
+def test_rich_text_changed(sample, tmp_path):
+    """A text box changed from plain to rich, and back, and moved, is what it should be."""
+    path = tmp_path / "doc.pdf"
+    plain = Annotation("freetext", 0, (60, 60, 260, 120), "#0000ff", contents="Plain bold red\nmono")
+    annots.write(sample, [plain], path)
+    for change in ({"rich": RICH}, {"rect": (80, 80, 280, 140)}, {"border": "#00aa00"}, {"rich": "", "border": ""}):
+        a = dataclasses.replace(annots.read(annots.open_pdf(path))[0], **change)
+        annots.write(path, [a], path)
+        got = annots.read(annots.open_pdf(path))
+        assert len(got) == 1 and annots.same(a, got[0], tolerance=2), (change, got[0])

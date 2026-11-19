@@ -22,7 +22,7 @@ file, so that a signed document keeps its signatures valid for what they
 signed.
 
 It has a window, in English and in Spanish, and works on Linux, Windows and
-macOS. This is version 0.3.5.
+macOS. This is version 0.3.6.
 
 I am Nicolas Vaughan (<nicolasvaughan@proton.me>), and I wrote it in 2026.
 It is free software, under the GNU General Public License, version 3 or
@@ -148,6 +148,10 @@ Choose a tool in the second toolbar, in the Tools menu, or with its key
 The text of a text box, a callout, a note or an insert-text mark is written
 on the page, where it goes: Ctrl+Enter, or a click elsewhere, keeps it, and
 Escape gives it up. A double-click on one of them writes its text again.
+In a text box or a callout, Ctrl+B, Ctrl+I and Ctrl+U make the chosen text
+bold, italic or underlined, and the right-click menu gives it another colour
+or font (Helvetica, Times or Courier); the border can have a colour of its
+own, in the properties.
 
 Right-clicking a tool in the toolbar gives its colours, the stamp it puts
 (the standard ones, such as Approved, Draft or Confidential, or one of your
@@ -298,8 +302,7 @@ What it does not do yet
   there yet.
 * Annotations of other kinds (links, sounds, file attachments, measurements)
   are kept as they are, but are not shown in the list and cannot be edited.
-* A text box has one font (Helvetica, Times or Courier) and one colour for
-  all its text, and its border has the colour of its text.
+* The text of a text box has one size, and only Helvetica, Times and Courier.
 * A drawing has one width all along: with a tablet's pen, the pressure sets
   the width of each stroke, not of each part of it.
 * A document with a password is saved whole, not incrementally.

@@ -6,13 +6,14 @@ from __future__ import annotations
 import math
 
 from PySide6.QtCore import QLineF, QPointF, QRectF, Qt
-from PySide6.QtGui import QBrush, QColor, QFont, QImage, QPainter, QPainterPath, QPen, QPolygonF
+from PySide6.QtGui import QBrush, QColor, QFont, QImage, QPainter, QPainterPath, QPen, QPolygonF, QTextDocument
 
 from ..annots import STAMPS, Annotation, anchor
 from ..interface import tr
 
 FAMILIES = {"helv": "Helvetica", "tiro": "Times", "cour": "Courier"}
 _IMAGES: dict[int, QImage] = {}  # (id of the bytes of a stamp's image) -> the image, made once
+_RICH: dict[tuple, QTextDocument] = {}  # (the look of a text box with rich text) -> its text laid out, made once
 
 
 def qrect(r) -> QRectF:
@@ -36,6 +37,24 @@ def _font(p: QPainter, family: str, size: float) -> QFont:
     dpi = p.device().logicalDpiY() if p.device() is not None else 72
     font.setPointSizeF(max(size, 1) * 72 / (dpi or 72))
     return font
+
+
+def _rich_document(p: QPainter, a: Annotation, width: float) -> QTextDocument:
+    """The rich text of A laid out WIDTH wide, for painting it with P."""
+    from .richtext import prepare
+
+    dpi = p.device().logicalDpiY() if p.device() is not None else 72
+    key = (a.rich, a.color, a.font, a.font_size, a.align, round(width, 1), dpi)
+    doc = _RICH.get(key)
+    if doc is None:
+        if len(_RICH) > 200:
+            _RICH.clear()
+        doc = _RICH[key] = QTextDocument()
+        if p.device() is not None:
+            doc.documentLayout().setPaintDevice(p.device())
+        prepare(doc, a, _font(p, a.font, a.font_size))
+        doc.setTextWidth(width)
+    return doc
 
 
 def line_end(p: QPainter, tip: QPointF, start: QPointF, style: str, width: float, color: QColor) -> None:
@@ -182,10 +201,10 @@ def paint(p: QPainter, a: Annotation, thumbnail: bool = False) -> None:
         if a.kind == "callout" and a.paths:
             tip = QPointF(*a.paths[0][0])
             start = QPointF(*anchor(a.rect, a.paths[0][0]))
-            p.setPen(_pen(a.color, max(a.width, 0.75), a.dashed))
+            p.setPen(_pen(a.border or a.color, max(a.width, 0.75), a.dashed))
             p.drawLine(start, tip)
-            line_end(p, tip, start, a.ends[1], max(a.width, 0.75), color)
-        p.setPen(_pen(a.color, a.width, a.dashed) if a.width > 0 else Qt.PenStyle.NoPen)
+            line_end(p, tip, start, a.ends[1], max(a.width, 0.75), QColor(a.border or a.color))
+        p.setPen(_pen(a.border or a.color, a.width, a.dashed) if a.width > 0 else Qt.PenStyle.NoPen)
         p.setBrush(QBrush(QColor(a.fill)) if a.fill else Qt.BrushStyle.NoBrush)
         p.drawRect(r)
         if thumbnail:
@@ -194,6 +213,14 @@ def paint(p: QPainter, a: Annotation, thumbnail: bool = False) -> None:
                 y = r.top() + r.height() * i / 4
                 if y < r.bottom():
                     p.drawLine(QLineF(r.left() + 2, y, r.right() - 2, y))
+        elif a.rich:
+            pad = 2 + a.width
+            p.save()
+            p.translate(r.left() + pad, r.top() + pad)
+            box = QRectF(0, 0, r.width() - 2 * pad, r.height() - 2 * pad)
+            p.setClipRect(box)
+            _rich_document(p, a, box.width()).drawContents(p, box)
+            p.restore()
         else:
             p.setFont(_font(p, a.font, a.font_size))
             p.setPen(color)

@@ -54,9 +54,10 @@ class ColorButton(QPushButton):
     """A button that shows a colour and lets the user choose another; NONE
     allows 'no colour' ('')."""
 
-    def __init__(self, color, none: bool = False, parent=None):
+    def __init__(self, color, none: bool = False, parent=None, none_text: str = ""):
         super().__init__(parent)
         self.none = none
+        self.none_text = none_text  # (what 'no colour' means here, if not that)
         self.color = color
         self.clicked.connect(self._choose)
         self._show()
@@ -66,7 +67,7 @@ class ColorButton(QPushButton):
             self.setText(tr("(several)"))
             self.setIcon(swatch("#808080"))
         else:
-            self.setText(color_name(self.color))
+            self.setText(self.none_text if not self.color and self.none_text else color_name(self.color))
             self.setIcon(swatch(self.color))
 
     def _choose(self):
@@ -74,7 +75,7 @@ class ColorButton(QPushButton):
         for value, name in swatches():
             menu.addAction(swatch(value), name, lambda v=value: self.set_color(v))
         if self.none:
-            menu.addAction(swatch(""), tr("No colour"), lambda: self.set_color(""))
+            menu.addAction(swatch(""), self.none_text or tr("No colour"), lambda: self.set_color(""))
         menu.addSeparator()
         menu.addAction(tr("Other colour…"), self._dialog)
         menu.exec(self.mapToGlobal(self.rect().bottomLeft()))
@@ -127,8 +128,11 @@ class PropertiesDialog(QDialog):
         form = QFormLayout(look)
         self.color = ColorButton(common("color"))
         form.addRow(tr("Text colour:") if kinds <= set(TEXTUAL) else tr("Colour:"), self.color)
-        self.fill = self.width = self.font_size = self.font = self.align = self.icon = None
+        self.fill = self.width = self.font_size = self.font = self.align = self.icon = self.border = None
         self.start = self.end = self.dashed = self.stamp = None
+        if kinds & set(TEXTUAL):
+            self.border = ColorButton(common("border", TEXTUAL), none=True, none_text=tr("As the text"))
+            form.addRow(tr("Border colour:"), self.border)
         if kinds & set(FILLED):
             self.fill = ColorButton(common("fill", FILLED), none=True)
             form.addRow(tr("Fill:"), self.fill)
@@ -271,6 +275,8 @@ class PropertiesDialog(QDialog):
             out["color"] = self.color.color
         if self.fill is not None and self.fill.color is not SAME:
             out["fill"] = self.fill.color
+        if self.border is not None and self.border.color is not SAME:
+            out["border"] = self.border.color
         for name in ("width", "font_size"):
             box = getattr(self, name)
             if box is not None and (not box.specialValueText() or box.value() > box.minimum()):
@@ -305,7 +311,10 @@ class PropertiesDialog(QDialog):
         start, end = changes.pop("start", None), changes.pop("end", None)
         if (start or end) and (kind in ENDED or kind == "arrow"):
             changes["ends"] = (start or annotation.ends[0], end or annotation.ends[1])
-        for name, kinds in (("fill", FILLED), ("width", STROKED), ("font_size", TEXTUAL), ("font", TEXTUAL),
+        if annotation.rich and changes.get("contents", annotation.contents) != annotation.contents:
+            changes["rich"] = ""  # (its text written here, plain: its formatting would no longer fit it)
+        for name, kinds in (("fill", FILLED), ("border", TEXTUAL), ("width", STROKED), ("font_size", TEXTUAL),
+                            ("font", TEXTUAL),
                             ("align", TEXTUAL), ("dashed", DASHABLE), ("icon", ("note",))):
             if kind not in kinds:
                 changes.pop(name, None)

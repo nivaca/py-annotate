@@ -631,3 +631,59 @@ def test_file_changed_elsewhere_before_saving(window, sample):
     assert window.save()
     kinds = sorted(a.kind for a in annots.read(annots.open_pdf(sample)))
     assert kinds == ["rect"]  # (the window's annotations are what the document has: the ellipse was not known)
+
+
+def test_formatting_written_on_the_page(window, sample):
+    """Bold and a colour given while writing a text box are kept as rich text, saved, painted,
+    and shown again when it is written once more; Plain text takes them out."""
+    from PySide6.QtGui import QImage, QKeyEvent, QPainter
+
+    canvas = window.canvas
+    del canvas.edit_text
+    window.set_tool("freetext")
+    click(window, (300, 300))
+    editor = canvas._editor["item"]
+    editor.setPlainText("one two")
+    cursor = editor.textCursor()
+    cursor.setPosition(4)
+    cursor.setPosition(7, cursor.MoveMode.KeepAnchor)
+    editor.setTextCursor(cursor)
+    editor.keyPressEvent(QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_B, Qt.KeyboardModifier.ControlModifier))
+    editor._format("look", color="#ff0000")
+    canvas.commit_text()
+    a = window.annotations[0]
+    assert a.contents == "one two"
+    assert a.rich == '<p>one <span style="font-weight:bold;color:#ff0000">two</span></p>'
+    assert window.save()
+    assert annots.read(annots.open_pdf(sample))[0].rich == a.rich
+    image = QImage(600, 600, QImage.Format.Format_RGB32)
+    image.fill(0xFFFFFF)
+    p = QPainter(image)
+    from py_annotate.gui.paint import paint
+
+    paint(p, window.annotations[0])  # (it is drawn: some red where the text is)
+    p.end()
+    r = window.annotations[0].rect
+    reds = [image.pixelColor(x, y) for x in range(int(r[0]), int(r[2])) for y in range(int(r[1]), int(r[3]))]
+    assert any(c.red() > 200 and c.green() < 80 for c in reds)
+    window.set_tool("select")
+    mouse(window, QEvent.Type.MouseButtonDblClick, (305, 305))
+    editor = canvas._editor["item"]
+    assert editor.toPlainText() == "one two"
+    cursor = editor.textCursor()
+    cursor.select(cursor.SelectionType.Document)
+    editor.setTextCursor(cursor)
+    editor._format("plain")
+    canvas.commit_text()
+    assert window.annotations[0].rich == "" and window.annotations[0].contents == "one two"
+
+
+def test_border_colour_in_the_properties(window):
+    from py_annotate.gui.props import PropertiesDialog
+
+    window.set_tool("freetext")
+    drag(window, (100, 300), (250, 360))
+    dialog = PropertiesDialog([window.annotations[0]], window)
+    assert dialog.border.text() == "As the text"
+    dialog.border.set_color("#00aa00")
+    assert dialog.apply(window.annotations[0]).border == "#00aa00"

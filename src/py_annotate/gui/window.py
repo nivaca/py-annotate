@@ -962,8 +962,10 @@ class MainWindow(FilesMixin, QMainWindow):
             if annotation.contents.strip():
                 self.add(annotation)
             return
-        if 0 <= index < len(self.annotations) and annotation.contents != self.annotations[index].contents:
-            self.replace(index, dataclasses.replace(self.annotations[index], contents=annotation.contents))
+        if 0 <= index < len(self.annotations):
+            old = self.annotations[index]
+            if (annotation.contents, annotation.rich) != (old.contents, old.rich):  # (its text, or its formatting)
+                self.replace(index, dataclasses.replace(old, contents=annotation.contents, rich=annotation.rich))
 
     def add_markup(self, page: int, rects: list[Rect], kind: str | None = None):
         """A highlight (or the kind of markup of the tool) over the lines of text RECTS of PAGE."""

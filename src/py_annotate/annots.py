@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import dataclasses
 import datetime
+import html
 import os
 import re
 import tempfile
@@ -76,6 +77,7 @@ CARET_SIZE = (20.0, 14.0)  # points: the size of a caret's mark (MuPDF's)
 
 FONTS = {"helv": N_("Helvetica (sans serif)"), "tiro": N_("Times (serif)"), "cour": N_("Courier (monospaced)")}
 _DA_FONTS = {"helv": "helv", "tiro": "tiro", "times": "tiro", "cour": "cour", "courier": "cour"}
+FAMILIES = {"helv": "Helvetica", "tiro": "Times", "cour": "Courier"}  # (the fonts' names in rich text)
 ALIGNS = {"left": N_("Left"), "center": N_("Centre"), "right": N_("Right")}
 ICONS = {"Note": N_("Note"), "Comment": N_("Comment"), "Key": N_("Key"), "Help": N_("Help"),
          "NewParagraph": N_("New paragraph"), "Paragraph": N_("Paragraph"), "Insert": N_("Insert")}
@@ -134,6 +136,10 @@ class Annotation:
     contents: str = ""  # the comment, or the text of a note or a text box
     author: str = ""
     font_size: float = 12.0  # of a text box
+    # of a text box: its text with its formatting (bold, italic, colours, fonts), as XHTML paragraphs
+    # (see rich_html); '' for plain text, all of it in COLOR and FONT
+    rich: str = ""
+    border: str = ""  # of a text box: the colour of its border (and callout line); '' for that of its text
     quads: tuple[Rect, ...] = ()  # text markup: a rectangle for each line
     # line, arrow, polyline, polygon and cloud: one path of their points; ink: its strokes;
     # callout: one path of one point, where it points
@@ -399,6 +405,60 @@ DA_FONT = re.compile(r"/([A-Za-z]+)")
 DA_COLOR = re.compile(r"((?:[\d.]+\s+){1,4})(g|rg|k)\b")
 
 
+def plain_html(text: str) -> str:
+    """TEXT as the XHTML of a text box: a paragraph for each line."""
+    return "".join(f"<p>{html.escape(line, quote=False)}</p>" for line in text.split("\n"))
+
+
+def _rich_style(a: Annotation) -> str:
+    """The default style of the rich text of A (its /DS)."""
+    return (f"font-size:{a.font_size:g}pt;font-family:{FAMILIES.get(a.font, 'Helvetica')};color:{a.color};"
+            f"text-align:{a.align}")
+
+
+def _rich_keys(doc: pymupdf.Document, xref: int, a: Annotation) -> None:
+    """The keys of a text box written as rich text (after _info: setting its text takes them out): the
+    rich text in /RC, its default look in /DS, its text, plain, in /Contents (for the programs that
+    read only that), and the colour of its border in /DA."""
+    r, g, b = rgb(a.border or a.color)
+    doc.xref_set_key(xref, "RC", pymupdf.get_pdf_str(RC_HEAD + (a.rich or plain_html(a.contents)) + "</body>"))
+    doc.xref_set_key(xref, "DS", pymupdf.get_pdf_str(_rich_style(a)))
+    doc.xref_set_key(xref, "DA", pymupdf.get_pdf_str(f"{r:g} {g:g} {b:g} rg /{a.font.capitalize()} "
+                                                       f"{a.font_size:g} Tf"))
+    doc.xref_set_key(xref, "Contents", pymupdf.get_pdf_str(a.contents))
+
+
+RC_HEAD = ('<?xml version="1.0"?><body xmlns="http://www.w3.org/1999/xhtml" '
+           'xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/" xfa:contentType="text/html" xfa:spec="2.4">')
+
+
+RC_BODY = re.compile(r"<body\b[^>]*>(.*?)(?:</body>\s*)?$", re.S)
+DS_COLOR = re.compile(r"(?<![-\w])color\s*:\s*(#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3})\b")
+DS_SIZE = re.compile(r"font-size\s*:\s*([\d.]+)\s*pt")
+DS_FAMILY = re.compile(r"font-family\s*:\s*['\"]?([A-Za-z ]+)")
+
+
+def _rich_text(doc: pymupdf.Document, xref: int, contents: str, color: str, size: float,
+               font: str) -> tuple[str, str, str, float, str]:
+    """The rich text of the text box XREF, its border's colour, and the colour, size and font of its
+    text (COLOR, SIZE and FONT: those of its /DA, which are those of its border, if it has rich text)."""
+    kind, rc = doc.xref_get_key(xref, "RC")
+    found = RC_BODY.search(rc) if kind == "string" else None
+    if found is None:
+        return "", "", color, size, font
+    _, ds = doc.xref_get_key(xref, "DS")
+    text_color = DS_COLOR.search(ds or "")
+    text_color = (text_color[1].lower() if len(text_color[1]) == 7 else
+                  "#" + "".join(c * 2 for c in text_color[1][1:]).lower()) if text_color else "#000000"
+    if (m := DS_SIZE.search(ds or "")):
+        size = float(m[1]) or size
+    if (m := DS_FAMILY.search(ds or "")):
+        font = _DA_FONTS.get(m[1].split()[0].lower(), font) if m[1].split() else font
+    rich = found[1].strip()
+    return ("" if rich == plain_html(contents) else rich), ("" if color == text_color else color), text_color, \
+        size, font
+
+
 def _text_style(doc: pymupdf.Document, xref: int) -> tuple[str, float, str]:
     """The colour, the size and the font of the text of a text box, from its /DA."""
     kind, da = doc.xref_get_key(xref, "DA")
@@ -467,6 +527,7 @@ def read_annotation(doc: pymupdf.Document, page: pymupdf.Page, annot: pymupdf.An
         return Annotation(rect=union(quads), color=stroke or "#ffeb3b", quads=tuple(quads), **fields)
     if kind in TEXTUAL:
         color, size, font = _text_style(doc, annot.xref)
+        rich, border, color, size, font = _rich_text(doc, annot.xref, fields["contents"], color, size, font)
         r = pymupdf.Rect(annot.rect)
         rd = doc.xref_get_key(annot.xref, "RD")
         delta = [float(v) for v in rd[1].strip("[]").split()] if rd[0] == "array" else []
@@ -498,7 +559,7 @@ def read_annotation(doc: pymupdf.Document, page: pymupdf.Page, annot: pymupdf.An
                 kind, fields["kind"] = "freetext", "freetext"
         # (a text box keeps its fill in /C, which PyMuPDF gives as its 'stroke')
         return Annotation(rect=_shown_rect(page, r), color=color, fill=stroke, font_size=_r(size), font=font,
-                          align=align, paths=paths, ends=ends if kind == "callout" else ("None", "None"),
+                          rich=rich, border=border, align=align, paths=paths, ends=ends if kind == "callout" else ("None", "None"),
                           **fields)
     if kind in ("rect", "ellipse", "area"):  # (its rectangle holds the line, half of it outside the shape)
         r = pymupdf.Rect(annot.rect)
@@ -656,10 +717,16 @@ def add(page: pymupdf.Page, a: Annotation, when: str | None = None) -> pymupdf.A
             tip = a.paths[0][0]
             extra = {"callout": [tuple(_real_point(page, tip)), tuple(_real_point(page, anchor(a.rect, tip)))],
                      "line_end": _END_CODES.get(a.ends[1], pymupdf.PDF_ANNOT_LE_OPEN_ARROW)}
-        annot = page.add_freetext_annot(box, a.contents, fontsize=a.font_size, fontname=a.font, text_color=stroke,
-                                        fill_color=fill, border_width=a.width, dashes=dashes,
-                                        align={"center": 1, "right": 2}.get(a.align, 0), rotate=page.rotation,
-                                        **extra)
+        if a.rich or a.border:  # (rich text: its look is in /RC and /DS, and /DA has the colour of the border)
+            annot = page.add_freetext_annot(box, a.rich or plain_html(a.contents), fontsize=a.font_size,
+                                            fontname=a.font, fill_color=fill, border_width=a.width, dashes=dashes,
+                                            align={"center": 1, "right": 2}.get(a.align, 0), rotate=page.rotation,
+                                            richtext=True, style=_rich_style(a), **extra)
+        else:
+            annot = page.add_freetext_annot(box, a.contents, fontsize=a.font_size, fontname=a.font,
+                                            text_color=stroke, fill_color=fill, border_width=a.width,
+                                            dashes=dashes, align={"center": 1, "right": 2}.get(a.align, 0),
+                                            rotate=page.rotation, **extra)
     elif a.kind in ("rect", "ellipse", "area"):
         method = page.add_circle_annot if a.kind == "ellipse" else page.add_rect_annot
         annot = method(_real_rect(page, a.rect))
@@ -700,8 +767,11 @@ def add(page: pymupdf.Page, a: Annotation, when: str | None = None) -> pymupdf.A
         annot.set_opacity(a.opacity)
     _flags(annot, a.locked)
     _labels_keys(page.parent, annot.xref, a)
+    if a.kind in TEXTUAL and (a.rich or a.border):
+        _rich_keys(page.parent, annot.xref, a)
     if a.kind in TEXTUAL:  # (update() alone would forget the colour and size of its text)
-        annot.update(fontsize=a.font_size, fontname=a.font, text_color=stroke, fill_color=fill, rotate=page.rotation)
+        annot.update(fontsize=a.font_size, fontname=a.font, text_color=rgb(a.border or a.color), fill_color=fill,
+                     rotate=page.rotation)
         if a.kind == "freetext":  # (PyMuPDF gives every text box a callout line, of no length)
             page.parent.xref_set_key(annot.xref, "CL", "null")
     elif a.kind != "stamp" or a.stamp:  # (an image stamp's look would be lost)
@@ -760,6 +830,9 @@ def change(page: pymupdf.Page, annot: pymupdf.Annot, old: Annotation, a: Annotat
     doc = page.parent
     if old.kind != a.kind or old.page != a.page or a.kind == "callout":
         return False
+    look = ("contents", "rich", "border", "color", "font", "font_size", "align")
+    if (a.rich or a.border or old.rich or old.border) and any(getattr(a, f) != getattr(old, f) for f in look):
+        return False  # (rich text whose text or look changed: written again, with its /RC and /DS)
     stroke = rgb(a.color)
     fill = rgb(a.fill) if a.fill else None
     dashes = list(DASHES) if a.dashed and a.kind in DASHABLE else []
@@ -811,9 +884,11 @@ def change(page: pymupdf.Page, annot: pymupdf.Annot, old: Annotation, a: Annotat
         annot.set_opacity(a.opacity)
         _flags(annot, a.locked)
         _labels_keys(doc, annot.xref, a)
+        if a.kind == "freetext" and (a.rich or a.border):
+            _rich_keys(doc, annot.xref, a)
         if a.kind == "freetext":
-            annot.update(fontsize=a.font_size, fontname=a.font, text_color=stroke, fill_color=fill,
-                         rotate=page.rotation)
+            annot.update(fontsize=a.font_size, fontname=a.font, text_color=rgb(a.border or a.color),
+                         fill_color=fill, rotate=page.rotation)
         elif a.kind != "stamp" or a.stamp:
             annot.update()
     except (RuntimeError, ValueError):
