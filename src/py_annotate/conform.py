@@ -83,7 +83,10 @@ def find(path: str = "") -> Path | None:
         return p if p.is_file() else None
     folders = clean_env()["PATH"].split(os.pathsep) + [str(Path(f).expanduser()) for f in USER_FOLDERS]
     for name in (COMMAND, COMMAND + ".py", OLD_COMMAND, OLD_COMMAND + ".py"):
-        found = shutil.which(name, path=os.pathsep.join(folders))
+        if sys.platform == "win32":  # (which() there finds only names with an extension of PATHEXT)
+            found = next((str(Path(f) / name) for f in folders if f and (Path(f) / name).is_file()), None)
+        else:
+            found = shutil.which(name, path=os.pathsep.join(folders))
         if found:
             return Path(found)
     return None

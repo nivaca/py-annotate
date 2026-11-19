@@ -897,12 +897,16 @@ def apply(doc: pymupdf.Document, annotations: list[Annotation], when: str | None
 
 
 def save_doc(doc: pymupdf.Document, target: Path) -> None:
-    """Save DOC as TARGET, safely (through a file of its own, put in its place at the end)."""
+    """Save DOC as TARGET, safely (through a file of its own, put in its place at the end). If
+    TARGET is the file DOC was opened from, DOC is closed first (Windows won't replace a file
+    that is open)."""
     fd, tmp = tempfile.mkstemp(suffix=".pdf", dir=target.parent)
     os.close(fd)
     try:
         doc.save(tmp, garbage=1, deflate=True,
                  encryption=pymupdf.PDF_ENCRYPT_KEEP if doc.needs_pass else pymupdf.PDF_ENCRYPT_NONE)
+        if doc.name and Path(doc.name).resolve() == target.resolve():
+            doc.close()
         os.replace(tmp, target)
     except BaseException:
         Path(tmp).unlink(missing_ok=True)
@@ -935,7 +939,8 @@ def write(source: Path, annotations: list[Annotation], target: Path, password: s
     except (OSError, RuntimeError, ValueError) as e:
         raise AnnotateError(tr("{path} cannot be written: {error}", path=target, error=e)) from None
     finally:
-        doc.close()
+        if not doc.is_closed:  # (save_doc closes it, to put the new file in its place)
+            doc.close()
     return written
 
 
