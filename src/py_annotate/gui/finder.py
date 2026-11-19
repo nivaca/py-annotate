@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import re
 
-from PySide6.QtCore import QSettings, QStringListModel, Qt, Signal
+from PySide6.QtCore import QStringListModel, Qt, Signal
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QCompleter, QDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit,
     QListWidget, QListWidgetItem, QPushButton, QVBoxLayout,
@@ -49,7 +49,7 @@ class FindDialog(QDialog):
         self.query = QLineEdit()
         self.query.setPlaceholderText(tr("Text to find"))
         self.query.returnPressed.connect(self.search)
-        self.settings = QSettings()
+        self.settings = window.settings  # (where the window keeps its own state: the same on every system)
         self.history = _history(self.settings.value("find_history", ""))
         self.history_model = QStringListModel(self.history)
         completer = QCompleter(self.history_model, self)
