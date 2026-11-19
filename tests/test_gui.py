@@ -951,3 +951,23 @@ def test_pen_side_button_moves_the_page(window):
     assert window.annotations == [] and menus == [] and canvas._pen_pan is None
     canvas.pen_button = "menu"
     assert not tablet(window, QEvent.Type.TabletPress, (200, 300), side=True)  # (left to Qt: a right click)
+
+
+def test_thumbnails_hidden(window, sample):
+    """View > The thumbnails of the pages hides them (and they are not drawn meanwhile), and the
+    window remembers it."""
+    window.a_thumbs.setChecked(False)
+    assert window.thumbs_box.isHidden()
+    window._thumbs.clear()
+    window.thumb_timer.start()
+    window._draw_thumbnails()
+    assert not window.thumb_timer.isActive() and window._thumbs == {}
+    window.save_settings()
+    other = MainWindow()
+    assert not other.a_thumbs.isChecked() and other.thumbs_box.isHidden()
+    other.a_thumbs.setChecked(True)
+    assert not other.thumbs_box.isHidden()
+    other.save_settings()
+    other.close()
+    window.a_thumbs.setChecked(True)
+    assert not window.thumbs_box.isHidden() and window.thumb_timer.isActive()

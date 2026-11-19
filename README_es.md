@@ -23,7 +23,7 @@ añaden al final del archivo, así que un documento firmado conserva sus
 firmas válidas para lo que firmaron.
 
 Tiene una ventana, en español y en inglés, y funciona en Linux, Windows y
-macOS. Esta es la versión 1.0.0.
+macOS. Esta es la versión 1.0.1.
 
 Soy Nicolas Vaughan (<nicolasvaughan@proton.me>) y lo escribí en 2026. Es
 software libre, bajo la Licencia Pública General de GNU, versión 3 o
@@ -241,7 +241,9 @@ muestra. Ver > Mostrar las anotaciones las oculta todas, para ver el
 documento tal cual; Ver > Solo las que muestra la lista deja en las páginas
 solo las que pasan la búsqueda y los filtros. El panel se puede ocultar
 (Ver > El panel de las anotaciones, o F4), pasar al lado izquierdo de la
-ventana o sacarlo de ella.
+ventana o sacarlo de ella. Las miniaturas de las páginas, a la izquierda,
+también se pueden ocultar (Ver > Las miniaturas de las páginas, o F3); la
+ventana recuerda ambas cosas.
 
 Guardar, exportar, importar
 ---------------------------

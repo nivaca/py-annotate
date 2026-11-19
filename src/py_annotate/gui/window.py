@@ -177,7 +177,7 @@ class MainWindow(FilesMixin, QMainWindow):
         self.thumb_slider.setValue(self.thumb.height())
         self.thumb_slider.setToolTip(tr("The size of the thumbnails"))
         self.thumb_slider.valueChanged.connect(self.set_thumb_size)
-        left = QWidget()
+        self.thumbs_box = left = QWidget()
         lay = QVBoxLayout(left)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.addWidget(self.pages, 1)
@@ -422,6 +422,11 @@ class MainWindow(FilesMixin, QMainWindow):
         self.a_panel.setShortcut(QKeySequence("F4"))
         self.a_panel.setToolTip(tr("The list of the annotations, with their authors, on the right of the window"))
         m.addAction(self.a_panel)
+        self.a_thumbs = QAction(tr("The thumbnails of the pages"), self, checkable=True, checked=True)
+        self.a_thumbs.setShortcut(QKeySequence("F3"))
+        self.a_thumbs.setToolTip(tr("The pages, small, on the left of the window"))
+        self.a_thumbs.toggled.connect(self.show_thumbnails)
+        m.addAction(self.a_thumbs)
         self.a_continuous = QAction(tr("Continuous scrolling"), self, checkable=True,
                                     checked=self.canvas.continuous)
         self.a_continuous.setToolTip(tr("The pages one under the other; otherwise, one page at a time"))
@@ -520,6 +525,8 @@ class MainWindow(FilesMixin, QMainWindow):
         split = self.settings.value("splitter2")
         if isinstance(split, QByteArray):
             self.splitter.restoreState(split)
+        self.a_thumbs.setChecked(self.settings.value("thumbnails", True, type=bool))
+        self.show_thumbnails(self.a_thumbs.isChecked())
         bars = self.settings.value("toolbars")
         if isinstance(bars, QByteArray):
             self.restoreState(bars)
@@ -527,6 +534,7 @@ class MainWindow(FilesMixin, QMainWindow):
     def save_settings(self):
         self.settings.setValue("geometry", self.saveGeometry())
         self.settings.setValue("splitter2", self.splitter.saveState())
+        self.settings.setValue("thumbnails", self.a_thumbs.isChecked())
         self.settings.setValue("toolbars", self.saveState())
         self.settings.sync()
 
@@ -1818,10 +1826,18 @@ class MainWindow(FilesMixin, QMainWindow):
         self.page_spin.blockSignals(False)
         self.thumb_timer.start()
 
+    def show_thumbnails(self, on: bool):
+        """Show or hide the thumbnails of the pages (View menu)."""
+        self.thumbs_box.setVisible(on)
+        if self.a_thumbs.isChecked() != on:
+            self.a_thumbs.setChecked(on)
+        if on and self.doc is not None:
+            self.thumb_timer.start()
+
     def _draw_thumbnails(self):
         """Draw one thumbnail at each turn of the event loop, those in view first,
         so that the window answers between them."""
-        if self.doc is None:
+        if self.doc is None or self.thumbs_box.isHidden():  # (hidden: drawn when they are shown again)
             self.thumb_timer.stop()
             return
         top = self.pages.indexAt(QPoint(10, 10)).row()

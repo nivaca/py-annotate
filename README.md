@@ -22,7 +22,7 @@ file, so that a signed document keeps its signatures valid for what they
 signed.
 
 It has a window, in English and in Spanish, and works on Linux, Windows and
-macOS. This is version 1.0.0.
+macOS. This is version 1.0.1.
 
 I am Nicolas Vaughan (<nicolasvaughan@proton.me>), and I wrote it in 2026.
 It is free software, under the GNU General Public License, version 3 or
@@ -236,7 +236,8 @@ shows. View > Show the annotations hides them all, to see the document as
 it is; View > Only those the list shows leaves on the pages only those the
 search and filters let through. The panel can be hidden (View > The panel
 of the annotations, or F4), moved to the left side of the window, or taken
-out of it.
+out of it. The thumbnails of the pages, on the left, can be hidden too
+(View > The thumbnails of the pages, or F3); the window remembers both.
 
 Saving, exporting, importing
 ----------------------------

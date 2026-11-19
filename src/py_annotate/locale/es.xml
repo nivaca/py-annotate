@@ -2279,4 +2279,12 @@
     <en>Pen side button:</en>
     <tr>Botón lateral del lápiz:</tr>
   </text>
+  <text>
+    <en>The thumbnails of the pages</en>
+    <tr>Las miniaturas de las páginas</tr>
+  </text>
+  <text>
+    <en>The pages, small, on the left of the window</en>
+    <tr>Las páginas, en pequeño, a la izquierda de la ventana</tr>
+  </text>
 </interface>
