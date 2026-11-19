@@ -35,6 +35,10 @@ class AnnotationModel(QAbstractTableModel):
         self._italic.setItalic(True)
 
     def set_rows(self, rows: list[int]):
+        """Show ROWS; if they are the rows shown, only their contents are shown again."""
+        if rows == self.rows and rows:
+            self.dataChanged.emit(self.index(0, 0), self.index(len(rows) - 1, self.columnCount() - 1))
+            return
         self.beginResetModel()
         self.rows = list(rows)
         self.endResetModel()
@@ -156,6 +160,9 @@ class Panel(QWidget):
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setWordWrap(False)
         header = self.table.horizontalHeader()
+        # (the columns fit their contents as a sample of the rows shows it: measuring every row, at each
+        # change, would make a long list slow)
+        header.setResizeContentsPrecision(60)
         for col in (PAGE, KIND, AUTHOR, STATUS, CHANGED):
             header.setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(TEXT, QHeaderView.ResizeMode.Stretch)

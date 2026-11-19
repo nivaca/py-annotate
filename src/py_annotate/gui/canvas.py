@@ -386,16 +386,26 @@ class PageCanvas(QGraphicsView):
         self._place_annotations()
 
     def _place_annotations(self):
-        for item in self.items_:
-            if item.scene() is not None:
-                self.scene().removeItem(item)
-        self.items_ = []
+        """The items of the annotations: those that are as they were stay, the others are made again."""
         if self._drag is not None and self._drag.get("kind") == "edit":
             self._drag = None
+        old = {(i.index, i.annot, i.chosen): i for i in self.items_}
+        items = []
         for index, a in self._shown_items:
             parent = self.pages.get(a.page)
-            if parent is not None:
-                self.items_.append(AnnotItem(index, a, index in self._selected, parent))
+            if parent is None:
+                continue
+            item = old.pop((index, a, index in self._selected), None)
+            if item is None or item.parentItem() is not parent:
+                item = AnnotItem(index, a, index in self._selected, parent)
+            else:  # (as it was before a drag or the eraser touched it)
+                item.setOpacity(1.0)
+                item.setVisible(True)
+            items.append(item)
+        for item in old.values():
+            if item.scene() is not None:
+                self.scene().removeItem(item)
+        self.items_ = items
 
     def go_to(self, page: int, rect: Rect | None = None):
         """Bring PAGE into view (its top; or, if given, RECT on it)."""

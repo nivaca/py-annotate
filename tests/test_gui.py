@@ -588,3 +588,17 @@ def test_many_annotations_are_listed_at_once(window):
     start = time.perf_counter()
     window.change(many)
     assert window.model.rowCount() == 3000 and time.perf_counter() - start < 5
+
+
+def test_items_made_again_only_when_changed(window):
+    window.set_tool("rect")
+    drag(window, (100, 300), (150, 340))
+    drag(window, (200, 300), (250, 340))
+    first, second = sorted(window.canvas.items_, key=lambda i: i.index)
+    window.replace(1, annots.moved(window.annotations[1], 5, 0))
+    items = sorted(window.canvas.items_, key=lambda i: i.index)
+    assert items[0] is first and items[1] is not second  # (only the one that changed is made again)
+    window.set_tool("eraser")
+    first.setOpacity(0.2)  # (as the eraser leaves what it is about to erase)
+    window.refresh()
+    assert first.opacity() == 1.0
