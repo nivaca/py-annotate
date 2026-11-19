@@ -186,6 +186,9 @@ class MainWindow(FilesMixin, QMainWindow):
         self.canvas.factory = self.new_annotation
         self.canvas.placeholder_for = lambda n: self._thumbs.get(n)
         self.canvas.drawn.connect(self.add_drawn)
+        self.canvas.drawn_many.connect(
+            lambda new: self.change(self.annotations + new,
+                                    list(range(len(self.annotations), len(self.annotations) + len(new)))))
         self.canvas.edited.connect(self.replace)
         self.canvas.erased.connect(self.erase)
         self.canvas.nudged.connect(self.nudge)

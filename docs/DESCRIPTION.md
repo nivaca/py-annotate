@@ -9,7 +9,7 @@ annotations, which any viewer shows and can edit. Nicolas Vaughan made it
 in November 2026, starting from two other PDF programs of his, py-redact
 (redaction) and py-foliation (the page labels of a PDF), and from a
 specification of what a full annotation tool should have. Here I explain
-how it was made, in ten stages.
+how it was made, in thirteen stages.
 
 It is free software, under the GNU General Public License, version 3 or
 later. The annotations are read and written by PyMuPDF (GNU AGPL 3), and
@@ -176,12 +176,66 @@ found nothing that made it shorter. Last, what writes or reads other files
 than the document (copies, printing, exports and imports) moved out of the
 main window's module, which had grown to 2,147 lines, into one of its own.
 
+11. The installers on three systems
+-----------------------------------
+
+Until then the installers for Windows and macOS had never been run on those
+systems. A workflow on GitHub now runs each installer as a user would,
+checks what it made, runs the tests against the program installed, and
+uninstalls it. Its first runs found three problems that my own machine
+could not show. On macOS the installer stopped at a `chmod --`, which the
+`chmod` of macOS refuses (py-redact had been fixed already; this copy had
+not). On Windows a document with a password could not be saved, because
+it is written whole and put in the place of the file, and Windows doesn't
+replace a file that PyMuPDF still has open; the document is now closed
+first. And `pdf2iso` without an extension was not found there, since
+Python's `which` looks only for the extensions Windows knows. A test also
+failed on macOS for a reason of its own: the Python of the installer lives
+in "Application Support", and a `#!` line can't hold a space.
+
+12. Formatted text, and groups
+------------------------------
+
+The text of a text box can now be bold, italic, underlined, of other
+colours and in other fonts, and its border can have a colour of its own.
+PDF keeps such a text as XHTML (/RC), with its default look in /DS. Trying
+it with PyMuPDF showed three things before any code was written: it
+misspells the namespace of XHTML; it takes /RC out as soon as the plain
+text of the annotation is set; and with rich text, the colour in /DA is
+that of the border, not of the text. So py-annotate writes /RC and /DS
+itself, after everything else, and uses /DA for the border. The window
+paints the rich text with Qt, and I compared it with MuPDF's rendering.
+
+Groups follow the PDF too: each annotation of a group answers the first
+(/IRT) as its group (/RT /Group). But MuPDF, when it takes out an
+annotation, takes out all that answers it, so deleting the first of a
+group, or preparing a page to be shown, deleted the others with it. The
+links of the groups are now taken out while the annotations are written,
+and put back at the end, and a group is also kept in a key of
+py-annotate's own.
+
+13. For the edition of texts
+----------------------------
+
+The specification asked for annotations of textual criticism. Any
+annotation can now carry an entry of one of its sixteen kinds (variant
+reading, emendation, conjecture, lacuna and the others), with the reading
+of the text and the other reading, the witness and the place in it, the
+source, the rationale and the confidence; and the program exports the
+critical apparatus, in the order of the text. Links, attached files and
+the other annotations that py-annotate does not edit are now listed,
+locked, and saving leaves them alone. Last, the pressure of a tablet's pen
+now counts along a stroke, not only for the whole of it: since a drawing
+in PDF has one width, a stroke whose pressure changes is cut into drawings
+of up to five widths, which make one group.
+
 Testing
 -------
 
-The program has 69 tests (`uv run pytest`). The tests of the annotations
+The program has 82 tests (`uv run pytest`). The tests of the annotations
 write one of each kind on a plain page and on a turned one and read them
-back; check that a changed annotation keeps its number and the keys of
+back, and also text boxes with formatted text and groups made here or by
+another program; check that a changed annotation keeps its number and the keys of
 other programs, that saving into the document only adds to its end, and
 that replies, statuses, tags and categories are kept; and send everything
 through JSON and XFDF and back. The window is tested as a user would use
@@ -189,11 +243,15 @@ it, with mouse events on the pages: every tool, moving, resizing and
 reshaping, the eraser, the panel and its filters, writing on the page,
 undo after saving, a save after the file was changed by another program,
 the pages rendered in another process without the annotations the window
-draws, and the copies as PDF/A (with a pdf2iso made for the
+draws, formatted text written on the page, groups, entries of textual
+criticism, the links listed but not changed, a stroke of changing pressure,
+and the copies as PDF/A (with a pdf2iso made for the
 test that leaves out polygons, as Ghostscript does). A test checks that
 every text of the window has its Spanish translation, and no other. The
 tests are also run with nothing of mine on the PATH, as Copr runs them, and
-the RPM runs them again with Fedora's own Python, PyMuPDF and PySide6. The
+the RPM runs them again with Fedora's own Python, PyMuPDF and PySide6. On
+GitHub they run on Linux, macOS and Windows, against the program as each
+installer installs it. The
 pictures were checked by eye, in both languages. A document of 300 pages with
-3,000 annotations was used to time the window. The program has 37 files,
-around 10,000 lines.
+3,000 annotations was used to time the window. The program has 38 files,
+around 11,000 lines.

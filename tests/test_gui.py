@@ -790,3 +790,30 @@ def test_exports_leave_out_other_kinds(window, sample, tmp_path):
     import json
 
     assert [a["kind"] for a in json.loads((tmp_path / "out.json").read_text())["annotations"]] == ["rect"]
+
+
+def test_pressure_along_a_stroke(window, sample):
+    """A stroke whose pen pressure changes is cut where it goes to another level: drawings of their
+    own widths, joined end to end, one group; with one pressure, one drawing."""
+    canvas = window.canvas
+    window.set_tool("ink")
+    points = [(100 + 10 * i, 300) for i in range(12)]
+    pressures = [0.1] * 4 + [0.5] * 4 + [0.95] * 4
+    canvas._pressure = pressures[0]
+    mouse(window, QEvent.Type.MouseButtonPress, points[0])
+    for p, pressure in zip(points[1:], pressures[1:], strict=True):
+        canvas._pressure = pressure
+        mouse(window, QEvent.Type.MouseMove, p)
+    mouse(window, QEvent.Type.MouseButtonRelease, points[-1])
+    canvas._pressure = None
+    pieces = window.annotations
+    assert len(pieces) == 3 and len({a.group for a in pieces}) == 1 and pieces[0].group
+    widths = [a.width for a in pieces]
+    assert widths == sorted(widths) and widths[0] < widths[-1]
+    assert pieces[0].paths[0][-1] == pieces[1].paths[0][0]  # (joined)
+    assert window.save()
+    assert sorted(a.width for a in annots.read(annots.open_pdf(sample))) == sorted(widths)
+    canvas._pressure = 0.5  # (one pressure: one drawing)
+    drag(window, (100, 500), (150, 500), (200, 500))
+    canvas._pressure = None
+    assert len(window.annotations) == 4 and not window.annotations[-1].group

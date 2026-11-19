@@ -23,7 +23,7 @@ añaden al final del archivo, así que un documento firmado conserva sus
 firmas válidas para lo que firmaron.
 
 Tiene una ventana, en español y en inglés, y funciona en Linux, Windows y
-macOS. Esta es la versión 0.3.9.
+macOS. Esta es la versión 0.4.0.
 
 Soy Nicolas Vaughan (<nicolasvaughan@proton.me>) y lo escribí en 2026. Es
 software libre, bajo la Licencia Pública General de GNU, versión 3 o
@@ -328,8 +328,10 @@ Lo que todavía no hace
   muestre solo esas.
 * El texto de un cuadro de texto tiene un solo tamaño, y solo las letras
   Helvetica, Times y Courier.
-* Un dibujo tiene un solo grosor de punta a punta: con el lápiz de una
-  tableta, la presión da el grosor de cada trazo, no de cada parte de él.
+* Un dibujo en PDF tiene un solo grosor de punta a punta: cuando la presión
+  del lápiz de una tableta cambia a lo largo de un trazo, el trazo se corta
+  en dibujos de hasta cinco grosores, que forman un grupo, así que se
+  ensancha y se adelgaza por escalones, no de forma continua.
 * Un documento con contraseña se guarda entero, no de forma incremental.
 
 Pruebas

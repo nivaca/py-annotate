@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import dataclasses
 import math
+import uuid
 from collections import OrderedDict
 from collections.abc import Callable
 
@@ -345,6 +346,7 @@ class PageCanvas(QGraphicsView):
     index in the window's list; what the user does is reported with the signals."""
 
     drawn = Signal(object)  # Annotation: a new one (made by FACTORY), drawn on a page
+    drawn_many = Signal(list)  # [Annotation]: new ones drawn at once (a stroke of a pen whose pressure changed)
     edited = Signal(int, object)  # index, Annotation: one moved, resized or reshaped
     erased = Signal(object)  # {index: Annotation, or None to delete it}: what the eraser did
     nudged = Signal(float, float)  # the selected annotations moved with the arrow keys, by (dx, dy) points
@@ -1079,7 +1081,8 @@ class PageCanvas(QGraphicsView):
             paths = ((here, here),)
             self._drag = {"kind": "line" if self.mode in LINES else "ink", "page": page, "start": start,
                           "item": self._preview(page, self._new(self.mode, n, (*here, *here), paths)),
-                          "points": [here], "pressures": [self._pressure] if self._pressure is not None else []}
+                          "points": [here], "pressures": [self._pressure] if self._pressure is not None else [],
+                          "at": [self._pressure]}  # (the pressure at each point: None without a pen)
         elif self.mode in POLYGONS:
             self._polygon_click(page, point)
             self._drag = None
@@ -1172,6 +1175,7 @@ class PageCanvas(QGraphicsView):
                 drag["points"] = [drag["points"][0], (p.x(), p.y())]
             elif math.hypot(p.x() - drag["points"][-1][0], p.y() - drag["points"][-1][1]) * self.zoom() >= 2:
                 drag["points"].append((p.x(), p.y()))
+                drag.setdefault("at", []).append(self._pressure)
             paths = (tuple(drag["points"]),)
             new = self._new(self.mode, n, annots.frame(self.mode, paths, 1), paths)
             drag["item"].set_annotation(self._pressed(new, drag))
@@ -1181,6 +1185,41 @@ class PageCanvas(QGraphicsView):
                 drag["item"].set_annotation(new)
                 drag["moved"] = True
         event.accept()
+
+    LEVELS = 5  # (of the pressure of a pen, along a stroke: each a width of its own)
+
+    @classmethod
+    def _pieces(cls, a: Annotation, points: tuple, at: list) -> list[Annotation]:
+        """The stroke A (through POINTS, with the pressure AT each one) cut where the pressure of the
+        pen goes to another level: a drawing for each piece, as wide as its pressure, all one group.
+        [] if the pressure stays at one level, or there is no pen."""
+        if len(at) != len(points) or any(p is None for p in at):
+            return []
+        levels = [min(int(max(p, 0) * cls.LEVELS), cls.LEVELS - 1) for p in at]
+        runs: list[list[int]] = []  # (the points of each piece, by index)
+        for i, level in enumerate(levels):
+            if runs and levels[runs[-1][0]] == level:
+                runs[-1].append(i)
+            else:
+                runs.append([i])
+        merged: list[list[int]] = []
+        for run in runs:  # (a piece of one or two points goes with the one before)
+            if merged and len(run) < 3:
+                merged[-1] += run
+            else:
+                merged.append(run)
+        if len(merged) < 2:
+            return []
+        group = uuid.uuid4().hex[:12]
+        out = []
+        for k, run in enumerate(merged):
+            idx = ([merged[k - 1][-1]] if k else []) + run  # (each starts where the one before ends)
+            mean = sum(at[i] for i in run) / len(run)
+            width = round(max(a.width * (0.4 + 1.2 * mean), 0.25), 2)
+            path = tuple(points[i] for i in idx)
+            b = dataclasses.replace(a, paths=(path,), width=width, group=group)
+            out.append(dataclasses.replace(b, rect=annots.frame(b.kind, b.paths, width)))
+        return out
 
     @staticmethod
     def _pressed(a: Annotation, drag: dict) -> Annotation:
@@ -1298,9 +1337,14 @@ class PageCanvas(QGraphicsView):
                 points = (points[0], (round(p.x(), 2), round(p.y(), 2)))
             length = sum(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(points, points[1:]))
             if length >= MIN_SIZE:
-                annotation = self._pressed(self._new(self.mode, n, (0, 0, 0, 0), (points,)), drag)
-                self.drawn.emit(dataclasses.replace(annotation, rect=annots.frame(
-                    annotation.kind, annotation.paths, annotation.width)))
+                base = self._new(self.mode, n, (0, 0, 0, 0), (points,))
+                pieces = self._pieces(base, points, drag.get("at", [])) if kind == "ink" else []
+                if len(pieces) > 1:
+                    self.drawn_many.emit(pieces)
+                else:
+                    annotation = self._pressed(base, drag)
+                    self.drawn.emit(dataclasses.replace(annotation, rect=annots.frame(
+                        annotation.kind, annotation.paths, annotation.width)))
         elif kind == "edit":
             if drag["moved"]:
                 self.edited.emit(drag["item"].index, drag["item"].annot)

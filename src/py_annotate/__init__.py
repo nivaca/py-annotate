@@ -1,3 +1,3 @@
 """py-annotate: add annotations to PDF documents."""
 
-__version__ = "0.3.9"
+__version__ = "0.4.0"

@@ -1,4 +1,4 @@
-# py-annotate 0.3.9: descripción
+# py-annotate 0.4.0: descripción
 
 ## Análisis
 
@@ -20,9 +20,13 @@ Cada clase de py-annotate es una clase del estándar: los resaltados y subrayado
 
 Al guardar, cada anotación se compara con lo que tiene el archivo. La que no cambió no se toca; la que cambió se cambia donde está, y conserva su identificador, las claves de otros programas y las respuestas que apuntan a ella; luego se vuelve a leer, y solo si no es lo que debe se quita y se escribe de nuevo. Los cambios se añaden al final del archivo (un guardado incremental), salvo en un documento con contraseña.
 
+### Grupos, crítica textual y otros tipos
+
+Un grupo se escribe como los escribe el PDF: cada anotación responde a la primera (/IRT) como su grupo (/RT /Group), y el grupo queda además en una clave propia. Como MuPDF, al quitar una anotación, quita todo lo que le responde, los vínculos de los grupos se sacan mientras se escriben las anotaciones y se ponen de nuevo al final. Cualquier anotación puede llevar una entrada de crítica textual (uno de los dieciséis tipos de la especificación, con la lectura del texto y la otra, el testimonio, la fuente, la justificación y la seguridad), guardada como JSON en otra clave propia; con ellas se exporta el aparato crítico. Los enlaces, los archivos adjuntos y las demás anotaciones que py-annotate no edita aparecen en la lista, bloqueadas, y al guardar no se tocan.
+
 ## Implementación
 
-Está escrito en Python 3.14 o superior, con PyMuPDF y PySide6 (Qt 6). Son 37 archivos, unas 10 000 líneas. Cada texto de la ventana se busca por su inglés en `locale/es.xml` (464 textos), y cada valor de la configuración, un archivo TOML, se comprueba al leerlo.
+Está escrito en Python 3.14 o superior, con PyMuPDF y PySide6 (Qt 6). Son 38 archivos, unas 11 000 líneas. Cada texto de la ventana se busca por su inglés en `locale/es.xml` (531 textos), y cada valor de la configuración, un archivo TOML, se comprueba al leerlo.
 
 ### Las páginas
 
@@ -31,6 +35,10 @@ Cada página es un objeto de la escena de Qt, y sus anotaciones son hijas suyas,
 ### Lo que MuPDF hace a su manera
 
 Las pruebas con cada clase de anotación, en una página normal y en una girada, mostraron varias cosas que hubo que tener en cuenta: MuPDF hace todos los iconos de nota de 16 puntos y, en una página girada, los pone al lado del punto dado; un cuadro de texto guarda su relleno donde las demás guardan el color de su línea; PyMuPDF da a todo cuadro de texto una línea de llamada de longitud cero, y al borrar una anotación borra también sus respuestas. El recuadro de una llamada se guarda como diferencias respecto del rectángulo de la anotación, en un orden que no todos los programas siguen, así que se elige la lectura que pone el final de la línea sobre el borde del recuadro.
+
+### Texto con formato
+
+El texto de un cuadro de texto puede tener negrita, cursiva, subrayado, colores y otras letras, y su borde un color propio. El PDF lo guarda como XHTML (/RC), con su aspecto por omisión en /DS. PyMuPDF escribe mal el espacio de nombres de XHTML y quita /RC en cuanto se le da el texto simple, así que py-annotate escribe /RC y /DS al final; con texto con formato, el color de /DA es el del borde. La ventana pinta ese texto con Qt, igual que MuPDF. Un trazo cuya presión cambia se corta en dibujos de hasta cinco grosores, que forman un grupo.
 
 ### Lista, intercambio y PDF/A
 
@@ -42,11 +50,11 @@ Con un documento de 300 páginas y 3000 anotaciones, la primera letra escrita en
 
 ## Validación
 
-Hay 69 pruebas automáticas (`uv run pytest`). Las de las anotaciones escriben una de cada clase en una página normal y en una girada y las vuelven a leer; comprueban que una anotación cambiada conserva su número y las claves de otros programas, que guardar en el documento solo añade a su final, y que se conservan las respuestas, los estados, las etiquetas y las categorías; y pasan todo por JSON y por XFDF y de vuelta.
+Hay 82 pruebas automáticas (`uv run pytest`). Las de las anotaciones escriben una de cada clase en una página normal y en una girada y las vuelven a leer; comprueban que una anotación cambiada conserva su número y las claves de otros programas, que guardar en el documento solo añade a su final, y que se conservan las respuestas, los estados, las etiquetas y las categorías; y pasan todo por JSON y por XFDF y de vuelta.
 
 La ventana se prueba manejándola como lo haría un usuario, con eventos del ratón sobre las páginas: cada herramienta, mover, redimensionar y cambiar la forma, la goma de borrar, el panel y sus filtros, escribir en la página, deshacer después de guardar, guardar cuando otro programa cambió el archivo, las páginas dibujadas en otro proceso sin las anotaciones que la ventana dibuja, y las copias como PDF/A, con un pdf2iso hecho para la prueba que deja fuera los polígonos, como Ghostscript. Una prueba comprueba que cada texto de la ventana tenga su traducción al español, y ninguna otra.
 
-Las pruebas se corren también sin nada del autor en el PATH, como las corre Copr; así se encontraron dos errores que en su equipo no se veían. El RPM vuelve a correrlas sobre el paquete instalado, con el Python, el PyMuPDF y el PySide6 de Fedora, y la AppImage escribe y lee una anotación con su propio Python antes de terminar de armarse. Las ventanas se revisaron además a ojo, con capturas de pantalla en los dos idiomas. Los tiempos se midieron con un documento de 300 páginas y 3000 anotaciones. Los instaladores de Windows y macOS no se han probado en esos sistemas.
+Las pruebas se corren también sin nada del autor en el PATH, como las corre Copr; así se encontraron dos errores que en su equipo no se veían. El RPM vuelve a correrlas sobre el paquete instalado, con el Python, el PyMuPDF y el PySide6 de Fedora, y la AppImage escribe y lee una anotación con su propio Python antes de terminar de armarse. Las ventanas se revisaron además a ojo, con capturas de pantalla en los dos idiomas. Los tiempos se midieron con un documento de 300 páginas y 3000 anotaciones. En GitHub, un flujo de trabajo corre cada instalador en Linux, macOS y Windows como lo haría un usuario, comprueba lo que dejó, corre las pruebas contra el programa instalado y lo desinstala; sus primeras corridas encontraron tres errores que en el equipo del autor no se veían (un `chmod --` que macOS rechaza, un documento con contraseña que Windows no dejaba reemplazar mientras PyMuPDF lo tenía abierto, y `pdf2iso` sin extensión, que en Windows no se encontraba).
 
 ## Plataforma
 
