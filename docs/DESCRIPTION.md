@@ -1,94 +1,171 @@
-How py-annotate keeps the annotations
-=====================================
+How py-annotate was made
+========================
 
-*(Español: [DESCRIPCIÓN_es.md](DESCRIPCIÓN_es.md))*
+py-annotate is a program for adding annotations to PDF documents:
+highlights and other marks over the text, notes, text boxes and callouts,
+shapes, drawings made by hand and stamps, with comments, replies, review
+statuses, tags and categories. They are written as ordinary PDF
+annotations, which any viewer shows and can edit. Nicolas Vaughan made it
+in November 2026, starting from two other PDF programs of his, py-redact
+(redaction) and py-foliation (the page labels of a PDF), and from a
+specification of what a full annotation tool should have. Here I explain
+how it was made, in nine stages.
 
-py-annotate writes ordinary PDF annotations, of the kinds the PDF standard
-has, so that any viewer shows them and can edit them. This page tells how
-each one is written, and what is done to keep a document as it was.
+It is free software, under the GNU General Public License, version 3 or
+later. The annotations are read and written by PyMuPDF (GNU AGPL 3), and
+the window is made with PySide6 (GNU LGPL 3).
 
-The kinds of annotations
-------------------------
+Nicolas Vaughan is Associate Professor of Literature at the School of Arts
+and Humanities of the Universidad de los Andes, Bogotá, Colombia.
 
-| In py-annotate             | In the PDF                                    |
-|----------------------------|-----------------------------------------------|
-| Highlight, underline, strikeout, squiggly underline | Highlight, Underline, StrikeOut, Squiggly, with a quadrilateral for each line of text |
-| Insert text                | Caret                                         |
-| Note                       | Text, with its icon                           |
-| Text box                   | FreeText                                      |
-| Callout                    | FreeText with the intent FreeTextCallout, and its line (/CL) |
-| Area highlight             | Square, filled, with no border, and the subject "Area highlight" |
-| Rectangle, ellipse         | Square, Circle                                |
-| Polygon, cloud             | Polygon (a cloud has a cloudy border, /BE)    |
-| Line, arrow                | Line, with its ends (/LE)                     |
-| Polyline                   | PolyLine                                      |
-| Freehand                   | Ink                                           |
-| Freehand highlight         | Ink, wide and see-through, with the subject "Freehand highlight" |
-| Stamp                      | Stamp: a standard one by its name, or one of the user's as a picture |
+1. A first version from py-redact
+---------------------------------
 
-The author is the annotation's title (/T), the comment its contents
-(/Contents), and the dates its creation date and its modification date (/M).
-A locked annotation has the PDF's flag Locked.
+py-redact already had most of what an annotation program needs: a page
+drawn by PyMuPDF and shown in a Qt graphics view, marks drawn, moved and
+resized on it with the mouse, the pages rendered in processes of their own,
+thumbnails, undo, recent files, and the interface in English and Spanish.
+py-foliation uses pikepdf and Qt's own PDF module, so less of it could be
+taken. The first version kept py-redact's frame and changed what the marks
+are: an annotation became a small immutable record with its kind, page,
+rectangle, colours, opacity, comment and author, and the points of its
+lines when it has them.
 
-Replies and review statuses
+Before writing the model I tried what PyMuPDF does with each kind of
+annotation, on a page turned 90 degrees as well as on a plain one. It works
+in the page's own coordinates, before it is turned; the window works on
+the page as it is shown, so every point is turned on the way out and on
+the way back. Some things only showed up in these trials: MuPDF makes every
+note's icon 16 points square and, on a turned page, puts it beside the
+point it is given, so the note is written again where it belongs; a text
+box keeps its fill where other annotations keep their line colour; a
+rectangle's border is half outside its shape.
+
+The window draws the annotations itself, and the pages are rendered without
+those that can be edited, so that an annotation moved is not seen twice.
+Saving wrote only the annotations that had changed, and left the others,
+and everything else in the file, as they were.
+
+2. The tools of a full annotation program
+-----------------------------------------
+
+The second version followed a specification of a complete annotation tool
+and the help pages of other programs. The kinds grew to eighteen: area
+highlights, insert-text marks, callouts, polygons, clouds, polylines and
+stamps were added, with ends for each side of a line, dashes, fonts and
+alignment for text boxes, icons for notes, and a lock. Each tool got its
+own style and behaviour (whether it stays chosen, what opens after an
+annotation is made), set by right-clicking it. The window got an eraser,
+selection with a frame, copy and paste, alignment, a list that can be
+searched and filtered, colours with meanings, shortcuts that can be
+changed, exports to Markdown, CSV and JSON, imports from JSON and from
+another copy of the PDF, flattened copies, and recovery copies of what is
+not yet saved.
+
+A callout read back from a file showed that its box is kept as differences
+from the annotation's rectangle, in an order that is not the one the
+standard seems to give; and a plain text box written by PyMuPDF carried a
+callout line of no length, which other programs could take for a callout.
+Both are now handled.
+
+3. Packages
+-----------
+
+The repositories were made on GitHub and Codeberg, and the AppImage, the
+signed RPM, the Copr project and the release script came from py-redact.
+Codeberg made the repository with its releases switched off, which had to
+be changed before the first release. The first Copr build of 0.2.0 failed:
+a test passed on my machine only because pdf2iso was installed there, and
+Copr builds in a clean system. The bug it hid was real (the PDF/A entries
+were enabled only at the next change of the window). It was fixed as
+0.2.1, and the tests are now also run with nothing of mine on the PATH
+before a release.
+
+4. PDF/A, PDF/X and a panel
 ---------------------------
 
-A reply is a note (Text) that answers the annotation (/IRT). A review status
-is a reply too, with the state (/State: Accepted, Rejected, Cancelled,
-Completed or None) and its model (/StateModel Review). This is how PDF
-viewers keep them, and they show them in the same way. The status of an
-annotation is that of its last reply that gives one.
+Copies as PDF/A and PDF/X are made by pdf2iso, as in my other programs. The
+first trial showed that Ghostscript, which pdf2iso uses, leaves out some
+kinds of annotations: insert-text marks, polygons and clouds. py-annotate
+now compares the copy with what it wrote, says which were left out, and
+offers to make only those part of the pages, keeping the others as
+annotations. The list of the annotations moved into a panel that can be
+hidden, moved or taken out of the window.
 
-Tags and categories
--------------------
+5. Keeping the document as it was
+---------------------------------
 
-The PDF standard has no tags nor categories, so py-annotate keeps them in two
-keys of its own in each annotation, /PyAnnotateTags and
-/PyAnnotateCategories, as texts with the names separated by commas. Other
-programs leave keys they don't know alone. Exported as XFDF, they are left
-out; exported as JSON, they are kept.
+Until then a changed annotation was taken out and written again, which
+lost what py-annotate doesn't know of it: its identifier, keys of other
+programs, the replies that point at it. Now it is changed where it is: its
+points, colours, texts and flags are written over the old ones, and then it
+is read back; only if it is not what it should be is it written again.
+Saving into the document itself adds the changes at its end, so that what
+was there stays byte by byte and a signed document keeps its signatures
+valid for what they signed. PyMuPDF's incremental save of a document with a
+password left the program unable to read it back now and then, so those are
+still written whole. Undo now survives saving: each annotation still in the
+file keeps its number in the history.
 
-Saving
-------
+6. Replies, statuses, tags and categories
+-----------------------------------------
 
-When a document is opened, py-annotate reads its annotations of the kinds
-above, with their replies. When it is saved, each one is compared with what
-the file has:
+Replies and review statuses are written as PDF viewers write them: a note
+that answers the annotation, and for a status, a state (Accepted, Rejected,
+Cancelled, Completed, None). Deleting an annotation with PyMuPDF takes its
+replies with it, which the first version of this code did not expect. The
+standard has no tags nor categories, so they are kept in two keys of
+py-annotate's own, which other programs leave alone; the categories offered
+come from the settings.
 
-* one left as it was is not touched;
-* one changed is changed where it is: its points, colours, texts, flags and
-  replies are written over the old ones, and all else it has stays (its
-  identifier, keys of other programs, the replies that point at it). Then it
-  is read back, and only if it is not what it should be is it taken out and
-  written again;
-* one deleted is taken out, with its replies;
-* one new is written, with its replies.
+7. XFDF and the summary of the comments
+---------------------------------------
 
-Saving into the document itself adds the changes at its end (an incremental
-save): what was in the file stays as it was, byte by byte, and a signed
-document keeps its signatures valid for what they signed. A file that can't
-take that, or one with a password, is written whole (through a file of its
-own, put in its place at the end, so that a failure never leaves it half
-written).
+XFDF, the format in which PDF programs exchange annotations, is written and
+read by py-annotate itself, with the points turned into the PDF's own space
+(from the bottom of the page) and back. The summary of the comments puts
+each page with annotations, numbered, beside the list of them. Its text was
+first written with Helvetica, which in PyMuPDF has no dashes nor curly
+quotes; it is now laid out as HTML, with fonts that cover them.
 
-Undoing after saving works because each annotation that is still in the file
-keeps its number in the history; those that are not are written again if
-they are brought back.
+8. A continuous view, and writing on the page
+---------------------------------------------
 
-Showing the pages
------------------
+The page view was written again: each page is an item of the scene, with
+its annotations as children, so that the pages can be shown one under the
+other and the annotations changed without drawing the pages again. Only the
+pages in view are rendered. The text of text boxes, callouts and notes is
+now written on the page. The list became a model that makes its rows only
+when they are shown, so thousands of annotations are listed at once. Find
+and highlight came from py-redact's search, and printing, a freehand
+highlight and the pressure of a tablet's pen were added. A test in a clean
+system found that an editor losing the focus could keep the text of the
+next one, empty; an editor now keeps only its own.
 
-The window draws the annotations itself, over the pages. The pages are
-rendered without the annotations that can be edited (in a copy kept in
-memory, and in a temporary file when they are rendered in another process),
-so that an annotation moved is not seen twice. The pages are rendered in
-processes of their own, only those in view, so that the window answers at
-once even with long, scanned documents.
+9. Installers, the manual and pictures
+--------------------------------------
 
-Recovery copies
----------------
+The installers for Windows, macOS and Linux came from py-redact, the manual
+pages and the metainfo for software centres were written, and a script
+makes the screenshots of the README in both languages, on an essay it
+writes each time. That script once wrote the window's layout into my own
+settings, because Qt follows `XDG_CONFIG_HOME`; it now redirects that too.
 
-While there are annotations not yet saved, a copy of them is kept every two
-minutes (as JSON) in the folder `recovery` of the configuration folder,
-with the time and size of the file. When the document is opened again, the
-copy is offered only if the file has not changed since.
+Testing
+-------
+
+The program has 65 tests (`uv run pytest`). The tests of the annotations
+write one of each kind on a plain page and on a turned one and read them
+back; check that a changed annotation keeps its number and the keys of
+other programs, that saving into the document only adds to its end, and
+that replies, statuses, tags and categories are kept; and send everything
+through JSON and XFDF and back. The window is tested as a user would use
+it, with mouse events on the pages: every tool, moving, resizing and
+reshaping, the eraser, the panel and its filters, writing on the page,
+undo after saving, and the copies as PDF/A (with a pdf2iso made for the
+test that leaves out polygons, as Ghostscript does). A test checks that
+every text of the window has its Spanish translation, and no other. The
+tests are also run with nothing of mine on the PATH, as Copr runs them, and
+the RPM runs them again with Fedora's own Python, PyMuPDF and PySide6. The
+pictures were checked by eye, in both languages. The program has 36 files,
+around 9,900 lines.

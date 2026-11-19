@@ -288,8 +288,8 @@ on macOS, and `%APPDATA%\py-annotate` on Windows (`$PY_ANNOTATE_CONFIG`
 names another folder); the recovery copies, in the folder `recovery` beside
 it. Deleting the file gives back the usual values.
 
-How the annotations are kept in the PDF is told in
-[docs/DESCRIPTION.md](docs/DESCRIPTION.md).
+How py-annotate was made, and how it keeps the annotations in the PDF, is
+told in [docs/DESCRIPTION.md](docs/DESCRIPTION.md).
 
 What it does not do yet
 -----------------------

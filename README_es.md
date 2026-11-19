@@ -293,8 +293,8 @@ en macOS y en `%APPDATA%\py-annotate` en Windows (`$PY_ANNOTATE_CONFIG`
 indica otra carpeta); las copias de recuperación, en la carpeta `recovery`
 de al lado. Si se borra el archivo, vuelven los valores habituales.
 
-Cómo se guardan las anotaciones en el PDF se cuenta en
-[docs/DESCRIPCIÓN_es.md](docs/DESCRIPCIÓN_es.md).
+Cómo está hecho py-annotate, y cómo guarda las anotaciones en el PDF, se
+cuenta en [docs/DESCRIPCIÓN_es.md](docs/DESCRIPCIÓN_es.md).
 
 Lo que todavía no hace
 ----------------------
