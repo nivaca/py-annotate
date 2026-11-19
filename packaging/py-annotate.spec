@@ -10,7 +10,7 @@
 # Build with packaging/build-rpm.sh, which makes the source tarball.
 
 Name:           py-annotate
-Version:        0.3.2
+Version:        0.3.3
 Release:        1%{?dist}
 Summary:        Add annotations to PDF documents: highlights, notes, text boxes, shapes, stamps
 
@@ -84,6 +84,10 @@ export HOME="$PWD/check-home" PY_ANNOTATE_CONFIG="$PWD/check-home/config" QT_QPA
 %lang(es) %{_mandir}/es/man1/py-annotate.1*
 
 %changelog
+* Thu Nov 19 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.3.3-1
+- Version 0.3.3: opening and saving are faster (the pages are rendered from the
+  document itself, and saving reads only what it changed)
+
 * Thu Nov 19 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.3.2-1
 - Version 0.3.2: a change is shown at once with thousands of annotations (only
   the annotations that changed are drawn again; the list fits its columns to

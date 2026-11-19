@@ -130,7 +130,6 @@ class MainWindow(QMainWindow):
         self.prefs = settings.load()
         colors.set_palette(self.prefs.palette)
         self._have_conform = conform.available(self.prefs.pdfconform)  # (pdf2iso, for PDF/A and PDF/X)
-        self._temp: Path | None = None  # the pages without the annotations, on disk, for rendering them elsewhere
         self._thumbs: dict[int, QImage] = {}  # page -> its picture, without the annotations
         self._thumb_shown: dict[int, tuple] = {}  # page -> the annotations its thumbnail shows
         self._by_page: list[list[Annotation]] = []
@@ -518,7 +517,6 @@ class MainWindow(QMainWindow):
         if self.finder is not None:
             self.finder.close()
         self.save_settings()
-        self._drop_temp()
         super().closeEvent(event)
 
     def export_state(self) -> dict:
@@ -566,7 +564,6 @@ class MainWindow(QMainWindow):
         _WINDOWS.append(new)
         self.annotations = self.saved = []  # (nothing to ask about: the new window has it)
         self.path = None  # (nor a recovery copy to remove: it is the new window's)
-        self._temp = None  # (the new window uses it, if there is one)
         self.hide()
         self.deleteLater()
         if self in _WINDOWS:
@@ -636,12 +633,14 @@ class MainWindow(QMainWindow):
         password, ok = QInputDialog.getText(self, tr("Password"), text, QLineEdit.EchoMode.Password)
         return password if ok and password else None
 
-    def _load(self, path: Path, password: str, page: int = 0) -> list[Annotation] | None:
+    def _load(self, path: Path, password: str, page: int = 0,
+              known: list[Annotation] | None = None) -> list[Annotation] | None:
         """Open PATH: its pages are shown without the annotations that can be
-        edited, which are returned (None if it can't be opened)."""
+        edited, which are returned (None if it can't be opened). KNOWN: those annotations, if
+        they are known already (just written): they are not read again."""
         try:
             doc = annots.open_pdf(path, password)
-            found = annots.read(doc)
+            found = annots.read(doc) if known is None else list(known)
             annots.remove_editable(doc)
         except (AnnotateError, RuntimeError, ValueError) as e:
             self.status(str(e), error=True)
@@ -651,35 +650,20 @@ class MainWindow(QMainWindow):
         self.page = min(page, self.count - 1)
         self._thumbs, self._thumb_shown, self._marked, self._words = {}, {}, {}, {}
         self._by_page = [[] for _ in range(self.count)]
-        self.canvas.source = self._source(doc, path, password, bool(found))
+        self.canvas.source = self._source(path, password, bool(found))
         self.canvas.set_document(doc, self.page)
         self._fill_pages()
         return found
 
-    def _source(self, doc: pymupdf.Document, path: Path, password: str, changed: bool):
-        """What the other processes render the pages from (see renderer.py): the
-        file itself; or, if annotations were taken out of the pages, a copy
-        without them (not for a document with a password, which would be
-        written there without it: its pages are rendered here)."""
+    @staticmethod
+    def _source(path: Path, password: str, bare: bool):
+        """What the other processes render the pages from (see renderer.py): the file itself
+        (BARE: they take out the annotations the window draws, in their own copy)."""
         try:
-            if not changed:
-                st = path.stat()
-                return str(path.resolve()), password, (st.st_mtime_ns, st.st_size)
-            if password:
-                return None
-            fd, name = tempfile.mkstemp(prefix="py-annotate-", suffix=".pdf")
-            with os.fdopen(fd, "wb") as f:
-                f.write(doc.tobytes())
-            self._temp = Path(name)
-            st = self._temp.stat()
-            return name, "", (st.st_mtime_ns, st.st_size)
-        except (OSError, RuntimeError, ValueError):
+            st = path.stat()
+        except OSError:
             return None
-
-    def _drop_temp(self):
-        if self._temp is not None:
-            self._temp.unlink(missing_ok=True)
-            self._temp = None
+        return str(path.resolve()), password, (st.st_mtime_ns, st.st_size), bare
 
     def _close_doc(self):
         """Close the document shown (its pages are no longer shown)."""
@@ -688,7 +672,6 @@ class MainWindow(QMainWindow):
         if self.doc is not None:
             self.doc.close()
             self.doc = None
-        self._drop_temp()
 
     def _ask_target(self, title: str, suffix: str, ext: str = "pdf") -> Path | None:
         default = Path(self.last_dir()) / f"{self.path.stem}{suffix}.{ext}"
@@ -718,11 +701,17 @@ class MainWindow(QMainWindow):
         self.keep_comment()
         source, page = self.path, self.page
         replacing = target.resolve() == source.resolve()
+        # (what the file has is what was read when it was opened, unless it changed since: then it is read again)
+        source_stamp = self._source(source, self.password, False)
+        known = self.saved if self.canvas.source is not None and source_stamp is not None \
+            and source_stamp[2] == self.canvas.source[2] else None
         if replacing:  # (the file is about to change under the open document)
             self._close_doc()
         kept: set[int] = set()
         try:
-            written = annots.write(source, self.annotations, target, self.password, kept=kept)
+            result: list[Annotation] = []
+            written = annots.write(source, self.annotations, target, self.password, kept=kept, result=result,
+                                   original=known)
         except AnnotateError as e:
             if replacing:
                 self._load(source, self.password, page)
@@ -730,7 +719,7 @@ class MainWindow(QMainWindow):
             self.status(str(e), error=True)
             return False
         recovery.discard(source)
-        found = self._load(target, self.password, page)
+        found = self._load(target, self.password, page, known=result)
         if found is None:
             return False
         if not replacing:

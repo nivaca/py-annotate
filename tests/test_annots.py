@@ -255,3 +255,19 @@ def test_find_text(sample):
     assert find_text(doc, "page 1 a second", whole_words=True)[0].rects.__len__() == 2  # (across two lines)
     assert [m.page for m in find_text(doc, r"page \d", regex=True, pages=[1])] == [1]
     assert annots.text_under(doc[2], list(found[4].rects)) == "line of"  # (on the turned page too)
+
+
+@pytest.mark.parametrize("same_file", [True, False])
+def test_what_write_says_is_what_the_file_has(sample, tmp_path, same_file):
+    """The annotations write() gives back are those read() reads in the file it wrote (so the
+    window needn't read it again)."""
+    path = tmp_path / "doc.pdf"
+    annots.write(sample, one_of_each(sample, 0), path)
+    changed = annots.read(annots.open_pdf(path))
+    changed[1] = annots.moved(changed[1], 0, 0)
+    changed[6] = annots.moved(changed[6], 5, 5)
+    changed.append(Annotation("rect", 1, (10, 10, 50, 50), "#000000"))
+    target = path if same_file else tmp_path / "other.pdf"
+    result: list = []
+    annots.write(path, changed, target, result=result)
+    assert result == annots.read(annots.open_pdf(target))

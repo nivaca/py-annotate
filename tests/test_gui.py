@@ -201,19 +201,29 @@ def test_save_as(window, tmp_path, sample):
 
 
 def test_pages_rendered_elsewhere(app, sample, tmp_path, monkeypatch):
-    """With the pages rendered in other processes, a document with annotations is shown without them."""
+    """With the pages rendered in other processes, a document with annotations is rendered from the
+    file itself, without the annotations the window draws (and the file is left as it was)."""
+    import time
+
     from py_annotate.gui import renderer
 
     monkeypatch.setattr(renderer, "ENABLED", True)
     monkeypatch.setenv("HOME", str(tmp_path))
-    annots.write(sample, [annots.Annotation("rect", 0, (10, 10, 50, 50), "#000000")], sample)
+    annots.write(sample, [annots.Annotation("rect", 0, (10, 10, 200, 200), "#000000", fill="#000000")], sample)
+    before = sample.read_bytes()
     w = MainWindow()
     assert w.open_path(sample)
-    temp = w._temp
-    assert temp is not None and temp.is_file() and w.canvas.source[0] == str(temp)
-    assert annots.read(annots.open_pdf(temp)) == []
+    assert w.canvas.source[0] == str(sample.resolve()) and w.canvas.source[3] is True
+    got = []
+    renderer.renderer().request("view", w.canvas.source, 0, 1.0, got.append, first=True)
+    deadline = time.time() + 60
+    while not got and time.time() < deadline:
+        app.processEvents()
+        time.sleep(0.02)
+    image = got[0]
+    assert image is not None and image.pixelColor(100, 100).lightness() > 200  # (white: the box isn't there)
+    assert sample.read_bytes() == before
     w.close()
-    assert not temp.exists()
 
 
 def test_language(window, sample):
@@ -602,3 +612,14 @@ def test_items_made_again_only_when_changed(window):
     first.setOpacity(0.2)  # (as the eraser leaves what it is about to erase)
     window.refresh()
     assert first.opacity() == 1.0
+
+
+def test_file_changed_elsewhere_before_saving(window, sample):
+    """If the file changed since it was opened, what it has is read again before saving."""
+    window.set_tool("rect")
+    drag(window, (100, 300), (150, 340))
+    other = annots.Annotation("ellipse", 1, (10, 10, 60, 60), "#000000")
+    annots.write(sample, [other], sample)  # (another program adds an ellipse)
+    assert window.save()
+    kinds = sorted(a.kind for a in annots.read(annots.open_pdf(sample)))
+    assert kinds == ["rect"]  # (the window's annotations are what the document has: the ellipse was not known)

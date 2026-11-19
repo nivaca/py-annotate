@@ -553,26 +553,34 @@ def read_reply(doc: pymupdf.Document, annot: pymupdf.Annot) -> Reply:
                  xref=annot.xref)
 
 
-def read(doc: pymupdf.Document) -> list[Annotation]:
-    """The annotations of DOC that py-annotate can edit, page by page, with their replies."""
+def read(doc: pymupdf.Document, known: dict[int, Annotation] | None = None) -> list[Annotation]:
+    """The annotations of DOC that py-annotate can edit, page by page, with their replies. KNOWN:
+    {xref: annotation} of those known to be as they were read before (they are not read again)."""
+    known = known or {}
     out = []
     for page in doc:
         roots = _reply_roots(doc, page)
         found, replies = [], {}
         for annot in page.annots() or []:
             if annot.xref in roots:
-                replies.setdefault(roots[annot.xref], []).append(read_reply(doc, annot))
+                if roots[annot.xref] not in known:
+                    replies.setdefault(roots[annot.xref], []).append(read_reply(doc, annot))
                 continue
-            a = read_annotation(doc, page, annot)
+            a = known[annot.xref] if annot.xref in known else read_annotation(doc, page, annot)
             if a is not None:
                 found.append(a)
         for a in found:
-            if a.xref in replies:
+            if a.xref in replies and a.xref not in known:
                 thread = sorted(replies[a.xref], key=lambda r: (date_value(r.created) or datetime.datetime.min,
                                                                  r.xref))
                 a = dataclasses.replace(a, replies=tuple(thread))
             out.append(a)
     return out
+
+
+def _editable(doc: pymupdf.Document, annot: pymupdf.Annot) -> bool:
+    """Whether read() gives ANNOT (the same as kind_of(...) is not None, but quicker)."""
+    return annot.type[0] in _TYPES and doc.xref_get_key(annot.xref, "IRT")[0] == "null"
 
 
 def _delete(page: pymupdf.Page, xref: int) -> None:
@@ -582,15 +590,17 @@ def _delete(page: pymupdf.Page, xref: int) -> None:
         page.delete_annot(page.load_annot(xref))
 
 
-def remove_editable(doc: pymupdf.Document) -> None:
-    """Take out of DOC the annotations that read() gives, and their replies (for showing
-    its pages without them: the window draws them itself)."""
-    for page in doc:
+def remove_editable(doc: pymupdf.Document, pages: list[int] | None = None) -> None:
+    """Take out of DOC (of its PAGES: all if None) the annotations that read() gives, and their
+    replies (for showing its pages without them: the window draws them itself)."""
+    for page in (doc if pages is None else (doc[n] for n in pages)):
+        if page.first_annot is None:
+            continue
         roots = _reply_roots(doc, page)
-        editable = {annot.xref for annot in page.annots() or [] if kind_of(doc, annot) is not None}
-        xrefs = [x for x, root in roots.items() if root in editable] + list(editable)
-        for xref in xrefs:
-            _delete(page, xref)
+        editable = [annot.xref for annot in page.annots() or [] if _editable(doc, annot)]
+        # (the replies first: taking out an annotation takes its replies with it)
+        for xref in [x for x, root in roots.items() if root in set(editable)] + editable:
+            page.delete_annot(page.load_annot(xref))
 
 
 def _placed(page: pymupdf.Page, make, rect: Rect, size: tuple[float, float]) -> pymupdf.Annot:
@@ -835,7 +845,8 @@ def _sync_replies(page: pymupdf.Page, parent: pymupdf.Annot, old: tuple[Reply, .
 
 
 def apply(doc: pymupdf.Document, annotations: list[Annotation], when: str | None = None,
-          kept: set[int] | None = None) -> int:
+          kept: set[int] | None = None, untouched: dict[int, Annotation] | None = None,
+          original: list[Annotation] | None = None) -> int:
     """Make the annotations of DOC that read() gives be ANNOTATIONS.
 
     Those of DOC are compared with ANNOTATIONS by their xref: those that are
@@ -843,10 +854,12 @@ def apply(doc: pymupdf.Document, annotations: list[Annotation], when: str | None
     they are (or, if that can't be done, taken out and written again, with
     their replies); those deleted are taken out, with their replies; the new
     ones are written. KEPT, if given, gets the xrefs of those that are still
-    there (as they were, or changed where they are). Returns how many
+    there (as they were, or changed where they are); UNTOUCHED, {xref:
+    annotation} of those left as they were. ORIGINAL: the annotations DOC has, if they are known
+    (as read() gave them, the file not changed since): they are not read again. Returns how many
     annotations were written."""
     when = when or now()
-    original = {a.xref: a for a in read(doc)}
+    original = {a.xref: a for a in (read(doc) if original is None else original)}
     model = {a.xref: a for a in annotations if a.xref and a.xref in original}
     written = 0
     redo: list[Annotation] = []
@@ -857,6 +870,8 @@ def apply(doc: pymupdf.Document, annotations: list[Annotation], when: str | None
             if a == old:
                 if kept is not None:
                     kept.add(xref)
+                if untouched is not None:
+                    untouched[xref] = old
                 continue
             annot = page.load_annot(xref)
             if a is not None and change(page, annot, old, a, when):
@@ -895,14 +910,20 @@ def save_doc(doc: pymupdf.Document, target: Path) -> None:
 
 
 def write(source: Path, annotations: list[Annotation], target: Path, password: str = "",
-          kept: set[int] | None = None) -> int:
+          kept: set[int] | None = None, result: list[Annotation] | None = None,
+          original: list[Annotation] | None = None) -> int:
     """SOURCE with ANNOTATIONS (see apply), saved as TARGET. Into SOURCE itself, the
     changes are added at its end (an incremental save: what was signed stays as it was
     signed), unless the file can't take that or has a password; else it is written whole
-    (safely, through a file of its own). KEPT: see apply. Returns how many annotations were written."""
+    (safely, through a file of its own). KEPT: see apply. RESULT, if given, gets the annotations as
+    TARGET has them (as read() gives them: no need to read the file again). Returns how many
+    annotations were written. ORIGINAL: see apply."""
     doc = open_pdf(source, password)
     try:
-        written = apply(doc, annotations, kept=kept)
+        same: dict[int, Annotation] = {}
+        written = apply(doc, annotations, kept=kept, untouched=same, original=original)
+        if result is not None:  # (saving keeps the numbers of the objects: garbage=1 doesn't renumber them)
+            result[:] = read(doc, known=same)
         same_file = target.resolve() == source.resolve()
         # (not for a document with a password: PyMuPDF's incremental save of those has been seen to
         # leave this process unable to read them back now and then; they are written whole)

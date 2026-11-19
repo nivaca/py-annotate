@@ -2,7 +2,12 @@
 Python's lock while it renders, and a scanned page can take a fifth of a
 second, so rendering in the window's process would stop the window meanwhile.
 
-Nothing here uses Qt: the process imports only this and PyMuPDF.
+The pages are rendered from the document itself; when the window draws the
+annotations of the document itself (those it can edit), the process takes them
+out of each page before rendering it (in its own copy, in memory: the file
+is never changed).
+
+Nothing here uses Qt: the process imports only this, annots.py and PyMuPDF.
 """
 
 from __future__ import annotations
@@ -11,6 +16,7 @@ import pymupdf
 
 KEPT = 3  # documents kept open (one per window, usually)
 _docs: dict[str, tuple[tuple, pymupdf.Document]] = {}  # path -> (stamp, the document)
+_bare: dict[str, set[int]] = {}  # path -> the pages of its document taken out of their annotations
 
 
 def _document(path: str, password: str, stamp: tuple) -> pymupdf.Document:
@@ -21,6 +27,7 @@ def _document(path: str, password: str, stamp: tuple) -> pymupdf.Document:
         return held[1]
     if held is not None:
         held[1].close()
+    _bare.pop(path, None)
     doc = pymupdf.open(path)
     if doc.needs_pass:
         doc.authenticate(password)
@@ -30,8 +37,15 @@ def _document(path: str, password: str, stamp: tuple) -> pymupdf.Document:
     return doc
 
 
-def render(path: str, password: str, stamp: tuple, number: int, scale: float) -> tuple[int, int, int, bytes]:
-    """Page NUMBER of the document at PATH rendered at SCALE: its width,
-    height, bytes per line and RGB pixels."""
-    pix = _document(path, password, stamp)[number].get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False)
+def render(path: str, password: str, stamp: tuple, number: int, scale: float,
+           bare: bool = False) -> tuple[int, int, int, bytes]:
+    """Page NUMBER of the document at PATH rendered at SCALE (BARE: without the annotations that
+    the window draws itself): its width, height, bytes per line and RGB pixels."""
+    doc = _document(path, password, stamp)
+    if bare and number not in _bare.setdefault(path, set()):
+        from .annots import remove_editable
+
+        remove_editable(doc, [number])
+        _bare[path].add(number)
+    pix = doc[number].get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False)
     return pix.width, pix.height, pix.stride, bytes(pix.samples)

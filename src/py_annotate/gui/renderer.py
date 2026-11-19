@@ -23,7 +23,9 @@ from .. import rendering
 
 ENABLED = True  # (the tests turn it off: they want the page drawn at once)
 
-Source = tuple[str, str, tuple]  # path, password, stamp (the file's time and size)
+# path, password, stamp (the file's time and size), and whether to render the pages without the
+# annotations the window draws itself
+Source = tuple[str, str, tuple, bool]
 
 
 class Lane:
@@ -51,7 +53,7 @@ class Renderer(QObject):
         """Render page NUMBER of SOURCE at SCALE, and give CALLBACK the QImage (or
         None if it couldn't be rendered there). FIRST: before those waiting."""
         ln = self.lanes.setdefault(lane, Lane())
-        key = (source[0], source[2], number, scale)
+        key = (source[0], source[2], number, scale, source[3])
         ln.callbacks.setdefault(key, []).append(callback)
         if key == ln.busy:
             return
@@ -59,7 +61,7 @@ class Renderer(QObject):
         if entry is not None:
             ln.waiting.remove(entry)
         else:
-            entry = (key, (source[0], source[1], source[2], number, scale))
+            entry = (key, (source[0], source[1], source[2], number, scale, source[3]))
         if first:
             ln.waiting.insert(0, entry)
         else:
