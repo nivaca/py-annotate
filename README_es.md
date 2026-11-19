@@ -23,7 +23,7 @@ añaden al final del archivo, así que un documento firmado conserva sus
 firmas válidas para lo que firmaron.
 
 Tiene una ventana, en español y en inglés, y funciona en Linux, Windows y
-macOS. Esta es la versión 1.0.2.
+macOS. Esta es la versión 1.0.3.
 
 Soy Nicolas Vaughan (<nicolasvaughan@proton.me>) y lo escribí en 2026. Es
 software libre, bajo la Licencia Pública General de GNU, versión 3 o
@@ -158,8 +158,9 @@ borde puede tener un color propio, en las propiedades.
 
 Con el lápiz de una tableta (una Wacom, por ejemplo), las herramientas a
 mano alzada siguen al lápiz mismo, más fino y más rápido que el ratón que
-también mueve, y la línea se suaviza un poco; cuanto más se aprieta, más
-ancha. Los trazos hechos uno poco después del otro, cerca, forman un solo
+también mueve, y la línea se suaviza un poco y se dibuja como una curva por
+los puntos del lápiz, en la página y en el PDF; cuanto más se aprieta, más
+ancha, y un toque hace un punto (el de una i, o un punto final). Los trazos hechos uno poco después del otro, cerca, forman un solo
 dibujo, así que una palabra o un renglón escritos a mano son una sola
 anotación (deshacer quita igual un trazo cada vez); y el lápiz dibuja aun
 sobre otras anotaciones, que solo la herramienta Seleccionar mueve. Dado vuelta, el extremo de borrador del lápiz borra, sea cual sea la

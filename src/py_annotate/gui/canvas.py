@@ -1443,6 +1443,9 @@ class PageCanvas(QGraphicsView):
                 p = self._clamp(page, point)
                 points = (points[0], (round(p.x(), 2), round(p.y(), 2)))
             length = sum(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(points, points[1:]))
+            if kind == "ink" and length < MIN_SIZE:  # (a tap with the pen: a dot, as on an i, or a full stop)
+                points, at = points[:1], at[:1]
+                length = MIN_SIZE
             if length >= MIN_SIZE:
                 base = self._new(self.mode, n, (0, 0, 0, 0), (points,))
                 pieces = self._pieces(base, points, at) if kind == "ink" and self.pen_pressure == "along" else []

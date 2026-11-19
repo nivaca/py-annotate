@@ -8,7 +8,7 @@ import math
 from PySide6.QtCore import QLineF, QPointF, QRectF, Qt
 from PySide6.QtGui import QBrush, QColor, QFont, QImage, QPainter, QPainterPath, QPen, QPolygonF, QTextDocument
 
-from ..annots import STAMPS, Annotation, anchor
+from ..annots import STAMPS, Annotation, anchor, smooth_segments
 from ..interface import tr
 
 FAMILIES = {"helv": "Helvetica", "tiro": "Times", "cour": "Courier"}
@@ -258,13 +258,21 @@ def paint(p: QPainter, a: Annotation, thumbnail: bool = False) -> None:
         ends = a.ends if a.kind != "arrow" or a.ends != ("None", "None") else ("None", "OpenArrow")
         line_end(p, points[0], points[1], ends[0], a.width, color)
         line_end(p, points[-1], points[-2], ends[1], a.width, color)
-    elif a.kind == "ink":
+    elif a.kind in ("ink", "marker"):
+        if a.kind == "marker":  # (a highlight, drawn by hand: the text shows through it)
+            p.setCompositionMode(QPainter.CompositionMode.CompositionMode_Multiply)
         p.setPen(_pen(a.color, a.width))
         for path in a.paths:
-            if len(path) == 1:
+            if len(path) == 1 or len(set(path)) == 1:  # (a dot)
                 p.drawPoint(QPointF(*path[0]))
-            else:
-                p.drawPolyline(QPolygonF([QPointF(*pt) for pt in path]))
+            elif len(path) == 2:
+                p.drawLine(QPointF(*path[0]), QPointF(*path[1]))
+            else:  # (a curve through its points, as the PDF draws it: see annots.smooth_segments)
+                curve = QPainterPath(QPointF(*path[0]))
+                for c1, c2, end in smooth_segments(path):
+                    curve.cubicTo(QPointF(*c1), QPointF(*c2), QPointF(*end))
+                p.setBrush(Qt.BrushStyle.NoBrush)
+                p.drawPath(curve)
     elif a.kind == "stamp":
         r = qrect(a.rect)
         image = stamp_image(a)

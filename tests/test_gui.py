@@ -999,3 +999,34 @@ def test_writing_by_hand(window, monkeypatch):
     clock[0] += 3.0
     drag(window, (410, 605), (430, 625))  # (after a pause: another one)
     assert [len(a.paths) for a in window.annotations] == [2, 1, 1]
+
+
+def test_pen_dots_and_freehand_highlight(window, monkeypatch):
+    """A tap with the freehand tool makes a dot (the dot of an i), part of the word written just
+    before; a freehand highlight is drawn in the window."""
+    from PySide6.QtGui import QImage, QPainter
+
+    from py_annotate.gui import canvas as canvas_module
+    from py_annotate.gui.paint import paint
+
+    clock = [1000.0]
+    monkeypatch.setattr(canvas_module.time, "monotonic", lambda: clock[0])
+    window.set_tool("ink")
+    drag(window, (100, 320), (100, 340), (101, 360))
+    clock[0] += 0.5
+    click(window, (100, 305))
+    assert len(window.annotations) == 1
+    assert [len(p) for p in window.annotations[0].paths] == [3, 1]
+    clock[0] += 5
+    click(window, (300, 500))  # (on its own: a drawing of one dot)
+    assert len(window.annotations) == 2 and window.annotations[1].paths[0][0] == pytest.approx((300, 500), abs=1)
+    window.set_tool("marker")
+    drag(window, (100, 600), (200, 600), (300, 605))
+    marker = window.annotations[-1]
+    assert marker.kind == "marker"
+    image = QImage(600, 800, QImage.Format.Format_RGB32)
+    image.fill(0xFFFFFF)
+    p = QPainter(image)
+    paint(p, marker)
+    p.end()
+    assert image.pixelColor(200, 600) != image.pixelColor(200, 700)  # (it is there, where it was drawn)

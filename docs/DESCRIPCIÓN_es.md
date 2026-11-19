@@ -1,4 +1,4 @@
-# py-annotate 1.0.2: descripción
+# py-annotate 1.0.3: descripción
 
 ## Análisis
 
@@ -38,7 +38,7 @@ Las pruebas con cada clase de anotación, en una página normal y en una girada,
 
 ### Texto con formato
 
-El texto de un cuadro de texto puede tener negrita, cursiva, subrayado, colores y otras letras, y su borde un color propio. El PDF lo guarda como XHTML (/RC), con su aspecto por omisión en /DS. PyMuPDF escribe mal el espacio de nombres de XHTML y quita /RC en cuanto se le da el texto simple, así que py-annotate escribe /RC y /DS al final; con texto con formato, el color de /DA es el del borde. La ventana pinta ese texto con Qt, igual que MuPDF. Un trazo cuya presión cambia se corta en dibujos de hasta cinco grosores, que forman un grupo. Con el lápiz de una tableta, el trazo sigue los eventos del lápiz mismo, que conservan las fracciones de píxel, y se suaviza un poco; el extremo de borrador borra mientras toca, y con el botón lateral apretado la página sigue al lápiz.
+El texto de un cuadro de texto puede tener negrita, cursiva, subrayado, colores y otras letras, y su borde un color propio. El PDF lo guarda como XHTML (/RC), con su aspecto por omisión en /DS. PyMuPDF escribe mal el espacio de nombres de XHTML y quita /RC en cuanto se le da el texto simple, así que py-annotate escribe /RC y /DS al final; con texto con formato, el color de /DA es el del borde. La ventana pinta ese texto con Qt, igual que MuPDF. Un trazo cuya presión cambia se corta en dibujos de hasta cinco grosores, que forman un grupo. Con el lápiz de una tableta, el trazo sigue los eventos del lápiz mismo, que conservan las fracciones de píxel, y se suaviza un poco; el extremo de borrador borra mientras toca, y con el botón lateral apretado la página sigue al lápiz. Cada trazo se dibuja como una curva por sus puntos (una spline de Catmull–Rom, como en PdfCraft); MuPDF escribe la apariencia con segmentos rectos, así que py-annotate los reescribe como curvas. Un toque del lápiz hace un punto.
 
 ### Lista, intercambio y PDF/A
 
@@ -50,7 +50,7 @@ Con un documento de 300 páginas y 3000 anotaciones, la primera letra escrita en
 
 ## Validación
 
-Hay 93 pruebas automáticas (`uv run pytest`). Las de las anotaciones escriben una de cada clase en una página normal y en una girada y las vuelven a leer; comprueban que una anotación cambiada conserva su número y las claves de otros programas, que guardar en el documento solo añade a su final, y que se conservan las respuestas, los estados, las etiquetas y las categorías; y pasan todo por JSON y por XFDF y de vuelta.
+Hay 96 pruebas automáticas (`uv run pytest`). Las de las anotaciones escriben una de cada clase en una página normal y en una girada y las vuelven a leer; comprueban que una anotación cambiada conserva su número y las claves de otros programas, que guardar en el documento solo añade a su final, y que se conservan las respuestas, los estados, las etiquetas y las categorías; y pasan todo por JSON y por XFDF y de vuelta.
 
 La ventana se prueba manejándola como lo haría un usuario, con eventos del ratón sobre las páginas: cada herramienta, mover, redimensionar y cambiar la forma, la goma de borrar, el panel y sus filtros, escribir en la página, deshacer después de guardar, guardar cuando otro programa cambió el archivo, las páginas dibujadas en otro proceso sin las anotaciones que la ventana dibuja, y las copias como PDF/A, con un pdf2iso hecho para la prueba que deja fuera los polígonos, como Ghostscript. Una prueba comprueba que cada texto de la ventana tenga su traducción al español, y ninguna otra.
 

@@ -22,7 +22,7 @@ file, so that a signed document keeps its signatures valid for what they
 signed.
 
 It has a window, in English and in Spanish, and works on Linux, Windows and
-macOS. This is version 1.0.2.
+macOS. This is version 1.0.3.
 
 I am Nicolas Vaughan (<nicolasvaughan@proton.me>), and I wrote it in 2026.
 It is free software, under the GNU General Public License, version 3 or
@@ -155,7 +155,9 @@ own, in the properties.
 
 With the pen of a tablet (a Wacom, for instance), the freehand tools follow
 the pen itself, which is finer and quicker than the mouse it also moves,
-and the line is smoothed a little; pressing harder draws wider. Strokes
+and the line is smoothed a little and drawn as a curve through the pen's
+points, on the page and in the PDF; pressing harder draws wider, and a tap
+makes a dot (of an i, or a full stop). Strokes
 made one soon after the other, near each other, make one drawing, so a word
 or a line written by hand is one annotation (undo still takes back one
 stroke at a time); and the pen draws even over other annotations, which only

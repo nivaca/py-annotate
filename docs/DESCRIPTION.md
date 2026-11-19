@@ -268,10 +268,20 @@ annotations, strokes made one soon after the other and near each other are
 one drawing, and the pressure gives each drawing its width once, by its
 first stroke (cutting strokes by pressure is still a choice in Settings).
 
+I then read the pen code of PdfCraft, a PDF editor in Rust (MIT or Apache
+2.0), to see what could be taken from it. Two things: a tap of the pen
+makes a dot, which py-annotate had thrown away as too short (so the dots
+of the i's, and full stops, were lost); and each stroke is drawn as a
+curve through its points (a Catmull–Rom spline, as cubic Bézier segments)
+instead of straight segments. MuPDF writes the appearance of a drawing
+with straight lines, so py-annotate rewrites those lines as curves after
+it. Looking at the painting of drawings showed a bug of long standing: the
+freehand highlight was never drawn in the window, only in the file.
+
 Testing
 -------
 
-The program has 93 tests (`uv run pytest`). The tests of the annotations
+The program has 96 tests (`uv run pytest`). The tests of the annotations
 write one of each kind on a plain page and on a turned one and read them
 back, and also text boxes with formatted text and groups made here or by
 another program; check that a changed annotation keeps its number and the keys of

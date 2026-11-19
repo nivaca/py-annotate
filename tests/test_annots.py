@@ -394,3 +394,37 @@ def test_layers(sample, tmp_path):
     doc = annots.open_pdf(path)
     assert [a.layer for a in annots.read(doc)] == ["Theirs", "", ""]
     assert annots.layers(doc) == {"Mine": True, "Theirs": True}
+
+
+def test_smooth_segments():
+    """The curve goes through every point of the stroke, from one to the next."""
+    points = [(0, 0), (10, 10), (20, 0), (30, 10)]
+    segments = annots.smooth_segments(points)
+    assert [end for _, _, end in segments] == points[1:]
+    c1, c2, _ = segments[1]  # (from (10, 10) to (20, 0): leaving along (20, 0) − (0, 0), arriving along (30, 10) − (10, 10))
+    assert c1 == pytest.approx((10 + 20 / 6, 10)) and c2 == pytest.approx((20 - 20 / 6, 0))
+    assert annots.smooth_segments([]) == [] and annots.smooth_segments([(1, 1)]) == []
+
+
+def test_drawings_are_curves(sample, tmp_path):
+    """A drawing is written as curves through its points (also after it is changed where it is); a
+    dot, a stroke of one point, is written and read back."""
+    path = tmp_path / "doc.pdf"
+    word = Annotation("ink", 0, (0, 0, 0, 0), "#0000ff", width=2,
+                      paths=(((100, 300), (110, 320), (120, 300), (130, 320), (140, 300)), ((150, 290),)))
+    word = dataclasses.replace(word, rect=annots.frame("ink", word.paths, 2))
+    annots.write(sample, [word], path)
+    doc = annots.open_pdf(path)
+    got = annots.read(doc)[0]
+    assert len(got.paths) == 2 and len(got.paths[1]) == 1
+    def appearance(doc, a):
+        return doc.xref_stream(int(doc.xref_get_key(a.xref, "AP/N")[1].split()[0])).decode()
+    text = appearance(doc, got)
+    assert text.count(" c\n") == 4 and " l\n" in text  # (four curves; the dot, a line to where it is)
+    moved = annots.moved(got, 10, 10)
+    annots.write(path, [moved], path)
+    doc = annots.open_pdf(path)
+    again = annots.read(doc)[0]
+    assert again.xref == got.xref and appearance(doc, again).count(" c\n") == 4
+    pix = doc[0].get_pixmap(dpi=72)  # (the dot is drawn)
+    assert any(pix.pixel(160 + dx, 300 + dy) != (255, 255, 255) for dx in range(-2, 3) for dy in range(-2, 3))

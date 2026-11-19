@@ -246,6 +246,61 @@ def _r(value: float) -> float:
     return round(value, 2)
 
 
+def smooth_segments(points) -> list[tuple[Point, Point, Point]]:
+    """The curve through POINTS (a stroke drawn by hand), as cubic Bézier segments, one from each point
+    to the next: (first control point, second control point, end). Each point's tangent is the line
+    between its neighbours (a Catmull–Rom spline), as PdfCraft draws ink (MIT/Apache-2.0)."""
+    if not points:
+        return []
+    last = points[-1]
+
+    def at(i: int) -> Point:
+        return points[i] if 0 <= i < len(points) else last
+
+    out = []
+    for i in range(len(points) - 1):
+        p0, p1, p2, p3 = at(max(i - 1, 0)), at(i), at(i + 1), at(i + 2)
+        out.append(((p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6),
+                    (p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6), p2))
+    return out
+
+
+_AP_POINT = re.compile(r"^(-?[\d.]+) (-?[\d.]+) ([ml])$")
+
+
+def _curved(doc: pymupdf.Document, xref: int) -> None:
+    """Make the appearance of the drawing XREF (as MuPDF writes it: each stroke a point, 'm', and
+    straight lines to the others, 'l') draw each stroke as a curve through its points."""
+    kind, value = doc.xref_get_key(xref, "AP/N")
+    if kind != "xref":
+        return
+    ap = int(value.split()[0])
+    lines = doc.xref_stream(ap).decode("latin-1").split("\n")
+    out: list[str] = []
+    stroke: list[tuple[float, float]] = []
+
+    def flush():
+        if len(stroke) >= 3:
+            out.extend(f"{c1[0]:g} {c1[1]:g} {c2[0]:g} {c2[1]:g} {e[0]:g} {e[1]:g} c"
+                       for c1, c2, e in smooth_segments(stroke))
+        else:
+            out.extend(f"{x:g} {y:g} l" for x, y in stroke[1:])
+        stroke.clear()
+
+    for line in lines:
+        found = _AP_POINT.match(line.strip())
+        if found and (found[3] == "l" and stroke or found[3] == "m"):
+            if found[3] == "m":
+                flush()
+                out.append(line.strip())
+            stroke.append((float(found[1]), float(found[2])))
+            continue
+        flush()
+        out.append(line)
+    if any(line.endswith(" c") for line in out):
+        doc.update_stream(ap, "\n".join(out).encode("latin-1"))
+
+
 def frame(kind: str, paths, width: float) -> Rect:
     """The frame of a line, an arrow, a polygon or a drawing: around its points, with room for the line."""
     pad = max(width, 2.0) + {"arrow": 4.0, "cloud": 6.0}.get(kind, 0.0)
@@ -963,6 +1018,8 @@ def add(page: pymupdf.Page, a: Annotation, when: str | None = None) -> pymupdf.A
             page.parent.xref_set_key(annot.xref, "CL", "null")
     elif a.kind != "stamp" or a.stamp:  # (an image stamp's look would be lost)
         annot.update()
+    if a.kind in DRAWN:
+        _curved(page.parent, annot.xref)
     for reply in a.replies:
         add_reply(page, annot, reply, when)
     return annot
@@ -1078,6 +1135,8 @@ def change(page: pymupdf.Page, annot: pymupdf.Annot, old: Annotation, a: Annotat
                          fill_color=fill, rotate=page.rotation)
         elif a.kind != "stamp" or a.stamp:
             annot.update()
+        if a.kind in DRAWN:
+            _curved(doc, annot.xref)
     except (RuntimeError, ValueError):
         return False
     after = read_annotation(doc, page, page.load_annot(annot.xref))
