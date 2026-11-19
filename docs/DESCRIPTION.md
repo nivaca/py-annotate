@@ -260,10 +260,18 @@ and Settings say how the pressure counts and how hard the pen must press. The te
 the events of a pen, and of its eraser end, as a tablet would. After
 trying it with my own Wacom, I published it as version 1.0.0.
 
+Writing by hand with it, though, proved clumsy. Each stroke was an
+annotation of its own, selected once made, so the next letter, which
+starts on or near it, moved it instead of being drawn; and a stroke whose
+pressure changed came out in pieces. Now the pen draws even over other
+annotations, strokes made one soon after the other and near each other are
+one drawing, and the pressure gives each drawing its width once, by its
+first stroke (cutting strokes by pressure is still a choice in Settings).
+
 Testing
 -------
 
-The program has 92 tests (`uv run pytest`). The tests of the annotations
+The program has 93 tests (`uv run pytest`). The tests of the annotations
 write one of each kind on a plain page and on a turned one and read them
 back, and also text boxes with formatted text and groups made here or by
 another program; check that a changed annotation keeps its number and the keys of

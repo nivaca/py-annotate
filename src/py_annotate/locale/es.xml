@@ -2232,14 +2232,6 @@
     <tr>Idiomas del OCR:</tr>
   </text>
   <text>
-    <en>Along each stroke (wider where it presses harder)</en>
-    <tr>A lo largo de cada trazo (más ancho donde aprieta más)</tr>
-  </text>
-  <text>
-    <en>Once for each stroke</en>
-    <tr>Una vez por trazo</tr>
-  </text>
-  <text>
     <en>Not at all</en>
     <tr>Nada</tr>
   </text>
@@ -2286,5 +2278,13 @@
   <text>
     <en>The pages, small, on the left of the window</en>
     <tr>Las páginas, en pequeño, a la izquierda de la ventana</tr>
+  </text>
+  <text>
+    <en>Once for each drawing (by its first stroke)</en>
+    <tr>Una vez por dibujo (según su primer trazo)</tr>
+  </text>
+  <text>
+    <en>Along each stroke (cut into pieces of different widths)</en>
+    <tr>A lo largo de cada trazo (cortado en trozos de grosores distintos)</tr>
   </text>
 </interface>

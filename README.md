@@ -22,7 +22,7 @@ file, so that a signed document keeps its signatures valid for what they
 signed.
 
 It has a window, in English and in Spanish, and works on Linux, Windows and
-macOS. This is version 1.0.1.
+macOS. This is version 1.0.2.
 
 I am Nicolas Vaughan (<nicolasvaughan@proton.me>), and I wrote it in 2026.
 It is free software, under the GNU General Public License, version 3 or
@@ -155,12 +155,17 @@ own, in the properties.
 
 With the pen of a tablet (a Wacom, for instance), the freehand tools follow
 the pen itself, which is finer and quicker than the mouse it also moves,
-and the line is smoothed a little; pressing harder draws wider. Turned
-over, the pen's eraser end erases, whatever tool is chosen, until it is
-lifted; and while its side button is held, the page follows the pen, as
-with the hand tool. Settings say how the pressure counts (along each stroke, once for
-each stroke, or not at all), how hard the pen must press (soft, normal or
-firm), and whether the side button moves the page or is a right click.
+and the line is smoothed a little; pressing harder draws wider. Strokes
+made one soon after the other, near each other, make one drawing, so a word
+or a line written by hand is one annotation (undo still takes back one
+stroke at a time); and the pen draws even over other annotations, which only
+the Select tool moves. Turned over, the pen's eraser end erases, whatever
+tool is chosen, until it is lifted; and while its side button is held, the
+page follows the pen, as with the hand tool. Settings say how the pressure
+counts (once for each drawing, by its first stroke; along each stroke, which
+cuts it into pieces of different widths; or not at all), how hard the pen
+must press (soft, normal or firm), and whether the side button moves the
+page or is a right click.
 
 Right-clicking a tool in the toolbar gives its colours, the stamp it puts
 (the standard ones, such as Approved, Draft or Confidential, or one of your

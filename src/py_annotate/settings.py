@@ -114,8 +114,8 @@ SHORTCUTS = {
 
 
 # how the pressure of a tablet's pen counts, and how hard it must press for it
-PEN_PRESSURE = {"along": N_("Along each stroke (wider where it presses harder)"),
-                "stroke": N_("Once for each stroke"), "off": N_("Not at all")}
+PEN_PRESSURE = {"stroke": N_("Once for each drawing (by its first stroke)"),
+                "along": N_("Along each stroke (cut into pieces of different widths)"), "off": N_("Not at all")}
 PEN_CURVES = {"soft": N_("Soft (a light touch is enough)"), "normal": N_("Normal"),
               "firm": N_("Firm (it must press harder)")}
 PEN_BUTTON = {"pan": N_("Moves the page, while it is held"), "menu": N_("A right click (the menu)")}
@@ -137,7 +137,7 @@ class Settings:
     pdfconform: str = ""  # the path of pdf2iso; '' to look for it (see conform.find)
     categories: tuple[str, ...] | None = None  # None: the usual ones (CATEGORIES, translated)
     ocr_language: str = "eng"  # of the text of scanned pages (see ocr.py)
-    pen_pressure: str = "along"  # see PEN_PRESSURE
+    pen_pressure: str = "stroke"  # see PEN_PRESSURE
     pen_curve: str = "normal"  # see PEN_CURVES
     pen_button: str = "pan"  # see PEN_BUTTON
 
@@ -251,7 +251,7 @@ def load() -> Settings:
                     tuple(c.strip() for c in categories.split(";") if c.strip())
                     if valid("categories", categories) else None,
                     params["ocr_language"] if valid("ocr_language", params.get("ocr_language")) else "eng",
-                    params["pen_pressure"] if valid("pen_pressure", params.get("pen_pressure")) else "along",
+                    params["pen_pressure"] if valid("pen_pressure", params.get("pen_pressure")) else "stroke",
                     params["pen_curve"] if valid("pen_curve", params.get("pen_curve")) else "normal",
                     params["pen_button"] if valid("pen_button", params.get("pen_button")) else "pan")
 
@@ -287,7 +287,7 @@ def save(settings: Settings) -> None:
     if not valid("ocr_language", settings.ocr_language):
         raise ValueError(f"ocr_language = {settings.ocr_language!r}")
     values["ocr_language"] = settings.ocr_language if settings.ocr_language != "eng" else None
-    for name, usual in (("pen_pressure", "along"), ("pen_curve", "normal"), ("pen_button", "pan")):
+    for name, usual in (("pen_pressure", "stroke"), ("pen_curve", "normal"), ("pen_button", "pan")):
         if not valid(name, getattr(settings, name)):
             raise ValueError(f"{name} = {getattr(settings, name)!r}")
         values[name] = getattr(settings, name) if getattr(settings, name) != usual else None

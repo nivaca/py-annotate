@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import dataclasses
 import math
+import time
 import uuid
 from collections import OrderedDict
 from collections.abc import Callable
@@ -394,10 +395,12 @@ class PageCanvas(QGraphicsView):
         self._pressure: float | None = None  # (of a tablet's pen, while it touches)
         # how the pen's pressure counts ('along' the stroke, once for the whole 'stroke', or 'off'), and how
         # hard it must press ('soft', 'normal', 'firm'): see Settings
-        self.pen_pressure, self.pen_curve = "along", "normal"
+        self.pen_pressure, self.pen_curve = "stroke", "normal"
         self._pen_tool: str | None = None  # (the tool chosen, while the eraser end of the pen erases)
         self.pen_button = "pan"  # what the pen's side button does: 'pan' (moves the page while held) or 'menu'
         self._pen_pan: tuple | None = None  # (while it moves the page: where the pen and the scroll bars were)
+        # the drawing made last, and when: a stroke made soon after, near it, is added to it (see _written)
+        self._last_drawn: tuple[Annotation, float] | None = None
         self._quiet = False  # (scrolled by the program: the page in view is said by it)
         self.render_timer = QTimer(self, singleShot=True, interval=90)
         self.render_timer.timeout.connect(self._render_visible)
@@ -1119,6 +1122,8 @@ class PageCanvas(QGraphicsView):
                 self._drag = None
             event.accept()
             return
+        if self.mode in DRAWN:  # (a pen draws, even over what is there: selecting is for Select)
+            item = None
         if item is not None and not shift:
             if not item.chosen or add:
                 self.picked.emit([item.index], add)
@@ -1260,6 +1265,30 @@ class PageCanvas(QGraphicsView):
                 drag["item"].set_annotation(new)
                 drag["moved"] = True
         event.accept()
+
+    WRITING_PAUSE = 1.5  # seconds: a stroke made sooner after the one before, near it, is part of the same drawing
+    WRITING_NEAR = 40.0  # points: how near
+
+    def _written(self, stroke: Annotation) -> bool:
+        """Add STROKE (a drawing of one stroke, just made) to the drawing made just before, if it was
+        made soon before and near it, with the same tool and look: so that a word, or a line, written
+        stroke by stroke is one drawing. Whether it was."""
+        last, when = self._last_drawn or (None, 0.0)
+        if last is None or time.monotonic() - when > self.WRITING_PAUSE or last.page != stroke.page \
+                or (last.kind, last.color, last.opacity, last.layer) != (stroke.kind, stroke.color, stroke.opacity,
+                                                                           stroke.layer):
+            return False
+        index = next((i for i, a in self._shown_items if a == last), None)
+        x, y = stroke.paths[0][0]
+        x0, y0, x1, y1 = last.rect
+        near = self.WRITING_NEAR
+        if index is None or not (x0 - near <= x <= x1 + near and y0 - near <= y <= y1 + near):
+            return False
+        paths = last.paths + stroke.paths
+        joined = dataclasses.replace(last, paths=paths, rect=annots.frame(last.kind, paths, last.width))
+        self._last_drawn = (joined, time.monotonic())
+        self.edited.emit(index, joined)
+        return True
 
     LEVELS = 5  # (of the pressure of a pen, along a stroke: each a width of its own)
 
@@ -1419,10 +1448,14 @@ class PageCanvas(QGraphicsView):
                 pieces = self._pieces(base, points, at) if kind == "ink" and self.pen_pressure == "along" else []
                 if len(pieces) > 1:
                     self.drawn_many.emit(pieces)
+                    self._last_drawn = None
                 else:
                     annotation = self._pressed(base, drag)
-                    self.drawn.emit(dataclasses.replace(annotation, rect=annots.frame(
-                        annotation.kind, annotation.paths, annotation.width)))
+                    annotation = dataclasses.replace(annotation, rect=annots.frame(
+                        annotation.kind, annotation.paths, annotation.width))
+                    if kind != "ink" or not self._written(annotation):
+                        self.drawn.emit(annotation)
+                        self._last_drawn = (annotation, time.monotonic()) if kind == "ink" else None
         elif kind == "edit":
             if drag["moved"]:
                 self.edited.emit(drag["item"].index, drag["item"].annot)

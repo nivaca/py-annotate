@@ -796,6 +796,7 @@ def test_pressure_along_a_stroke(window, sample):
     """A stroke whose pen pressure changes is cut where it goes to another level: drawings of their
     own widths, joined end to end, one group; with one pressure, one drawing."""
     canvas = window.canvas
+    canvas.pen_pressure = "along"
     window.set_tool("ink")
     points = [(100 + 10 * i, 300) for i in range(12)]
     pressures = [0.1] * 4 + [0.5] * 4 + [0.95] * 4
@@ -900,6 +901,7 @@ def test_pen_strokes(window):
     """The pen's own moves draw (finer than the mouse's, and smoothed); with the pressure counted once
     per stroke, a stroke of changing pressure is one drawing."""
     canvas = window.canvas
+    canvas.pen_pressure = "along"
     window.set_tool("ink")
     points = [(100 + 8 * i, 300 + (i % 2)) for i in range(15)]
     tablet(window, QEvent.Type.TabletPress, points[0], 0.1)
@@ -971,3 +973,29 @@ def test_thumbnails_hidden(window, sample):
     other.close()
     window.a_thumbs.setChecked(True)
     assert not window.thumbs_box.isHidden() and window.thumb_timer.isActive()
+
+
+def test_writing_by_hand(window, monkeypatch):
+    """Strokes made one soon after the other, near each other, are one drawing (a word written stroke
+    by stroke), each undone on its own; a stroke far away, or after a pause, is another drawing. A pen
+    draws even over an annotation (selected or not), never moving it."""
+    from py_annotate.gui import canvas as canvas_module
+
+    clock = [1000.0]
+    monkeypatch.setattr(canvas_module.time, "monotonic", lambda: clock[0])
+    window.set_tool("ink")
+    drag(window, (100, 300), (110, 320), (120, 300))
+    clock[0] += 0.4
+    drag(window, (112, 305), (125, 315), (135, 305))  # (starts over the first stroke, which is selected)
+    clock[0] += 0.4
+    drag(window, (140, 300), (150, 320))
+    assert len(window.annotations) == 1 and len(window.annotations[0].paths) == 3
+    first = window.annotations[0].paths[0]
+    assert close(first[0], (100, 300))  # (not moved by the strokes over it)
+    window.undo()
+    assert len(window.annotations) == 1 and len(window.annotations[0].paths) == 2
+    clock[0] += 0.4
+    drag(window, (400, 600), (420, 620))  # (far away: another drawing)
+    clock[0] += 3.0
+    drag(window, (410, 605), (430, 625))  # (after a pause: another one)
+    assert [len(a.paths) for a in window.annotations] == [2, 1, 1]

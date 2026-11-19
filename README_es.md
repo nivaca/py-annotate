@@ -23,7 +23,7 @@ añaden al final del archivo, así que un documento firmado conserva sus
 firmas válidas para lo que firmaron.
 
 Tiene una ventana, en español y en inglés, y funciona en Linux, Windows y
-macOS. Esta es la versión 1.0.1.
+macOS. Esta es la versión 1.0.2.
 
 Soy Nicolas Vaughan (<nicolasvaughan@proton.me>) y lo escribí en 2026. Es
 software libre, bajo la Licencia Pública General de GNU, versión 3 o
@@ -159,11 +159,15 @@ borde puede tener un color propio, en las propiedades.
 Con el lápiz de una tableta (una Wacom, por ejemplo), las herramientas a
 mano alzada siguen al lápiz mismo, más fino y más rápido que el ratón que
 también mueve, y la línea se suaviza un poco; cuanto más se aprieta, más
-ancha. Dado vuelta, el extremo de borrador del lápiz borra, sea cual sea la
+ancha. Los trazos hechos uno poco después del otro, cerca, forman un solo
+dibujo, así que una palabra o un renglón escritos a mano son una sola
+anotación (deshacer quita igual un trazo cada vez); y el lápiz dibuja aun
+sobre otras anotaciones, que solo la herramienta Seleccionar mueve. Dado vuelta, el extremo de borrador del lápiz borra, sea cual sea la
 herramienta elegida, hasta que se levanta; y mientras se mantiene apretado
 su botón lateral, la página sigue al lápiz, como con la mano. La
-Configuración dice cómo cuenta la presión (a lo largo de cada trazo, una vez
-por trazo o nada), cuánto hay que apretar (suave, normal o firme) y si el
+Configuración dice cómo cuenta la presión (una vez por dibujo, según su
+primer trazo; a lo largo de cada trazo, que lo corta en trozos de grosores
+distintos; o nada), cuánto hay que apretar (suave, normal o firme) y si el
 botón lateral mueve la página o es un clic derecho.
 
 Con el clic derecho sobre una herramienta de la barra aparecen sus colores,
