@@ -422,6 +422,11 @@ for page in doc:
 doc.save(out)
 print("OK  (veraPDF: PASS) in.pdf -> out.pdf [PDF/A-2b]")
 """)
+    if sys.platform != "win32":  # (a shell script that runs it: the path of this Python may have spaces,
+        # which a #! line can't take, as in the installer's environment on macOS)
+        body = folder / "pdf2iso-body.py"
+        script.rename(body)
+        script.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{body}" "$@"\n')
     script.chmod(0o755)
     return str(script)
 
