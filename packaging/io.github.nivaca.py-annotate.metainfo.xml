@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AppStream metadata of py-annotate, for software centres. The RPM installs it. -->
+<component type="desktop-application">
+  <id>io.github.nivaca.py-annotate</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>py-annotate</name>
+  <summary>Add annotations to PDF documents</summary>
+  <summary xml:lang="es">Añadir anotaciones a documentos PDF</summary>
+  <developer id="io.github.nivaca">
+    <name>Nicolas Vaughan</name>
+  </developer>
+  <description>
+    <p>
+      py-annotate adds annotations to PDF documents: highlights, underlines and strikeouts over the
+      text, notes, text boxes, callouts, shapes, drawings and stamps, with comments, replies, review
+      statuses, tags and categories. They are written as ordinary PDF annotations, which any PDF
+      viewer shows and can edit; the pages under them stay as they were.
+    </p>
+    <p xml:lang="es">
+      py-annotate añade anotaciones a documentos PDF: resaltados, subrayados y tachados sobre el
+      texto, notas, cuadros de texto, llamadas, formas, dibujos y sellos, con comentarios, respuestas,
+      estados de revisión, etiquetas y categorías. Se escriben como anotaciones PDF corrientes, que
+      cualquier visor de PDF muestra y puede editar; las páginas debajo quedan como estaban.
+    </p>
+    <ul>
+      <li>Annotations already in a document can be moved, changed or deleted; saving adds the changes at the end of the file</li>
+      <li xml:lang="es">Las anotaciones que ya tenga un documento se pueden mover, cambiar o borrar; al guardar, los cambios se añaden al final del archivo</li>
+      <li>A list of the annotations, with their authors, that can be searched, filtered and sorted</li>
+      <li xml:lang="es">Una lista de las anotaciones, con sus autores, que se puede buscar, filtrar y ordenar</li>
+      <li>Find and highlight: every place where a word, a phrase or a pattern is</li>
+      <li xml:lang="es">Buscar y resaltar: cada lugar donde está una palabra, una frase o un patrón</li>
+      <li>Export as a report, a table, JSON or XFDF, and a summary of the comments as a PDF; import from JSON, XFDF or another copy of the PDF</li>
+      <li xml:lang="es">Exportar como informe, tabla, JSON o XFDF, y un resumen de los comentarios en PDF; importar de JSON, XFDF u otra copia del PDF</li>
+      <li>Copies flattened, without annotations, or as PDF/A and PDF/X</li>
+      <li xml:lang="es">Copias aplanadas, sin anotaciones, o como PDF/A y PDF/X</li>
+      <li>A window in English or Spanish</li>
+      <li xml:lang="es">Una ventana en inglés o en español</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">py-annotate.desktop</launchable>
+  <icon type="stock">py-annotate</icon>
+  <categories>
+    <category>Office</category>
+    <category>Viewer</category>
+  </categories>
+  <keywords>
+    <keyword>annotation</keyword>
+    <keyword>highlight</keyword>
+    <keyword>comment</keyword>
+    <keyword>PDF</keyword>
+    <keyword xml:lang="es">anotación</keyword>
+    <keyword xml:lang="es">resaltar</keyword>
+  </keywords>
+  <url type="homepage">https://github.com/nivaca/py-annotate</url>
+  <url type="bugtracker">https://github.com/nivaca/py-annotate/issues</url>
+  <screenshots>
+    <screenshot type="default">
+      <caption>An essay with highlights, notes, a text box, a callout, a shape and a stamp</caption>
+      <image>https://raw.githubusercontent.com/nivaca/py-annotate/main/docs/img/window_en.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>A summary of the comments</caption>
+      <image>https://raw.githubusercontent.com/nivaca/py-annotate/main/docs/img/summary_en.png</image>
+    </screenshot>
+  </screenshots>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.3.0" date="2026-11-19"/>
+    <release version="0.2.1" date="2026-11-19"/>
+    <release version="0.1.0" date="2026-11-19"/>
+  </releases>
+</component>

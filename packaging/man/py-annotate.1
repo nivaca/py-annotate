@@ -1,0 +1,53 @@
+.TH PY-ANNOTATE 1 "November 2026" "py-annotate" "User Commands"
+.SH NAME
+py-annotate \- add annotations to PDF documents
+.SH SYNOPSIS
+.B py-annotate
+.RI [ file.pdf ]
+.br
+.B py-annotate
+.BR \-\-version " | " \-\-help
+.SH DESCRIPTION
+.B py-annotate
+opens a window (Qt) in which annotations are added to a PDF document:
+highlights, underlines and strikeouts over the text, marks where text is to be
+inserted, notes, text boxes and callouts, highlighted regions, rectangles,
+ellipses, polygons, clouds, lines, arrows, polylines, drawings and highlights
+made by hand, and stamps. Each one can have a comment, replies, a review
+status, tags and categories.
+.PP
+They are written as ordinary PDF annotations, which any PDF viewer shows and
+can edit. The annotations a document already has are read, and can be changed
+or deleted. Saving into the document adds the changes at its end (an
+incremental save), so that its signatures stay valid for what they signed.
+.PP
+The window can also export the annotations (a report in Markdown, a table in
+CSV, JSON, XFDF, a summary of the comments as a PDF), import them (JSON, XFDF,
+another copy of the PDF), print the document, and save copies of it
+flattened, without annotations, or as PDF/A or PDF/X (with
+.BR pdf2iso ).
+It is in English or Spanish (Settings > Language).
+.SH OPTIONS
+.TP
+.B \-\-version
+Print the version, and stop.
+.TP
+.B \-\-help
+Print how to start it, and stop.
+.SH FILES
+.TP
+.I ~/.config/py-annotate/config.toml
+The settings: the language, the author of new annotations, how each tool
+draws, the colours and their meanings, the categories, the keyboard shortcuts
+and where pdf2iso is.
+.B $PY_ANNOTATE_CONFIG
+names another folder.
+.TP
+.I ~/.config/py-annotate/recovery/
+Copies of the annotations not yet saved, offered if the program stops before
+they are saved.
+.SH SEE ALSO
+.BR pdf2iso (1)
+.SH AUTHOR
+Nicolas Vaughan <nicolasvaughan@proton.me>. Licensed under the GNU General
+Public License, version 3 or later.

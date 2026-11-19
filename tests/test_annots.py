@@ -150,3 +150,108 @@ def test_password(tmp_path):
     annots.write(path, [Annotation("rect", 0, (10, 10, 50, 50), "#000000")], path, "secret")
     again = annots.open_pdf(path, "secret")
     assert again.needs_pass and [a.kind for a in annots.read(again)] == ["rect"]
+
+
+def test_changed_in_place(sample, tmp_path):
+    """A changed annotation keeps its xref and what other programs gave it."""
+    path = tmp_path / "doc.pdf"
+    annots.write(sample, one_of_each(sample, 0), path)
+    doc = pymupdf.open(path)
+    for annot in doc[0].annots():
+        doc.xref_set_key(annot.xref, "NM", "(theirs)")
+    doc.save(path, incremental=True, encryption=pymupdf.PDF_ENCRYPT_KEEP)
+    doc.close()
+    got = annots.read(annots.open_pdf(path))
+    kinds = {a.kind for a in got}
+    changed = []
+    for a in got:
+        if a.kind in ("callout", "stamp"):
+            changed.append(a)
+            continue
+        a = dataclasses.replace(a, color="#123456", contents="changed", opacity=0.5)
+        if a.kind not in annots.MARKUP:
+            a = annots.moved(a, 5, 7)
+        changed.append(a)
+    kept: set[int] = set()
+    before = path.read_bytes()
+    assert annots.write(path, changed, path, kept=kept) == len(changed) - 2
+    after = path.read_bytes()
+    assert after.startswith(before) and len(after) > len(before)  # (an incremental save: added at the end)
+    again = annots.read(annots.open_pdf(path))
+    doc = pymupdf.open(path)
+    assert {a.kind for a in again} == kinds
+    by_xref = {a.xref: a for a in again}
+    for a in changed:
+        b = by_xref[a.xref]  # (the same xref: changed where it was)
+        assert a.xref in kept and doc.xref_get_key(a.xref, "NM")[1] == "theirs", a.kind
+        assert annots.same(a, b, tolerance=1.5), (a.kind, a, b)
+
+
+def test_replies_status_tags(sample, tmp_path):
+    a = Annotation("rect", 0, (100, 400, 200, 430), "#ff0000", tags=("Aristotle", "Ethics"),
+                   categories=("Definitions",),
+                   replies=(annots.Reply("B", "Is this right?"), annots.Reply("C", "Yes", state="Accepted")))
+    m = Annotation("marker", 0, annots.frame("marker", (((100, 500), (200, 510)),), 12), "#ffeb3b", width=12,
+                   opacity=0.4, paths=(((100, 500), (200, 510)),))
+    path = tmp_path / "out.pdf"
+    annots.write(sample, [a, m], path)
+    got = annots.read(annots.open_pdf(path))
+    assert [g.kind for g in got] == ["rect", "marker"]
+    rect = got[0]
+    assert rect.tags == ("Aristotle", "Ethics") and rect.categories == ("Definitions",)
+    assert [(r.author, r.contents, r.state) for r in rect.replies] == [("B", "Is this right?", ""),
+                                                                       ("C", "Yes", "Accepted")]
+    assert rect.status() == "Accepted"
+    # a reply more, one changed, one taken out: written where they are
+    first = rect.replies[0]
+    replies = (dataclasses.replace(first, contents="Is this right? (page 3)"),
+               annots.Reply("D", "Rejected, after all", state="Rejected"))
+    annots.write(path, [dataclasses.replace(rect, replies=replies), got[1]], path)
+    again = annots.read(annots.open_pdf(path))[0]
+    assert again.xref == rect.xref and again.replies[0].xref == first.xref
+    assert [(r.contents, r.state) for r in again.replies] == [("Is this right? (page 3)", ""),
+                                                              ("Rejected, after all", "Rejected")]
+    assert again.status() == "Rejected"
+    # the pages shown without them: no icons of replies left
+    doc = annots.open_pdf(path)
+    annots.remove_editable(doc)
+    assert list(doc[0].annots()) == []
+    # deleted with its replies
+    annots.write(path, [], path)
+    assert list(annots.open_pdf(path)[0].annots()) == []
+
+
+def test_callout_box_in_the_other_order(sample, tmp_path):
+    """A callout whose /RD gives its sides in the other order still has its box where it is."""
+    path = tmp_path / "out.pdf"
+    a = Annotation("callout", 0, (380, 350, 540, 390), "#000000", contents="Look", width=0,
+                   paths=(((320.0, 420.0),),), ends=("None", "OpenArrow"))
+    annots.write(sample, [a], path)
+    doc = pymupdf.open(path)
+    annot = next(doc[0].annots())
+    rd = doc.xref_get_key(annot.xref, "RD")[1].strip("[]").split()
+    doc.xref_set_key(annot.xref, "RD", f"[{rd[0]} {rd[3]} {rd[2]} {rd[1]}]")  # (above and below swapped)
+    doc.save(tmp_path / "other.pdf")
+    got = annots.read(annots.open_pdf(tmp_path / "other.pdf"))[0]
+    assert close(got.rect, a.rect)
+
+
+def test_stamp_upright_on_a_turned_page(sample, tmp_path):
+    path = tmp_path / "out.pdf"
+    annots.write(sample, [Annotation("stamp", 2, (100, 100, 260, 150), stamp="Approved")], path)
+    got = annots.read(annots.open_pdf(path))[0]
+    image = pymupdf.Pixmap(got.image)
+    w, h = got.rect[2] - got.rect[0], got.rect[3] - got.rect[1]
+    assert (image.width > image.height) == (w > h)
+
+
+def test_find_text(sample):
+    from py_annotate.search import find_text
+
+    doc = pymupdf.open(sample)
+    found = find_text(doc, "line of")
+    assert [m.page for m in found] == [0, 0, 1, 1, 2, 2] and all(len(m.rects) == 1 for m in found)
+    assert found[0].context.startswith("First [line of] page 1")
+    assert find_text(doc, "page 1 a second", whole_words=True)[0].rects.__len__() == 2  # (across two lines)
+    assert [m.page for m in find_text(doc, r"page \d", regex=True, pages=[1])] == [1]
+    assert annots.text_under(doc[2], list(found[4].rects)) == "line of"  # (on the turned page too)

@@ -8,6 +8,8 @@
 * the colours offered in the menus, with what each one means to the user,
   as ``palette_N_color`` and ``palette_N_meaning`` (N from 1);
 * the keyboard shortcuts, as ``shortcut_ACTION`` (``shortcut_highlight = "H"``);
+* ``categories``: the categories annotations can be put in, as
+  ``"Definitions; Questions; ..."`` (if there is none, the usual ones);
 * ``pdfconform``: the path of pdf2iso, which makes PDF/A and PDF/X ('' to
   look for it; see conform.py);
 * ``autosave``: every how many minutes a recovery copy of the annotations
@@ -60,7 +62,7 @@ STYLES = {
     "area": Style("#ffeb3b", fill="#ffeb3b", opacity=0.4, width=0),
     "rect": Style("#e53935"), "ellipse": Style("#e53935"), "polygon": Style("#e53935"), "cloud": Style("#e53935"),
     "line": Style("#e53935"), "arrow": Style("#e53935", end="OpenArrow"), "polyline": Style("#e53935"),
-    "ink": Style("#1e88e5", width=2.0), "stamp": Style("#c62828", stamp="Approved"),
+    "ink": Style("#1e88e5", width=2.0), "marker": Style("#ffeb3b", width=12.0, opacity=0.4), "stamp": Style("#c62828", stamp="Approved"),
 }
 STYLE_FIELDS = tuple(f.name for f in dataclasses.fields(Style))
 
@@ -100,8 +102,14 @@ SHORTCUTS = {
     "strikeout": "S", "squiggly": "Q", "caret": "I", "note": "N", "freetext": "T", "callout": "Shift+T",
     "rect": "R", "ellipse": "O", "polygon": "G", "cloud": "Shift+G", "line": "L", "arrow": "A",
     "polyline": "Shift+L", "ink": "P", "stamp": "Shift+S", "comment": "C", "next": "Alt+Down",
-    "previous": "Alt+Up", "copy": "Ctrl+C", "paste": "Ctrl+V", "duplicate": "Ctrl+D", "properties": "Alt+Return",
+    "previous": "Alt+Up", "marker": "Shift+P", "copy": "Ctrl+C", "paste": "Ctrl+V", "duplicate": "Ctrl+D", "properties": "Alt+Return",
 }
+
+
+# the usual categories (translated where they are shown, while they are the usual ones)
+CATEGORIES = (N_("Main arguments"), N_("Definitions"), N_("Historical references"), N_("Primary sources"),
+              N_("Secondary literature"), N_("Important quotations"), N_("Questions"), N_("Contradictions"),
+              N_("Methodological observations"), N_("Editorial problems"))
 
 
 @dataclasses.dataclass(frozen=True)
@@ -112,6 +120,12 @@ class Settings:
     shortcuts: tuple[tuple[str, str], ...] = tuple(SHORTCUTS.items())
     autosave: int = 2  # minutes between recovery copies; 0: none
     pdfconform: str = ""  # the path of pdf2iso; '' to look for it (see conform.find)
+    categories: tuple[str, ...] | None = None  # None: the usual ones (CATEGORIES, translated)
+
+    def category_list(self) -> list[str]:
+        from .interface import tr
+
+        return list(self.categories) if self.categories is not None else [tr(c) for c in CATEGORIES]
 
     def style(self, kind: str) -> Style:
         return dict(self.styles).get(kind, STYLES[kind])
@@ -159,6 +173,8 @@ def valid(field: str, value) -> bool:
         return value in SHOW
     if field == "shortcut":
         return isinstance(value, str) and "\n" not in value and len(value) <= 40
+    if field == "categories":
+        return isinstance(value, str) and "\n" not in value and len(value) <= 5000
     if field == "pdfconform":
         return isinstance(value, str) and "\n" not in value and len(value) <= 1000
     if field == "autosave":
@@ -201,9 +217,12 @@ def load() -> Settings:
         shortcuts.append((action, key if valid("shortcut", key) else usual))
     autosave = params.get("autosave")
     pdfconform = params.get("pdfconform", "")
+    categories = params.get("categories")
     return Settings(author if valid("author", author) else "", tuple(styles), tuple(palette), tuple(shortcuts),
                     autosave if valid("autosave", autosave) else DEFAULTS.autosave,
-                    pdfconform if valid("pdfconform", pdfconform) else "")
+                    pdfconform if valid("pdfconform", pdfconform) else "",
+                    tuple(c.strip() for c in categories.split(";") if c.strip())
+                    if valid("categories", categories) else None)
 
 
 def save(settings: Settings) -> None:
@@ -234,4 +253,7 @@ def save(settings: Settings) -> None:
     if not valid("pdfconform", settings.pdfconform):
         raise ValueError(f"pdfconform = {settings.pdfconform!r}")
     values["pdfconform"] = settings.pdfconform or None
+    if settings.categories is not None and any(";" in c or "\n" in c for c in settings.categories):
+        raise ValueError(f"categories = {settings.categories!r}")
+    values["categories"] = "; ".join(settings.categories) if settings.categories is not None else None
     config.set_many(values)

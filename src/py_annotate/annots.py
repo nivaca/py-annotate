@@ -16,13 +16,23 @@ applied), like everything the window shows. The kinds are:
   ``line``, ``arrow``, ``polyline``, and ``ink`` (drawn by hand; its strokes
   in ``paths``);
 * ``stamp``: a rubber stamp, standard (``stamp``: its name) or of an image
-  (``image``, which also keeps the look of every stamp, for showing it).
+  (``image``, which also keeps the look of every stamp, for showing it);
+* ``marker``: a freehand highlight (an ink annotation, wide and see-through).
+
+An annotation may have replies, and a review status (Accepted, Rejected...):
+in the PDF, both are notes that answer it (/IRT), the status with /State.
+Its tags and categories are py-annotate's own (/PyAnnotateTags and
+/PyAnnotateCategories), which other programs leave alone.
 
 The annotations of these kinds that a document already has are read into
-the list too (all but replies to other annotations), and can be changed or
-deleted. Saving rewrites only those that changed (a stamp is changed where
-it is); an annotation left as it was is not touched, nor are those of other
-kinds (links, file attachments, sounds, form fields...).
+the list too, and can be changed or deleted. Saving changes only those that
+changed, and changes them where they are (so that what py-annotate doesn't
+know of them stays: their identifier, keys of other programs, the replies
+that point at them); only if that can't be done is one taken out and
+written again. An annotation left as it was is not touched, nor are those of
+other kinds (links, file attachments, sounds, form fields...). Saving into
+the document itself adds the changes at its end (an incremental save), so
+that the signatures it has stay valid for what they signed.
 """
 
 from __future__ import annotations
@@ -42,23 +52,25 @@ Rect = tuple[float, float, float, float]  # x0, y0, x1, y1
 Point = tuple[float, float]
 
 KINDS = ("highlight", "underline", "strikeout", "squiggly", "caret", "note", "freetext", "callout", "area", "rect",
-         "ellipse", "polygon", "cloud", "line", "arrow", "polyline", "ink", "stamp")
+         "ellipse", "polygon", "cloud", "line", "arrow", "polyline", "ink", "marker", "stamp")
 NAMES = {"highlight": N_("Highlight"), "underline": N_("Underline"), "strikeout": N_("Strikeout"),
          "squiggly": N_("Squiggly underline"), "caret": N_("Insert text"), "note": N_("Note"),
          "freetext": N_("Text box"), "callout": N_("Callout"), "area": N_("Area highlight"),
          "rect": N_("Rectangle"), "ellipse": N_("Ellipse"), "polygon": N_("Polygon"), "cloud": N_("Cloud"),
          "line": N_("Line"), "arrow": N_("Arrow"), "polyline": N_("Polyline"), "ink": N_("Freehand"),
-         "stamp": N_("Stamp")}
+         "marker": N_("Freehand highlight"), "stamp": N_("Stamp")}
 MARKUP = ("highlight", "underline", "strikeout", "squiggly")  # (over text: neither moved nor resized)
 FIXED = ("note", "caret")  # (of a size of their own: moved, not resized)
 TEXTUAL = ("freetext", "callout")  # (with a font)
 FILLED = ("freetext", "callout", "area", "rect", "ellipse", "polygon", "cloud")  # (those with a fill)
-STROKED = ("freetext", "callout", "rect", "ellipse", "polygon", "cloud", "line", "arrow", "polyline", "ink")
+STROKED = ("freetext", "callout", "rect", "ellipse", "polygon", "cloud", "line", "arrow", "polyline", "ink",
+           "marker")
+DRAWN = ("ink", "marker")  # (drawn by hand: strokes)
 DASHABLE = ("freetext", "callout", "rect", "ellipse", "polygon", "line", "arrow", "polyline")
 ENDED = ("line", "arrow", "polyline", "callout")  # (with ends: arrowheads...)
 VERTICES = ("polygon", "cloud", "polyline", "line", "arrow")  # (whose points can be dragged one by one)
 RESIZABLE = ("freetext", "callout", "area", "rect", "ellipse", "polygon", "cloud", "line", "arrow", "polyline",
-             "ink", "stamp")
+             "ink", "marker", "stamp")
 NOTE_SIZE = 16.0  # points: the side of a note's icon (MuPDF makes them all of this size)
 CARET_SIZE = (20.0, 14.0)  # points: the size of a caret's mark (MuPDF's)
 
@@ -82,6 +94,12 @@ STAMPS = {"Approved": N_("Approved"), "AsIs": N_("As is"), "Confidential": N_("C
           "NotApproved": N_("Not approved"), "NotForPublicRelease": N_("Not for public release"),
           "Sold": N_("Sold"), "TopSecret": N_("Top secret"), "Draft": N_("Draft")}  # (in MuPDF's order)
 AREA_SUBJECT = "Area highlight"  # (the /Subj that tells an area highlight from a rectangle)
+MARKER_SUBJECT = "Freehand highlight"  # (and a freehand highlight from a drawing)
+SUBJECTS = {"area": AREA_SUBJECT, "marker": MARKER_SUBJECT}
+# review states (the PDF's, of the model Review), with their names
+STATES = {"Accepted": N_("Accepted"), "Rejected": N_("Rejected"), "Cancelled": N_("Cancelled"),
+          "Completed": N_("Completed"), "None": N_("No status")}
+TAGS_KEY, CATEGORIES_KEY = "PyAnnotateTags", "PyAnnotateCategories"
 DASHES = (3, 3)
 
 _TYPES = {pymupdf.PDF_ANNOT_HIGHLIGHT: "highlight", pymupdf.PDF_ANNOT_UNDERLINE: "underline",
@@ -91,6 +109,17 @@ _TYPES = {pymupdf.PDF_ANNOT_HIGHLIGHT: "highlight", pymupdf.PDF_ANNOT_UNDERLINE:
           pymupdf.PDF_ANNOT_CIRCLE: "ellipse", pymupdf.PDF_ANNOT_POLYGON: "polygon",
           pymupdf.PDF_ANNOT_POLY_LINE: "polyline", pymupdf.PDF_ANNOT_LINE: "line", pymupdf.PDF_ANNOT_INK: "ink",
           pymupdf.PDF_ANNOT_STAMP: "stamp"}
+
+
+@dataclasses.dataclass(frozen=True)
+class Reply:
+    """An answer to an annotation; with STATE, a review status given to it (see STATES)."""
+    author: str = ""
+    contents: str = ""
+    state: str = ""
+    created: str = ""
+    modified: str = ""
+    xref: int = 0
 
 
 @dataclasses.dataclass(frozen=True)
@@ -119,10 +148,18 @@ class Annotation:
     image: bytes = b""  # a stamp's look, as a PNG
     created: str = ""  # PDF dates (D:20261119...): '' if unknown, or not yet written
     modified: str = ""
+    tags: tuple[str, ...] = ()
+    categories: tuple[str, ...] = ()
+    replies: tuple[Reply, ...] = ()  # in the order they were made
     xref: int = 0  # of the annotation in the document it was read from; 0 if new
 
     def name(self) -> str:
         return tr(NAMES[self.kind])
+
+    def status(self) -> str:
+        """Its review status: that of its last reply that gives one ('' if none does, or it is 'None')."""
+        states = [r.state for r in self.replies if r.state]
+        return states[-1] if states and states[-1] != "None" else ""
 
 
 class AnnotateError(Exception):
@@ -286,6 +323,8 @@ def kind_of(doc: pymupdf.Document, annot: pymupdf.Annot) -> str | None:
         return "area"
     if kind == "polygon" and ((annot.border or {}).get("clouds") or 0) > 0:
         return "cloud"
+    if kind == "ink" and (annot.info or {}).get("subject") == MARKER_SUBJECT:
+        return "marker"
     return kind
 
 
@@ -307,6 +346,54 @@ def _real_point(page: pymupdf.Page, point: Point) -> pymupdf.Point:
     return pymupdf.Point(point) * page.derotation_matrix
 
 
+def _pdf_points(page: pymupdf.Page, points) -> str:
+    """POINTS (as the page is shown) in the PDF's own space, as the numbers of a PDF array."""
+    inverse = ~page.transformation_matrix
+    out = []
+    for point in points:
+        p = _real_point(page, point) * inverse
+        out += [f"{p.x:.3f}", f"{p.y:.3f}"]
+    return " ".join(out)
+
+
+def to_pdf(page: pymupdf.Page, point: Point) -> tuple[float, float]:
+    """POINT (as the page is shown) in the PDF's own space (from the bottom left corner of
+    the page, not turned)."""
+    p = _real_point(page, point) * ~page.transformation_matrix
+    return round(p.x, 3), round(p.y, 3)
+
+
+def from_pdf(page: pymupdf.Page, point: tuple[float, float]) -> Point:
+    """POINT of the PDF's own space, as the page is shown."""
+    p = pymupdf.Point(point) * page.transformation_matrix * page.rotation_matrix
+    return _r(p.x), _r(p.y)
+
+
+def _pdf_rect(page: pymupdf.Page, rect: pymupdf.Rect) -> str:
+    """RECT (of the page as MuPDF sees it, not turned) as a PDF array."""
+    r = (pymupdf.Rect(rect) * ~page.transformation_matrix).normalize()
+    return f"[{r.x0:.3f} {r.y0:.3f} {r.x1:.3f} {r.y1:.3f}]"
+
+
+def _pdf_text(doc: pymupdf.Document, xref: int, key: str) -> str:
+    kind, value = doc.xref_get_key(xref, key)
+    return value if kind == "string" else ""
+
+
+def _labels(text: str) -> tuple[str, ...]:
+    """Tags or categories kept as 'a, b, c'."""
+    return tuple(t for t in (" ".join(x.split()) for x in text.split(",")) if t)
+
+
+def _off_edge(r: pymupdf.Rect, p: pymupdf.Point) -> float:
+    """How far P is from the edge of R."""
+    if r.contains(p):
+        return min(p.x - r.x0, r.x1 - p.x, p.y - r.y0, r.y1 - p.y)
+    dx = max(r.x0 - p.x, 0, p.x - r.x1)
+    dy = max(r.y0 - p.y, 0, p.y - r.y1)
+    return (dx * dx + dy * dy) ** 0.5
+
+
 DA_SIZE = re.compile(r"([\d.]+)\s+Tf")
 DA_FONT = re.compile(r"/([A-Za-z]+)")
 DA_COLOR = re.compile(r"((?:[\d.]+\s+){1,4})(g|rg|k)\b")
@@ -325,10 +412,16 @@ def _text_style(doc: pymupdf.Document, xref: int) -> tuple[str, float, str]:
             _DA_FONTS.get(font[1].lower(), "helv") if font else "helv")
 
 
-def _stamp_image(annot: pymupdf.Annot) -> bytes:
-    """How the stamp ANNOT looks, as a PNG (for showing it: the window draws it)."""
+def _stamp_image(annot: pymupdf.Annot, page: pymupdf.Page | None = None) -> bytes:
+    """How the stamp ANNOT looks, as a PNG (for showing it: the window draws it), the
+    right way up on PAGE as it is shown (turned or not)."""
     try:
-        return annot.get_pixmap(matrix=pymupdf.Matrix(3, 3), alpha=True).tobytes("png")
+        pix = annot.get_pixmap(matrix=pymupdf.Matrix(3, 3), alpha=True)
+        if page is not None and page.rotation % 180:
+            shown = annot.rect * page.rotation_matrix
+            if (pix.width > pix.height) != (abs(shown.width) > abs(shown.height)):
+                pix = annot.get_pixmap(matrix=pymupdf.Matrix(3, 3).prerotate(page.rotation), alpha=True)
+        return pix.tobytes("png")
     except (RuntimeError, ValueError):
         return b""
 
@@ -363,7 +456,9 @@ def read_annotation(doc: pymupdf.Document, page: pymupdf.Page, annot: pymupdf.An
               "contents": info.get("content", "") or "", "author": info.get("title", "") or "",
               "created": info.get("creationDate", "") or "", "modified": info.get("modDate", "") or "",
               "locked": bool(annot.flags & pymupdf.PDF_ANNOT_IS_LOCKED),
-              "dashed": bool(border.get("dashes")) or border.get("style") == "D", "xref": annot.xref}
+              "dashed": bool(border.get("dashes")) or border.get("style") == "D",
+              "tags": _labels(_pdf_text(doc, annot.xref, TAGS_KEY)),
+              "categories": _labels(_pdf_text(doc, annot.xref, CATEGORIES_KEY)), "xref": annot.xref}
     vertices = annot.vertices or []
     if kind in MARKUP:
         quads = [_shown_rect(page, bounds(vertices[i:i + 4])) for i in range(0, len(vertices) - 3, 4)]
@@ -376,9 +471,18 @@ def read_annotation(doc: pymupdf.Document, page: pymupdf.Page, annot: pymupdf.An
         rd = doc.xref_get_key(annot.xref, "RD")
         delta = [float(v) for v in rd[1].strip("[]").split()] if rd[0] == "array" else []
         if len(delta) == 4 and any(delta):
-            # (the box, inside the rectangle that holds the box and the line; MuPDF's /RD gives
-            # what is left out on the left, below, on the right and above the box)
+            # (the box, inside the rectangle that holds the box and the line; /RD gives what is left out on
+            # each side, as MuPDF writes it: left, below, right, above. Some programs give them in another
+            # order: if the box this makes holds the place the line points at, or is empty, the other is tried)
             box = pymupdf.Rect(r.x0 + delta[0], r.y0 + delta[3], r.x1 - delta[2], r.y1 - delta[1])
+            other = pymupdf.Rect(r.x0 + delta[0], r.y0 + delta[1], r.x1 - delta[2], r.y1 - delta[3])
+            if kind == "callout" and len(vertices) > 1 and not other.is_empty:
+                # (the line ends on the edge of the box: the reading that puts that end nearest to it)
+                end = pymupdf.Point(vertices[-1])
+                if _off_edge(other, end) < _off_edge(box, end) - 0.5:
+                    box = other
+            elif box.is_empty:
+                box = other
             r = box if not box.is_empty else r
         elif width:  # (the rectangle holds the border, half of it outside the box)
             r = pymupdf.Rect(r.x0 + width / 2, r.y0 + width / 2, r.x1 - width / 2, r.y1 - width / 2)
@@ -402,45 +506,91 @@ def read_annotation(doc: pymupdf.Document, page: pymupdf.Page, annot: pymupdf.An
         if r.width > 2 * half and r.height > 2 * half:
             r = pymupdf.Rect(r.x0 + half, r.y0 + half, r.x1 - half, r.y1 - half)
         return Annotation(rect=_shown_rect(page, r), color=stroke or "#000000", fill=fill, **fields)
-    if kind in ("line", "arrow", "polyline", "polygon", "cloud", "ink"):
-        if kind == "ink":
+    if kind in ("line", "arrow", "polyline", "polygon", "cloud", "ink", "marker"):
+        if kind in DRAWN:
             paths = tuple(tuple(_shown_point(page, p) for p in stroke_) for stroke_ in vertices if stroke_)
         elif kind in ("line", "arrow"):
             paths = (tuple(_shown_point(page, p) for p in vertices[:2]),)
         else:
             paths = (tuple(_shown_point(page, p) for p in vertices),)
-        if not paths or len(paths[0]) < (1 if kind == "ink" else 2):
+        if not paths or len(paths[0]) < (1 if kind in DRAWN else 2):
             return None
         return Annotation(rect=frame(kind, paths, width), color=stroke or "#000000", fill=fill, paths=paths,
                           ends=ends if kind in ENDED else ("None", "None"), **fields)
     if kind == "stamp":
         name = doc.xref_get_key(annot.xref, "Name")[1].lstrip("/")
         return Annotation(rect=_shown_rect(page, annot.rect), color=stroke or "#000000",
-                          stamp=name if name in STAMPS else "", image=_stamp_image(annot), **fields)
+                          stamp=name if name in STAMPS else "", image=_stamp_image(annot, page), **fields)
     # (a note, or a caret)
     icon = info.get("name", "") or "Note"
     return Annotation(rect=_shown_rect(page, annot.rect), color=stroke or ("#ffd54f" if kind == "note" else "#1e88e5"),
                       icon=icon if icon in ICONS else "Note", **fields)
 
 
+def _reply_roots(doc: pymupdf.Document, page: pymupdf.Page) -> dict[int, int]:
+    """{xref of a reply: xref of the annotation it answers, at the root of the thread} on PAGE."""
+    parent = {}
+    for annot in page.annots() or []:
+        if annot.type[0] == pymupdf.PDF_ANNOT_TEXT and doc.xref_get_key(annot.xref, "IRT")[0] == "xref":
+            parent[annot.xref] = annot.irt_xref
+    roots = {}
+    for xref in parent:
+        root, seen = parent[xref], {xref}
+        while root in parent and root not in seen:  # (a reply to a reply: to the first of the thread)
+            seen.add(root)
+            root = parent[root]
+        roots[xref] = root
+    return roots
+
+
+def read_reply(doc: pymupdf.Document, annot: pymupdf.Annot) -> Reply:
+    info = annot.info or {}
+    state = _pdf_text(doc, annot.xref, "State")
+    model = _pdf_text(doc, annot.xref, "StateModel")
+    return Reply(author=info.get("title", "") or "", contents=info.get("content", "") or "",
+                 state=state if state in STATES and model in ("Review", "") else "",
+                 created=info.get("creationDate", "") or "", modified=info.get("modDate", "") or "",
+                 xref=annot.xref)
+
+
 def read(doc: pymupdf.Document) -> list[Annotation]:
-    """The annotations of DOC that py-annotate can edit, page by page."""
+    """The annotations of DOC that py-annotate can edit, page by page, with their replies."""
     out = []
     for page in doc:
+        roots = _reply_roots(doc, page)
+        found, replies = [], {}
         for annot in page.annots() or []:
+            if annot.xref in roots:
+                replies.setdefault(roots[annot.xref], []).append(read_reply(doc, annot))
+                continue
             a = read_annotation(doc, page, annot)
             if a is not None:
-                out.append(a)
+                found.append(a)
+        for a in found:
+            if a.xref in replies:
+                thread = sorted(replies[a.xref], key=lambda r: (date_value(r.created) or datetime.datetime.min,
+                                                                 r.xref))
+                a = dataclasses.replace(a, replies=tuple(thread))
+            out.append(a)
     return out
 
 
+def _delete(page: pymupdf.Page, xref: int) -> None:
+    """Take out the annotation XREF of PAGE, if it is still there (PyMuPDF takes out the
+    replies of an annotation with it)."""
+    if xref in {x for x, _, _ in page.annot_xrefs()}:
+        page.delete_annot(page.load_annot(xref))
+
+
 def remove_editable(doc: pymupdf.Document) -> None:
-    """Take out of DOC the annotations that read() gives (for showing its pages
-    without them: the window draws them itself)."""
+    """Take out of DOC the annotations that read() gives, and their replies (for showing
+    its pages without them: the window draws them itself)."""
     for page in doc:
-        xrefs = [annot.xref for annot in page.annots() or [] if kind_of(doc, annot) is not None]
+        roots = _reply_roots(doc, page)
+        editable = {annot.xref for annot in page.annots() or [] if kind_of(doc, annot) is not None}
+        xrefs = [x for x, root in roots.items() if root in editable] + list(editable)
         for xref in xrefs:
-            page.delete_annot(page.load_annot(xref))
+            _delete(page, xref)
 
 
 def _placed(page: pymupdf.Page, make, rect: Rect, size: tuple[float, float]) -> pymupdf.Annot:
@@ -464,20 +614,25 @@ def _flags(annot: pymupdf.Annot, locked: bool) -> None:
         annot.set_flags(flags)
 
 
-def _info(annot: pymupdf.Annot, a: Annotation, when: str, subject: str | None = None) -> None:
+def _info(annot: pymupdf.Annot, a: Annotation, when: str) -> None:
     info = {"content": a.contents, "title": a.author, "creationDate": a.created or when, "modDate": when}
-    if subject is not None:
-        info["subject"] = subject
+    if a.kind in SUBJECTS:
+        info["subject"] = SUBJECTS[a.kind]
     annot.set_info(**info)
 
 
+def _labels_keys(doc: pymupdf.Document, xref: int, a: Annotation) -> None:
+    for key, values in ((TAGS_KEY, a.tags), (CATEGORIES_KEY, a.categories)):
+        doc.xref_set_key(xref, key, pymupdf.get_pdf_str(", ".join(values)) if values else "null")
+
+
 def add(page: pymupdf.Page, a: Annotation, when: str | None = None) -> pymupdf.Annot:
-    """Write A on PAGE, as a new annotation, made (if A has no date) and changed WHEN (a PDF date; now)."""
+    """Write A on PAGE, as a new annotation, made (if A has no date) and changed WHEN (a PDF
+    date; now), with its replies."""
     when = when or now()
     stroke = rgb(a.color)
     fill = rgb(a.fill) if a.fill else None
     dashes = DASHES if a.dashed and a.kind in DASHABLE else None
-    subject = None
     if a.kind in MARKUP:
         quads = [_real_rect(page, q).quad for q in (a.quads or (a.rect,))]
         method = {"highlight": page.add_highlight_annot, "underline": page.add_underline_annot,
@@ -500,15 +655,12 @@ def add(page: pymupdf.Page, a: Annotation, when: str | None = None) -> pymupdf.A
         annot = method(_real_rect(page, a.rect))
         annot.set_border(width=0 if a.kind == "area" else a.width, dashes=dashes or [])
         annot.set_colors(stroke=stroke, fill=fill)
-        if a.kind == "area":
-            subject = AREA_SUBJECT
     elif a.kind in ("line", "arrow"):
         p1, p2 = a.paths[0][0], a.paths[0][-1]
         annot = page.add_line_annot(_real_point(page, p1), _real_point(page, p2))
         annot.set_border(width=a.width, dashes=dashes or [])
         annot.set_colors(stroke=stroke)
-        ends = a.ends if a.kind == "line" or a.ends != ("None", "None") else ("None", "OpenArrow")
-        annot.set_line_ends(*(_END_CODES.get(e, 0) for e in ends))
+        annot.set_line_ends(*(_END_CODES.get(e, 0) for e in _line_ends(a)))
     elif a.kind in ("polygon", "cloud", "polyline"):
         points = [tuple(_real_point(page, p)) for p in a.paths[0]]
         annot = page.add_polyline_annot(points) if a.kind == "polyline" else page.add_polygon_annot(points)
@@ -516,7 +668,7 @@ def add(page: pymupdf.Page, a: Annotation, when: str | None = None) -> pymupdf.A
         annot.set_colors(stroke=stroke, fill=fill if a.kind != "polyline" else None)
         if a.kind == "polyline":
             annot.set_line_ends(*(_END_CODES.get(e, 0) for e in a.ends))
-    elif a.kind == "ink":
+    elif a.kind in DRAWN:
         annot = page.add_ink_annot([[tuple(_real_point(page, p)) for p in path] for path in a.paths])
         annot.set_border(width=a.width)
         annot.set_colors(stroke=stroke)
@@ -533,58 +685,198 @@ def add(page: pymupdf.Page, a: Annotation, when: str | None = None) -> pymupdf.A
                                      stamp=stamps.index(a.stamp) if a.stamp in stamps else a.image)
     else:
         raise ValueError(a.kind)
-    _info(annot, a, when, subject)
+    _info(annot, a, when)
     if a.opacity < 1:
         annot.set_opacity(a.opacity)
     _flags(annot, a.locked)
+    _labels_keys(page.parent, annot.xref, a)
     if a.kind in TEXTUAL:  # (update() alone would forget the colour and size of its text)
         annot.update(fontsize=a.font_size, fontname=a.font, text_color=stroke, fill_color=fill, rotate=page.rotation)
         if a.kind == "freetext":  # (PyMuPDF gives every text box a callout line, of no length)
             page.parent.xref_set_key(annot.xref, "CL", "null")
     elif a.kind != "stamp" or a.stamp:  # (an image stamp's look would be lost)
         annot.update()
+    for reply in a.replies:
+        add_reply(page, annot, reply, when)
     return annot
 
 
-def change_stamp(page: pymupdf.Page, annot: pymupdf.Annot, a: Annotation, when: str | None = None) -> None:
-    """Change the stamp ANNOT where it is into A: its place, comment, author,
-    opacity and lock (its image, which can't be made again, stays)."""
-    annot.set_rect(_real_rect(page, a.rect))
-    _info(annot, a, when or now())
-    annot.set_opacity(a.opacity)
-    _flags(annot, a.locked)
-    if a.stamp:
-        annot.update()
+def _line_ends(a: Annotation) -> tuple[str, str]:
+    return a.ends if a.kind == "line" or a.ends != ("None", "None") else ("None", "OpenArrow")
 
 
-def apply(doc: pymupdf.Document, annotations: list[Annotation], when: str | None = None) -> int:
+def add_reply(page: pymupdf.Page, parent: pymupdf.Annot, reply: Reply, when: str) -> pymupdf.Annot:
+    """REPLY to PARENT, written as a note that answers it (and gives a status, if it has one)."""
+    doc = page.parent
+    annot = page.add_text_annot(parent.rect.tl, reply.contents, icon="Comment")
+    doc.xref_set_key(annot.xref, "IRT", f"{parent.xref} 0 R")
+    if reply.state:
+        doc.xref_set_key(annot.xref, "State", pymupdf.get_pdf_str(reply.state))
+        doc.xref_set_key(annot.xref, "StateModel", "(Review)")
+    annot.set_info(content=reply.contents, title=reply.author, creationDate=reply.created or when,
+                   modDate=reply.modified or reply.created or when)
+    annot.update()
+    return annot
+
+
+def same(a: Annotation, b: Annotation, tolerance: float = 1.0) -> bool:
+    """Whether A and B are the same annotation, but for small differences of place (and their
+    xrefs, dates and stamp images, which writing changes)."""
+    def close(x, y) -> bool:
+        return len(x) == len(y) and all(abs(u - v) <= tolerance for u, v in zip(x, y, strict=True))
+
+    def flat(items) -> list[float]:
+        return [v for item in items for p in item for v in (p if isinstance(p, tuple) else (p,))]
+
+    ignore = {"xref", "created", "modified", "image", "rect", "quads", "paths", "replies", "width"}
+    fields = [f.name for f in dataclasses.fields(Annotation) if f.name not in ignore]
+    if any(getattr(a, f) != getattr(b, f) for f in fields if not (f == "color" and a.kind == "stamp")):
+        return False
+    if a.kind in STROKED and abs(a.width - b.width) > 0.01:
+        return False
+    if a.kind in MARKUP:
+        return close(flat(a.quads), flat(b.quads))
+    if a.paths and not close(flat(a.paths), flat(b.paths)):
+        return False
+    if a.kind == "stamp" and a.stamp:  # (MuPDF gives a standard stamp its own proportions, around its centre)
+        return close(((a.rect[0] + a.rect[2]) / 2, (a.rect[1] + a.rect[3]) / 2),
+                     ((b.rect[0] + b.rect[2]) / 2, (b.rect[1] + b.rect[3]) / 2))
+    return a.kind in ("line", "arrow", "polyline", "polygon", "cloud", "ink", "marker") or close(a.rect, b.rect)
+
+
+def change(page: pymupdf.Page, annot: pymupdf.Annot, old: Annotation, a: Annotation, when: str) -> bool:
+    """Change ANNOT (which was OLD) where it is into A, keeping all else it has. Returns
+    whether that could be done (False: it has to be taken out and written again)."""
+    doc = page.parent
+    if old.kind != a.kind or old.page != a.page or a.kind == "callout":
+        return False
+    stroke = rgb(a.color)
+    fill = rgb(a.fill) if a.fill else None
+    dashes = list(DASHES) if a.dashed and a.kind in DASHABLE else []
+    try:
+        if a.kind == "stamp":
+            if a.rect != old.rect:
+                annot.set_rect(_real_rect(page, a.rect))
+        elif a.kind in MARKUP:
+            quads = [_real_rect(page, q).quad for q in (a.quads or (a.rect,))]
+            doc.xref_set_key(annot.xref, "QuadPoints", "[" + " ".join(
+                _pdf_points(page, [tuple(pt * page.rotation_matrix) for pt in (q.ul, q.ur, q.ll, q.lr)])
+                for q in quads) + "]")
+            doc.xref_set_key(annot.xref, "Rect", _pdf_rect(page, _real_rect(page, union(a.quads or (a.rect,)))))
+        elif a.kind in ("line", "arrow"):
+            doc.xref_set_key(annot.xref, "L", "[" + _pdf_points(page, [a.paths[0][0], a.paths[0][-1]]) + "]")
+        elif a.kind in ("polygon", "cloud", "polyline"):
+            doc.xref_set_key(annot.xref, "Vertices", "[" + _pdf_points(page, a.paths[0]) + "]")
+        elif a.kind in DRAWN:
+            doc.xref_set_key(annot.xref, "InkList", "[" + " ".join(
+                "[" + _pdf_points(page, path) + "]" for path in a.paths) + "]")
+        elif a.kind in ("note", "caret"):
+            w, h = shown_size(page.rotation, (NOTE_SIZE, NOTE_SIZE) if a.kind == "note" else CARET_SIZE)
+            x0, y0 = a.rect[0], a.rect[1]
+            doc.xref_set_key(annot.xref, "Rect", _pdf_rect(page, _real_rect(page, (x0, y0, x0 + w, y0 + h))))
+        else:  # (a rectangle, an ellipse, an area, a text box: the line is half outside)
+            half = 0 if a.kind == "area" else a.width / 2
+            r = _real_rect(page, a.rect)
+            doc.xref_set_key(annot.xref, "Rect", _pdf_rect(page, pymupdf.Rect(r.x0 - half, r.y0 - half,
+                                                                              r.x1 + half, r.y1 + half)))
+        if a.kind == "freetext":
+            doc.xref_set_key(annot.xref, "Q", str({"center": 1, "right": 2}.get(a.align, 0)))
+            doc.xref_set_key(annot.xref, "Contents", pymupdf.get_pdf_str(a.contents))
+            annot.set_border(width=a.width, dashes=dashes)
+        elif a.kind in ("rect", "ellipse", "area", "polygon", "cloud", "polyline", "line", "arrow"):
+            annot.set_border(width=0 if a.kind == "area" else a.width, dashes=dashes,
+                             clouds=1 if a.kind == "cloud" else (0 if a.kind == "polygon" else -1))
+            annot.set_colors(stroke=stroke, fill=(fill or []) if a.kind in FILLED else None)
+        elif a.kind in DRAWN:
+            annot.set_border(width=a.width)
+            annot.set_colors(stroke=stroke)
+        elif a.kind != "stamp":
+            annot.set_colors(stroke=stroke)
+        if a.kind in ("line", "arrow", "polyline"):
+            ends = _line_ends(a) if a.kind != "polyline" else a.ends
+            annot.set_line_ends(*(_END_CODES.get(e, 0) for e in ends))
+        if a.kind == "note" and a.icon != old.icon:
+            annot.set_name(a.icon)
+        _info(annot, a, when)
+        annot.set_opacity(a.opacity)
+        _flags(annot, a.locked)
+        _labels_keys(doc, annot.xref, a)
+        if a.kind == "freetext":
+            annot.update(fontsize=a.font_size, fontname=a.font, text_color=stroke, fill_color=fill,
+                         rotate=page.rotation)
+        elif a.kind != "stamp" or a.stamp:
+            annot.update()
+    except (RuntimeError, ValueError):
+        return False
+    after = read_annotation(doc, page, page.load_annot(annot.xref))
+    return after is not None and same(dataclasses.replace(a, replies=()), after)
+
+
+def _sync_replies(page: pymupdf.Page, parent: pymupdf.Annot, old: tuple[Reply, ...], new: tuple[Reply, ...],
+                  when: str) -> None:
+    """Make the replies of PARENT, which were OLD, be NEW: those gone taken out, those changed
+    changed, those new written."""
+    doc = page.parent
+    keep = {r.xref for r in new if r.xref}
+    for r in old:
+        if r.xref not in keep:
+            _delete(page, r.xref)
+    before = {r.xref: r for r in old}
+    for r in new:
+        if r.xref and r.xref in before:
+            if before[r.xref] != r:
+                annot = page.load_annot(r.xref)
+                annot.set_info(content=r.contents, title=r.author, modDate=when)
+                doc.xref_set_key(r.xref, "State", pymupdf.get_pdf_str(r.state) if r.state else "null")
+                doc.xref_set_key(r.xref, "StateModel", "(Review)" if r.state else "null")
+                annot.update()
+        else:
+            add_reply(page, parent, r, when)
+
+
+def apply(doc: pymupdf.Document, annotations: list[Annotation], when: str | None = None,
+          kept: set[int] | None = None) -> int:
     """Make the annotations of DOC that read() gives be ANNOTATIONS.
 
     Those of DOC are compared with ANNOTATIONS by their xref: those that are
-    there and the same are left as they are; the others (changed, or deleted)
-    are taken out, and what is new or changed is written (but stamps are
-    changed where they are). Returns how many annotations were written."""
+    there and the same are left as they are; those changed are changed where
+    they are (or, if that can't be done, taken out and written again, with
+    their replies); those deleted are taken out, with their replies; the new
+    ones are written. KEPT, if given, gets the xrefs of those that are still
+    there (as they were, or changed where they are). Returns how many
+    annotations were written."""
     when = when or now()
     original = {a.xref: a for a in read(doc)}
-    kept = {a.xref for a in annotations if a.xref and original.get(a.xref) == a}
-    stamps = {a.xref: a for a in annotations if a.kind == "stamp" and a.xref in original and a.xref not in kept
-              and original[a.xref].kind == "stamp" and original[a.xref].page == a.page}
+    model = {a.xref: a for a in annotations if a.xref and a.xref in original}
     written = 0
+    redo: list[Annotation] = []
     for page in doc:
-        for annot in list(page.annots() or []):
-            if annot.xref in stamps:
-                change_stamp(page, annot, stamps[annot.xref], when)
+        for xref in [x for x in original if original[x].page == page.number]:
+            old = original[xref]
+            a = model.get(xref)
+            if a == old:
+                if kept is not None:
+                    kept.add(xref)
+                continue
+            annot = page.load_annot(xref)
+            if a is not None and change(page, annot, old, a, when):
+                _sync_replies(page, page.load_annot(xref), old.replies, a.replies, when)
                 written += 1
-        gone = [annot.xref for annot in page.annots() or []
-                if annot.xref in original and annot.xref not in kept and annot.xref not in stamps]
-        for xref in gone:
-            page.delete_annot(page.load_annot(xref))
-    for a in annotations:
-        if a.xref in kept or a.xref in stamps or not 0 <= a.page < doc.page_count:
+                if kept is not None:
+                    kept.add(xref)
+                continue
+            for r in old.replies:  # (taken out, with its replies; written again below if it is still there)
+                _delete(page, r.xref)
+            _delete(page, xref)
+            if a is not None:
+                redo.append(dataclasses.replace(a, replies=tuple(dataclasses.replace(r, xref=0) for r in a.replies)))
+    for a in redo + [a for a in annotations if not (a.xref and a.xref in original)]:
+        if not 0 <= a.page < doc.page_count:
             continue
         if a.kind == "stamp" and not a.stamp and not a.image:
             continue  # (an image stamp whose image is lost: nothing to write)
-        add(doc[a.page], a, when)
+        add(doc[a.page], dataclasses.replace(a, replies=tuple(dataclasses.replace(r, xref=0) for r in a.replies)),
+            when)
         written += 1
     return written
 
@@ -602,13 +894,23 @@ def save_doc(doc: pymupdf.Document, target: Path) -> None:
         raise
 
 
-def write(source: Path, annotations: list[Annotation], target: Path, password: str = "") -> int:
-    """SOURCE with ANNOTATIONS (see apply), saved as TARGET (safely: TARGET may
-    be SOURCE). Returns how many annotations were written."""
+def write(source: Path, annotations: list[Annotation], target: Path, password: str = "",
+          kept: set[int] | None = None) -> int:
+    """SOURCE with ANNOTATIONS (see apply), saved as TARGET. Into SOURCE itself, the
+    changes are added at its end (an incremental save: what was signed stays as it was
+    signed), unless the file can't take that or has a password; else it is written whole
+    (safely, through a file of its own). KEPT: see apply. Returns how many annotations were written."""
     doc = open_pdf(source, password)
     try:
-        written = apply(doc, annotations)
-        save_doc(doc, target)
+        written = apply(doc, annotations, kept=kept)
+        same_file = target.resolve() == source.resolve()
+        # (not for a document with a password: PyMuPDF's incremental save of those has been seen to
+        # leave this process unable to read them back now and then; they are written whole)
+        if same_file and not doc.needs_pass and doc.can_save_incrementally():
+            if written or doc.is_dirty:
+                doc.save(str(source), incremental=True, encryption=pymupdf.PDF_ENCRYPT_KEEP)
+        else:
+            save_doc(doc, target)
     except (OSError, RuntimeError, ValueError) as e:
         raise AnnotateError(tr("{path} cannot be written: {error}", path=target, error=e)) from None
     finally:

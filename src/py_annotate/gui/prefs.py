@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMessageBox,
+    QPlainTextEdit,
     QPushButton,
     QSpinBox,
     QTableWidget,
@@ -130,6 +131,19 @@ class SettingsDialog(QDialog):
         lay.addWidget(usual, 0, Qt.AlignmentFlag.AlignRight)
         tabs.addTab(keys, tr("Shortcuts"))
 
+        cats = QWidget()
+        lay = QVBoxLayout(cats)
+        intro = QLabel(tr("The categories annotations can be put in (in their properties): one on each line"))
+        intro.setWordWrap(True)
+        lay.addWidget(intro)
+        self.categories = QPlainTextEdit("\n".join(prefs.category_list()))
+        lay.addWidget(self.categories, 1)
+        usual = QPushButton(tr("The usual categories"))
+        usual.clicked.connect(lambda: self.categories.setPlainText(
+            "\n".join(settings.Settings().category_list())))
+        lay.addWidget(usual, 0, Qt.AlignmentFlag.AlignRight)
+        tabs.addTab(cats, tr("Categories"))
+
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
@@ -163,6 +177,15 @@ class SettingsDialog(QDialog):
         for (button, edit), (color, _, meaning) in zip(self.palette_rows, settings.PALETTE):
             button.set_color(color)
             edit.setText(tr(meaning) if meaning else "")
+
+    def _categories(self) -> tuple[str, ...] | None:
+        """The categories written (None if they are the usual ones)."""
+        names = []
+        for line in self.categories.toPlainText().splitlines():
+            name = " ".join(line.replace(";", ",").split())
+            if name and name not in names:
+                names.append(name)
+        return None if names == settings.Settings().category_list() else tuple(names)
 
     def _usual_keys(self):
         for action, key in settings.SHORTCUTS.items():
@@ -204,6 +227,7 @@ class SettingsDialog(QDialog):
             palette.append((color, None if same else text))
         prefs = dataclasses.replace(self.prefs, author=author, autosave=self.autosave.value(),
                                     pdfconform=self.pdfconform.text().strip(),
+                                    categories=self._categories(),
                                     palette=tuple(palette), shortcuts=tuple(self.shortcuts().items()))
         if self.reset.isChecked():
             prefs = dataclasses.replace(prefs, styles=settings.DEFAULTS.styles)

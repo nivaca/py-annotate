@@ -42,7 +42,9 @@ def keep(path: Path, annotations: list[Annotation]) -> None:
     target = _file(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     data = {"path": str(path.resolve()), "stamp": stamp(path), "kept": datetime.datetime.now().isoformat(timespec="seconds"),
-            "annotations": [dict(to_data(a), xref=a.xref) for a in annotations]}
+            "annotations": [dict(to_data(a), xref=a.xref, replies=[dict(d, xref=r.xref) for d, r in
+                                                                  zip(to_data(a)["replies"], a.replies)])
+                            for a in annotations]}
     fd, tmp = tempfile.mkstemp(suffix=".json", dir=target.parent)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:

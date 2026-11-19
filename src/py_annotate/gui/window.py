@@ -1,67 +1,37 @@
-"""The main window: the pages of a PDF, the page being annotated with its
-annotations, and the list of annotations (searched and filtered) with the
-comment of the one selected."""
+"""The main window: the pages of a PDF (thumbnails on the left; the pages, one
+under the other, in the middle) with their annotations, and the panel of the
+annotations on the right: the list of them (searched and filtered) and the
+one selected, with its comment, tags, replies and review status."""
 
 from __future__ import annotations
 
 import dataclasses
 import json
-from collections import Counter
 import os
 import tempfile
+from collections import Counter
 from pathlib import Path
 
 import pymupdf
-from PySide6.QtCore import QByteArray, QItemSelection, QItemSelectionModel, QPoint, QSettings, QSize, Qt, QTimer, Signal
+from PySide6.QtCore import QByteArray, QItemSelection, QItemSelectionModel, QPoint, QSettings, QSize, Qt, QTimer
 from PySide6.QtGui import QAction, QActionGroup, QColor, QIcon, QImage, QKeySequence, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
-    QAbstractItemView,
-    QApplication,
-    QColorDialog,
-    QComboBox,
-    QDialog,
-    QDockWidget,
-    QFileDialog,
-    QHBoxLayout,
-    QHeaderView,
-    QInputDialog,
-    QLabel,
-    QLineEdit,
-    QListView,
-    QListWidget,
-    QListWidgetItem,
-    QMainWindow,
-    QMenu,
-    QMessageBox,
-    QPlainTextEdit,
-    QPushButton,
-    QSpinBox,
-    QSplitter,
-    QTableWidget,
-    QTableWidgetItem,
-    QToolBar,
-    QToolButton,
-    QVBoxLayout,
-    QWidget,
+    QApplication, QColorDialog, QDialog, QDockWidget, QFileDialog, QHBoxLayout, QInputDialog, QLabel, QLineEdit,
+    QListView, QListWidget, QListWidgetItem, QMainWindow, QMenu, QMessageBox, QSlider, QSpinBox, QSplitter,
+    QToolBar, QToolButton, QVBoxLayout, QWidget,
 )
 
 from .. import __version__, annots, config, conform, exchange, interface, recovery, settings
 from ..annots import (
-    FILLED,
-    KINDS,
-    MARKUP,
-    NAMES,
-    STAMPS,
-    AnnotateError,
-    Annotation,
-    PasswordError,
-    Rect,
+    FILLED, KINDS, MARKUP, NAMES, STAMPS, STATES, TEXTUAL, AnnotateError, Annotation, PasswordError, Rect, Reply,
     date_text,
 )
 from ..interface import N_, ntr, tr
 from . import colors
 from .canvas import PageCanvas, page_image
 from .colors import color_name, swatch, swatches
+from .finder import FindDialog
+from .listing import AnnotationModel, Panel
 from .paint import paint
 from .prefs import SettingsDialog
 from .props import PropertiesDialog
@@ -70,12 +40,12 @@ from .stamps import text_stamp
 
 RECENT = 10  # documents in File ▸ Open recent
 AUTHOR = '<a href="https://nicolasvaughan.org">Nicolas Vaughan</a>'
-THUMB = QSize(84, 112)  # the largest thumbnail of a page
+THUMB_SIZES = (60, 300, 112)  # the height of the thumbnails: smallest, largest, usual
 # the tools: (name, freedesktop icon, tooltip), in groups; besides select, hand and eraser, they are the
 # kinds of annotations they make (annots.KINDS)
 TOOLS = [
     [("select", "edit-select", N_("Select, move and resize annotations; drag around them to select several")),
-     ("hand", "transform-browse", N_("Dragging moves the page in the window")),
+     ("hand", "transform-browse", N_("Dragging moves the pages in the window")),
      ("eraser", "draw-eraser", N_("Drag over annotations to erase them (over a drawing, only what is touched)"))],
     [("highlight", "draw-highlight", N_("Drag over text to highlight it")),
      ("area", "highlight-area", N_("Drag on the page to highlight a region (a picture, a table, a scanned page)")),
@@ -94,11 +64,12 @@ TOOLS = [
      ("line", "draw-line", N_("Drag on the page to draw a line")),
      ("arrow", "draw-arrow", N_("Drag on the page to draw an arrow")),
      ("polyline", "draw-polyline", N_("Click each point; double-click, or press Enter, to end")),
-     ("ink", "draw-freehand", N_("Draw on the page by hand"))],
+     ("ink", "draw-freehand", N_("Draw on the page by hand (with a tablet's pen, pressing harder draws wider)")),
+     ("marker", "draw-marker", N_("Highlight by hand, where there is no text to drag over"))],
 ]
 TOOL_NAMES = {"select": N_("Select"), "hand": N_("Hand"), "eraser": N_("Eraser")}
 SORTS = {"page": N_("By page"), "changed": N_("Last changed first"), "kind": N_("By kind"),
-         "author": N_("By author")}
+         "author": N_("By author"), "status": N_("By status")}
 _CLIPBOARD: list[Annotation] = []  # (annotations copied, for all the windows)
 
 _WINDOWS: list = []  # (windows built again in another language must stay referenced)
@@ -139,17 +110,6 @@ def tool_name(tool: str) -> str:
     return tr(TOOL_NAMES[tool]) if tool in TOOL_NAMES else tr(NAMES[tool])
 
 
-class CommentEdit(QPlainTextEdit):
-    """The comment of the annotation selected; what is typed is kept when the
-    field is left (finished)."""
-
-    finished = Signal()
-
-    def focusOutEvent(self, event):
-        super().focusOutEvent(event)
-        self.finished.emit()
-
-
 class MainWindow(QMainWindow):
     def __init__(self, state: dict | None = None):
         """STATE (from export_state) carries the document over when the window is
@@ -161,7 +121,7 @@ class MainWindow(QMainWindow):
         self.password = ""
         self.doc: pymupdf.Document | None = None  # (its pages without the annotations of the list: those are drawn)
         self.count = 0
-        self.page = 0  # (0-based) the page shown
+        self.page = 0  # (0-based) the page in view
         self.annotations: list[Annotation] = []
         self.saved: list[Annotation] = []  # the annotations as they are in the file
         self.undo_stack: list[list[Annotation]] = []
@@ -175,7 +135,15 @@ class MainWindow(QMainWindow):
         self._thumb_shown: dict[int, tuple] = {}  # page -> the annotations its thumbnail shows
         self._by_page: list[list[Annotation]] = []
         self._marked: dict[tuple, str] = {}  # (page, quads) -> the text marked there
-        self._rows: list[int] = []  # row of the table -> index of its annotation (those the filters let through)
+        self._rows: list[int] = []  # row of the list -> index of its annotation (those the filters let through)
+        self._quiet_table = False  # (the list's selection is being set by the program)
+        try:
+            height = int(self.settings.value("thumb_height", THUMB_SIZES[2]))
+        except (TypeError, ValueError):
+            height = THUMB_SIZES[2]
+        height = min(max(height, THUMB_SIZES[0]), THUMB_SIZES[1])
+        self.thumb = QSize(round(height * 0.75), height)
+        self.finder: FindDialog | None = None
         self._build()
         self._build_menus()
         self._restore()
@@ -194,17 +162,27 @@ class MainWindow(QMainWindow):
         self.pages.setFlow(QListView.Flow.TopToBottom)
         self.pages.setWrapping(False)
         self.pages.setMovement(QListView.Movement.Static)
-        self.pages.setIconSize(THUMB)
-        self.pages.setGridSize(QSize(THUMB.width() + 28, THUMB.height() + 30))
         self.pages.setUniformItemSizes(True)
-        self.pages.setMinimumWidth(THUMB.width() + 50)
         self.pages.setToolTip(tr("The pages; the number after ● is how many annotations a page has"))
         self.pages.currentRowChanged.connect(lambda row: self.show_page(row) if row >= 0 else None)
         self.thumb_timer = QTimer(self, interval=0)
         self.thumb_timer.timeout.connect(self._draw_thumbnails)
+        self.thumb_slider = QSlider(Qt.Orientation.Horizontal)
+        self.thumb_slider.setRange(*THUMB_SIZES[:2])
+        self.thumb_slider.setValue(self.thumb.height())
+        self.thumb_slider.setToolTip(tr("The size of the thumbnails"))
+        self.thumb_slider.valueChanged.connect(self.set_thumb_size)
+        left = QWidget()
+        lay = QVBoxLayout(left)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.addWidget(self.pages, 1)
+        lay.addWidget(self.thumb_slider)
+        self._size_thumbnails()
 
         self.canvas = PageCanvas()
+        self.canvas.continuous = self.settings.value("continuous", "true") != "false"
         self.canvas.factory = self.new_annotation
+        self.canvas.placeholder_for = lambda n: self._thumbs.get(n)
         self.canvas.drawn.connect(self.add_drawn)
         self.canvas.edited.connect(self.replace)
         self.canvas.erased.connect(self.erase)
@@ -213,14 +191,19 @@ class MainWindow(QMainWindow):
         self.canvas.text_chosen.connect(self.add_markup)
         self.canvas.double_clicked.connect(self.double_clicked)
         self.canvas.menu_asked.connect(self.annotation_menu)
+        self.canvas.page_changed.connect(self._page_shown)
+        self.canvas.text_done.connect(self.text_done)
         self.canvas.zoom_changed.connect(lambda z: self.zoom_label.setText(f"{z * 100:.0f} %"))
         self.page_spin = QSpinBox()
         self.page_spin.setMinimum(1)
         self.page_spin.setPrefix(tr("Page "))
         self.page_spin.valueChanged.connect(lambda v: self.show_page(v - 1))
+        self.page_label = QLabel("")
+        self.page_label.setStyleSheet("color: palette(placeholder-text);")
         self.zoom_label = QLabel("")
         top = QHBoxLayout()
         top.addWidget(self.page_spin)
+        top.addWidget(self.page_label)
         top.addStretch(1)
         top.addWidget(self.zoom_label)
         center = QWidget()
@@ -230,85 +213,41 @@ class MainWindow(QMainWindow):
         lay.addWidget(self.canvas, 1)
         hint = QLabel(tr("Choose a tool in the toolbar: drag over text to mark it, drag on the page to draw, or "
                          "click to add a note. Drag an annotation to move it or resize it; double-click it for its "
-                         "properties, right-click it for more. Right-click a tool to set it up."))
+                         "properties (a text box, or a note: to write its text), right-click it for more. "
+                         "Right-click a tool to set it up."))
         hint.setWordWrap(True)
         hint.setStyleSheet("color: palette(placeholder-text);")
         lay.addWidget(hint)
 
-        self.search = QLineEdit()
-        self.search.setPlaceholderText(tr("Search the annotations…"))
-        self.search.setClearButtonEnabled(True)
-        self.search.setToolTip(tr("Their comments and texts, the text they mark, their authors and kinds"))
+        self.model = AnnotationModel(lambda: self.annotations, self.marked_text)
+        self.listing = Panel(self.model)
+        p = self.listing
+        # (the widgets of the panel, by the names the rest of the window uses)
+        self.search, self.f_kind, self.f_author, self.f_color = p.search, p.f_kind, p.f_author, p.f_color
+        self.f_status, self.f_tag, self.f_category, self.sort = p.f_status, p.f_tag, p.f_category, p.sort
+        self.table, self.comment, self.color_button = p.table, p.comment, p.color_button
+        self.b_props, self.b_delete = p.b_props, p.b_delete
         self.search.textChanged.connect(lambda _: self._filter_changed())
-        self.f_kind, self.f_author, self.f_color = QComboBox(), QComboBox(), QComboBox()
-        for box, tip in ((self.f_kind, tr("Only annotations of this kind")),
-                         (self.f_author, tr("Only annotations by this author")),
-                         (self.f_color, tr("Only annotations of this colour"))):
-            box.setToolTip(tip)
-            box.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
-            box.setMinimumContentsLength(6)
+        for box in (self.f_kind, self.f_author, self.f_color, self.f_status, self.f_tag, self.f_category):
             box.activated.connect(lambda _: self._filter_changed())
-        self.sort = QComboBox()
         for key, name in SORTS.items():
             self.sort.addItem(tr(name), key)
         self.sort.activated.connect(lambda _: self._fill_table())
-        filters = QHBoxLayout()
-        filters.addWidget(self.f_kind, 1)
-        filters.addWidget(self.f_author, 1)
-        filters.addWidget(self.f_color, 1)
-        self.listed = QLabel()
-        self.listed.setStyleSheet("color: palette(placeholder-text);")
-        sort_row = QHBoxLayout()
-        sort_row.addWidget(self.listed, 1)
-        sort_row.addWidget(self.sort)
-
-        self.table = QTableWidget(0, 5)
-        self.table.setHorizontalHeaderLabels([tr("Page"), tr("Kind"), tr("Author"), tr("Changed"), tr("Text")])
-        self.table.verticalHeader().setVisible(False)
-        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
-        self.table.itemSelectionChanged.connect(self._table_selected)
-        self.table.itemDoubleClicked.connect(lambda _: self.properties_dialog())
-
-        self.panel_title = QLabel()
-        self.panel_title.setWordWrap(True)
-        self.color_button = QToolButton()
-        self.color_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        self.color_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.color_button.setMenu(QMenu(self.color_button))
+        self.table.selectionModel().selectionChanged.connect(lambda *_: self._table_selected())
+        self.table.doubleClicked.connect(lambda _: self.properties_dialog())
         self.color_button.menu().aboutToShow.connect(self._color_menu)
-        self.comment = CommentEdit()
-        self.comment.setMinimumHeight(90)
         self.comment.finished.connect(self.keep_comment)
-        self.b_props = QPushButton(tr("Properties…"))
+        p.tags.editingFinished.connect(self.keep_tags)
+        p.reply_button.clicked.connect(lambda: self.add_reply())
+        p.reply_edit.returnPressed.connect(lambda: self.add_reply())
+        p.replies.itemDoubleClicked.connect(lambda item: self.edit_reply(p.replies.row(item)))
+        p.replies.deleted.connect(lambda: self.delete_reply(p.replies.currentRow()))
+        p.status.activated.connect(lambda _: self.set_status(p.status.currentData()))
         self.b_props.clicked.connect(self.properties_dialog)
-        self.b_delete = QPushButton(tr("Delete"))
         self.b_delete.clicked.connect(self.delete_selected)
-        row = QHBoxLayout()
-        row.addWidget(QLabel(tr("Colour:")))
-        row.addWidget(self.color_button, 1)
-        buttons = QHBoxLayout()
-        buttons.addStretch(1)
-        buttons.addWidget(self.b_props)
-        buttons.addWidget(self.b_delete)
-        right = QWidget()
-        lay = QVBoxLayout(right)
-        lay.setContentsMargins(4, 4, 4, 4)
-        lay.addWidget(self.search)
-        lay.addLayout(filters)
-        lay.addLayout(sort_row)
-        lay.addWidget(self.table, 1)
-        lay.addWidget(self.panel_title)
-        lay.addLayout(row)
-        self.comment_label = QLabel(tr("Comment:"))
-        lay.addWidget(self.comment_label)
-        lay.addWidget(self.comment)
-        lay.addLayout(buttons)
 
         self.splitter = QSplitter()
-        self.splitter.addWidget(self.pages)
+        self.splitter.addWidget(left)
         self.splitter.addWidget(center)
         self.splitter.setStretchFactor(0, 0)
         self.splitter.setStretchFactor(1, 1)
@@ -318,9 +257,9 @@ class MainWindow(QMainWindow):
         # can be hidden (View, or its close button), moved to the left, or taken out of the window
         self.panel = QDockWidget(tr("Annotations"), self)
         self.panel.setObjectName("annotations")
-        self.panel.setWidget(right)
+        self.panel.setWidget(self.listing)
         self.panel.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
-        right.setMinimumWidth(300)
+        self.listing.setMinimumWidth(300)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.panel)
         self.resizeDocks([self.panel], [500], Qt.Orientation.Horizontal)
 
@@ -342,7 +281,8 @@ class MainWindow(QMainWindow):
         self.m_recent = m.addMenu(tr("Open recent"))
         self._recent_menu()
         self.a_save = self._action(m, tr("Save"), self.save, QKeySequence.StandardKey.Save,
-                                   tr("Write the annotations in the document"))
+                                   tr("Write the annotations in the document (its signatures stay valid for what "
+                                      "they signed)"))
         self.a_save_as = self._action(m, tr("Save as…"), self.save_as_dialog, QKeySequence.StandardKey.SaveAs,
                                       tr("Write a copy of the document with the annotations, and go on with it"))
         sub = m.addMenu(tr("Save a copy"))
@@ -358,19 +298,30 @@ class MainWindow(QMainWindow):
         for value, name in conform.STANDARDS:
             act = self._action(sub, tr(name) + "…", lambda _=False, v=value: self.save_standard_dialog(v))
             self.standard_actions[value] = act
+        self.a_print = self._action(m, tr("Print…"), self.print_dialog, QKeySequence.StandardKey.Print,
+                                    tr("Print the pages with their annotations"))
         m.addSeparator()
         sub = m.addMenu(tr("Export the annotations"))
+        sub.setToolTipsVisible(True)
         self.a_export_md = self._action(sub, tr("As a report (Markdown)…"), lambda: self.export_dialog("md"))
         self.a_export_csv = self._action(sub, tr("As a table (CSV)…"), lambda: self.export_dialog("csv"))
         self.a_export_json = self._action(sub, tr("As data, to import them again (JSON)…"),
                                           lambda: self.export_dialog("json"))
+        self.a_export_xfdf = self._action(sub, tr("For other PDF programs (XFDF)…"), lambda: self.export_dialog("xfdf"),
+                                          tip=tr("XFDF, the format in which PDF programs exchange annotations (tags and "
+                                                 "categories are py-annotate's own, and are left out)"))
+        self.a_summary = self._action(sub, tr("A summary of the comments (PDF)…"), lambda: self.export_dialog("pdf"),
+                                      tip=tr("Each page with annotations, beside a numbered list of them, with the "
+                                             "text they mark, their comments and their replies"))
         sub = m.addMenu(tr("Import annotations"))
+        sub.setToolTipsVisible(True)
         self.a_import_json = self._action(sub, tr("From a file of annotations (JSON)…"),
                                           lambda: self.import_dialog("json"))
+        self.a_import_xfdf = self._action(sub, tr("From another PDF program (XFDF)…"),
+                                          lambda: self.import_dialog("xfdf"))
         self.a_import_pdf = self._action(sub, tr("From another copy of the PDF…"), lambda: self.import_dialog("pdf"),
                                          tip=tr("Bring in the annotations of another copy of this document, such as "
                                                 "one annotated by someone else; those already here are left out"))
-        sub.setToolTipsVisible(True)
         m.addSeparator()
         self._action(m, tr("Quit"), self.close, QKeySequence.StandardKey.Quit)
 
@@ -421,8 +372,14 @@ class MainWindow(QMainWindow):
             m.addSeparator()
         self.tool_actions["select"].setChecked(True)
         self._action(m, tr("Properties of the tool…"), lambda: self.tool_dialog(self.canvas.mode))
+        m.addSeparator()
+        self.a_find = self._action(m, tr("Find and highlight…"), lambda: self.find_dialog(),
+                                   QKeySequence.StandardKey.Find,
+                                   tr("Find a word, a phrase or a pattern on the pages, and highlight (or underline, "
+                                      "strike out…) the places found"))
 
         m = self.menuBar().addMenu(tr("&View"))
+        m.setToolTipsVisible(True)
         self.a_show = QAction(tr("Show the annotations"), self, checkable=True, checked=True)
         self.a_show.setShortcut(QKeySequence("Ctrl+Shift+A"))
         self.a_show.setToolTip(tr("Hide them to see the document as it is without them"))
@@ -438,6 +395,11 @@ class MainWindow(QMainWindow):
         self.a_panel.setShortcut(QKeySequence("F4"))
         self.a_panel.setToolTip(tr("The list of the annotations, with their authors, on the right of the window"))
         m.addAction(self.a_panel)
+        self.a_continuous = QAction(tr("Continuous scrolling"), self, checkable=True,
+                                    checked=self.canvas.continuous)
+        self.a_continuous.setToolTip(tr("The pages one under the other; otherwise, one page at a time"))
+        self.a_continuous.toggled.connect(self.set_continuous)
+        m.addAction(self.a_continuous)
         m.addSeparator()
         self.a_next_annot = self._action(m, tr("Next annotation"), lambda: self.go_annotation(1))
         self.a_prev_annot = self._action(m, tr("Previous annotation"), lambda: self.go_annotation(-1))
@@ -477,14 +439,16 @@ class MainWindow(QMainWindow):
                           (self.a_redo, "edit-redo"), (self.a_delete, "edit-delete"), (self.a_prev, "go-previous"),
                           (self.a_next, "go-next"), (self.a_fit, "zoom-fit-best"),
                           (self.a_fit_width, "zoom-fit-width"), (self.a_zoom_out, "zoom-out"),
-                          (self.a_zoom_in, "zoom-in"), (self.a_copy, "edit-copy"), (self.a_paste, "edit-paste")):
+                          (self.a_zoom_in, "zoom-in"), (self.a_copy, "edit-copy"), (self.a_paste, "edit-paste"),
+                          (self.a_find, "edit-find"), (self.a_print, "document-print")):
             act.setIcon(icon(name))
         bar = QToolBar(tr("Document"))
         self.toolbar = bar
         bar.setObjectName("document")
         bar.setIconSize(QSize(22, 22))
-        for act in (self.a_open, self.a_save, None, self.a_undo, self.a_redo, self.a_delete, None, self.a_prev,
-                    self.a_next, None, self.a_fit, self.a_fit_width, self.a_zoom_out, self.a_zoom_in):
+        for act in (self.a_open, self.a_save, self.a_print, None, self.a_undo, self.a_redo, self.a_delete, None,
+                    self.a_find, None, self.a_prev, self.a_next, None, self.a_fit, self.a_fit_width, self.a_zoom_out,
+                    self.a_zoom_in):
             if act is None:
                 bar.addSeparator()
             else:
@@ -540,18 +504,22 @@ class MainWindow(QMainWindow):
         self.settings.sync()
 
     def closeEvent(self, event):
+        self.canvas.commit_text()
         self.keep_comment()
         if not self.maybe_discard():
             event.ignore()
             return
         if self.path is not None:
             recovery.discard(self.path)
+        if self.finder is not None:
+            self.finder.close()
         self.save_settings()
         self._drop_temp()
         super().closeEvent(event)
 
     def export_state(self) -> dict:
         """What a new window needs to carry on with the same document."""
+        self.canvas.commit_text()
         self.keep_comment()
         return {"path": self.path, "password": self.password, "annotations": self.annotations,
                 "saved": self.saved, "undo": self.undo_stack, "redo": self.redo_stack, "page": self.page,
@@ -608,6 +576,7 @@ class MainWindow(QMainWindow):
             self.open_path(Path(name))
 
     def open_path(self, path: Path) -> bool:
+        self.canvas.commit_text()
         self.keep_comment()
         if not path.is_file():
             self.status(tr("{path} not found", path=path), error=True)
@@ -663,7 +632,7 @@ class MainWindow(QMainWindow):
         password, ok = QInputDialog.getText(self, tr("Password"), text, QLineEdit.EchoMode.Password)
         return password if ok and password else None
 
-    def _load(self, path: Path, password: str) -> list[Annotation] | None:
+    def _load(self, path: Path, password: str, page: int = 0) -> list[Annotation] | None:
         """Open PATH: its pages are shown without the annotations that can be
         edited, which are returned (None if it can't be opened)."""
         try:
@@ -675,11 +644,11 @@ class MainWindow(QMainWindow):
             return None
         self._close_doc()
         self.doc, self.path, self.password, self.count = doc, path, password, doc.page_count
-        self.page = 0
+        self.page = min(page, self.count - 1)
         self._thumbs, self._thumb_shown, self._marked = {}, {}, {}
         self._by_page = [[] for _ in range(self.count)]
-        self.canvas.clear_cache()
         self.canvas.source = self._source(doc, path, password, bool(found))
+        self.canvas.set_document(doc, self.page)
         self._fill_pages()
         return found
 
@@ -711,8 +680,7 @@ class MainWindow(QMainWindow):
     def _close_doc(self):
         """Close the document shown (its pages are no longer shown)."""
         self.thumb_timer.stop()
-        self.canvas.show_page(None, [], [])
-        self.canvas.clear_cache()
+        self.canvas.set_document(None)
         if self.doc is not None:
             self.doc.close()
             self.doc = None
@@ -721,7 +689,7 @@ class MainWindow(QMainWindow):
     def _ask_target(self, title: str, suffix: str, ext: str = "pdf") -> Path | None:
         default = Path(self.last_dir()) / f"{self.path.stem}{suffix}.{ext}"
         filters = {"pdf": tr("PDF files (*.pdf)"), "json": tr("Annotations (*.json)"),
-                   "md": tr("Markdown (*.md)"), "csv": tr("Tables (*.csv)")}
+                   "md": tr("Markdown (*.md)"), "csv": tr("Tables (*.csv)"), "xfdf": tr("XFDF files (*.xfdf)")}
         name, _ = QFileDialog.getSaveFileName(self, title, str(default), filters[ext])
         if not name:
             return None
@@ -741,28 +709,34 @@ class MainWindow(QMainWindow):
 
     def save_to(self, target: Path) -> bool:
         """Write the document with the annotations as TARGET (which may be the
-        document itself), and go on with TARGET."""
+        document itself), and go on with TARGET. What was done can still be undone."""
+        self.canvas.commit_text()
         self.keep_comment()
         source, page = self.path, self.page
         replacing = target.resolve() == source.resolve()
         if replacing:  # (the file is about to change under the open document)
             self._close_doc()
+        kept: set[int] = set()
         try:
-            written = annots.write(source, self.annotations, target, self.password)
+            written = annots.write(source, self.annotations, target, self.password, kept=kept)
         except AnnotateError as e:
             if replacing:
-                self._load(source, self.password)
+                self._load(source, self.password, page)
                 self.refresh()
-                self.show_page(page)
             self.status(str(e), error=True)
             return False
         recovery.discard(source)
-        found = self._load(target, self.password)
+        found = self._load(target, self.password, page)
         if found is None:
             return False
-        # (the annotations as they are in the file now, with their xrefs: the undo history had others)
+        if not replacing:
+            kept = set()  # (another file: its xrefs are its own)
+        # (the history keeps the xrefs of the annotations still there; the others are new to it)
+        replies = {r.xref for a in found if a.xref in kept for r in a.replies}
+        self.undo_stack = [self._remapped(s, kept, replies) for s in self.undo_stack]
+        self.redo_stack = [self._remapped(s, kept, replies) for s in self.redo_stack]
         self.annotations, self.saved = list(found), list(found)
-        self.undo_stack, self.redo_stack, self.selected = [], [], []
+        self.selected = []
         self.settings.setValue("last_dir", str(target.parent))
         self.add_recent(target)
         self.refresh()
@@ -770,6 +744,19 @@ class MainWindow(QMainWindow):
         self.status(tr("Saved {path}", path=target) + " — "
                     + ntr("{count} annotation written", "{count} annotations written", written))
         return True
+
+    @staticmethod
+    def _remapped(snapshot: list[Annotation], kept: set[int], replies: set[int]) -> list[Annotation]:
+        """SNAPSHOT (of the history) with the xrefs no longer in the file taken out (those annotations are new)."""
+        out = []
+        for a in snapshot:
+            if a.xref in kept:
+                thread = tuple(r if r.xref in replies else dataclasses.replace(r, xref=0) for r in a.replies)
+                out.append(dataclasses.replace(a, replies=thread))
+            else:
+                out.append(dataclasses.replace(a, xref=0, replies=tuple(dataclasses.replace(r, xref=0)
+                                                                        for r in a.replies)))
+        return out
 
     def _same_file(self, target: Path) -> bool:
         if target.resolve() == self.path.resolve():
@@ -783,6 +770,7 @@ class MainWindow(QMainWindow):
         target = self._ask_target(tr("Save a flattened copy"), "-flattened")
         if target is None or self._same_file(target):
             return False
+        self.canvas.commit_text()
         self.keep_comment()
         try:
             exchange.save_flattened(self.path, self.annotations, target, self.password)
@@ -825,6 +813,7 @@ class MainWindow(QMainWindow):
         """Write TARGET: a copy with the annotations (those of the kinds FLATTEN, made part of the
         pages), made STANDARD by pdf2iso. If Ghostscript leaves out annotations of some kinds,
         offer to do it again with those flattened."""
+        self.canvas.commit_text()
         self.keep_comment()
         fd, tmp = tempfile.mkstemp(suffix=".pdf", dir=target.parent)
         os.close(fd)
@@ -882,26 +871,51 @@ class MainWindow(QMainWindow):
         box.exec()
         return box.clickedButton() is flatten
 
+    def print_dialog(self) -> bool:
+        if self.path is None:
+            return False
+        from .printing import print_document
+
+        self.canvas.commit_text()
+        self.keep_comment()
+        try:
+            done = print_document(self, self.path, [self.annotations[i] for i in self.shown()], self.password,
+                                  self.page, with_them=True)
+        except (AnnotateError, RuntimeError, ValueError) as e:
+            self.status(str(e), error=True)
+            return False
+        if done:
+            self.status(tr("Sent to the printer"))
+        return done
+
     def export_dialog(self, kind: str) -> bool:
-        """Export the annotations the list shows (all, if nothing is filtered) as KIND: 'json', 'md' or 'csv'."""
+        """Export the annotations the list shows (all, if nothing is filtered) as KIND: 'json',
+        'md', 'csv', 'xfdf', or 'pdf' (a summary of the comments)."""
         if self.doc is None:
             return False
+        self.canvas.commit_text()
         self.keep_comment()
         chosen = [self.annotations[i] for i in self._rows]
         if not chosen:
             self.status(tr("There are no annotations to export"), error=True)
             return False
-        target = self._ask_target(tr("Export the annotations"), "-annotations", kind)
+        target = self._ask_target(tr("Export the annotations"), "-summary" if kind == "pdf" else "-annotations", kind)
         if target is None:
+            return False
+        if kind == "pdf" and self._same_file(target):
             return False
         try:
             if kind == "json":
                 exchange.export_json(self.doc, self.path, chosen, target)
             elif kind == "csv":
                 exchange.export_csv(self.doc, chosen, target, colors.color_meaning)
+            elif kind == "xfdf":
+                exchange.export_xfdf(self.doc, self.path, chosen, target)
+            elif kind == "pdf":
+                exchange.save_summary(self.path, chosen, target, self.password, color_name)
             else:
                 exchange.export_markdown(self.doc, self.path, chosen, target, color_name)
-        except OSError as e:
+        except (OSError, AnnotateError) as e:
             self.status(tr("{path} cannot be written: {error}", path=target, error=e), error=True)
             return False
         self.status(ntr("{count} annotation exported to {path}", "{count} annotations exported to {path}",
@@ -909,12 +923,12 @@ class MainWindow(QMainWindow):
         return True
 
     def import_dialog(self, kind: str) -> bool:
-        """Bring in annotations from a JSON file (KIND 'json') or another PDF ('pdf')."""
+        """Bring in annotations from a JSON file (KIND 'json'), an XFDF file ('xfdf') or another PDF ('pdf')."""
         if self.doc is None:
             return False
-        title = tr("Import annotations")
-        filters = tr("Annotations (*.json)") if kind == "json" else tr("PDF files (*.pdf)")
-        name, _ = QFileDialog.getOpenFileName(self, title, self.last_dir(), filters)
+        filters = {"json": tr("Annotations (*.json)"), "xfdf": tr("XFDF files (*.xfdf)"),
+                   "pdf": tr("PDF files (*.pdf)")}[kind]
+        name, _ = QFileDialog.getOpenFileName(self, tr("Import annotations"), self.last_dir(), filters)
         if not name:
             return False
         return self.import_from(Path(name), kind)
@@ -923,6 +937,8 @@ class MainWindow(QMainWindow):
         try:
             if kind == "json":
                 found = exchange.import_json(source)
+            elif kind == "xfdf":
+                found = exchange.import_xfdf(self.doc, source)
             else:
                 password = ""
                 while True:
@@ -977,7 +993,7 @@ class MainWindow(QMainWindow):
 
     def _toolbar_tips(self):
         """The tooltip of each button of the toolbars: what it does, and its shortcut."""
-        for bar in (self.toolbar, getattr(self, "tools_bar", None)):
+        for bar in (getattr(self, "toolbar", None), getattr(self, "tools_bar", None)):
             if bar is None:
                 continue
             for act in bar.actions():
@@ -1138,50 +1154,54 @@ class MainWindow(QMainWindow):
         style = self.prefs.style(kind)
         if style.show == "properties":
             self.properties_dialog()
-        elif style.show == "comment" or (style.show == "text" and kind in MARKUP):
+        elif style.show == "comment" or (style.show == "text" and kind not in TEXTUAL + ("note", "caret")):
             self.comment.setFocus()
         if not style.sticky and self.canvas.mode == kind:
             self.set_tool("select")
 
     def add_drawn(self, annotation: Annotation):
-        """An annotation drawn on the page; a note or a text box asks for its text first, if its tool says so."""
-        if annotation.kind in ("note", "freetext", "callout", "caret") \
-                and self.prefs.style(annotation.kind).show == "text":
-            text = self.ask_text(annotation)
-            if text is None or (annotation.kind in ("freetext", "callout") and not text.strip()):
-                return
-            annotation = dataclasses.replace(annotation, contents=text)
+        """An annotation drawn on a page; a text box, a callout, a note or a caret has its text written
+        first, on the page (if its tool says so: see text_done)."""
+        if annotation.kind in TEXTUAL + ("note", "caret") and self.prefs.style(annotation.kind).show == "text":
+            self.canvas.edit_text(annotation, -1)
+            return
         self.add(annotation)
 
-    def ask_text(self, annotation: Annotation) -> str | None:
-        """The text of a new note, text box or caret (None if the user gives up)."""
-        title, label = {
-            "note": (tr("New note"), tr("The text of the note:")),
-            "caret": (tr("Insert text"), tr("The text to insert:")),
-        }.get(annotation.kind, (tr("New text box"), tr("The text to write on the page:")))
-        text, ok = QInputDialog.getMultiLineText(self, title, label, "")
-        return text.strip("\n") if ok else None
+    def text_done(self, index: int, annotation: Annotation):
+        """The text of ANNOTATION, written on the page: a new one (INDEX -1), or the one at INDEX."""
+        if index < 0:
+            if annotation.contents.strip():
+                self.add(annotation)
+            return
+        if 0 <= index < len(self.annotations) and annotation.contents != self.annotations[index].contents:
+            self.replace(index, dataclasses.replace(self.annotations[index], contents=annotation.contents))
 
-    def add_markup(self, rects: list[Rect], kind: str | None = None):
-        """A highlight (or the kind of markup of the tool) over the lines of text RECTS."""
+    def add_markup(self, page: int, rects: list[Rect], kind: str | None = None):
+        """A highlight (or the kind of markup of the tool) over the lines of text RECTS of PAGE."""
         kind = kind or (self.canvas.mode if self.canvas.mode in MARKUP else "highlight")
-        self.add(self.new_annotation(kind, self.page, annots.union(rects), quads=tuple(rects)))
+        self.add(self.new_annotation(kind, page, annots.union(rects), quads=tuple(rects)))
 
-    def double_clicked(self, index: int, point: tuple):
-        """An annotation: its properties. A word, with a markup tool: that word marked."""
+    def double_clicked(self, index: int, page: int, point: tuple):
+        """An annotation: its text, written on the page (a text box, a note...), or its properties.
+        A word, with a markup tool: that word marked."""
         if index >= 0:
-            self.properties_dialog()
+            a = self.annotations[index]
+            if a.kind in TEXTUAL + ("note", "caret") and not a.locked:
+                self.canvas.edit_text(a, index)
+            else:
+                self.properties_dialog()
             return
         if self.canvas.mode not in MARKUP or self.doc is None:
             return
-        found = annots.words(self.doc[self.page])
+        found = annots.words(self.doc[page])
         i = annots.nearest_word(found, *point)
         if i is not None:
             x0, y0, x1, y1 = found[i][0]
             if x0 - 2 <= point[0] <= x1 + 2 and y0 - 2 <= point[1] <= y1 + 2:
-                self.add_markup(annots.text_rects(found, i, i))
+                self.add_markup(page, annots.text_rects(found, i, i))
 
     def set_tool(self, tool: str):
+        self.canvas.commit_text()
         self.canvas.set_mode(tool)
         self.tool_actions[tool].setChecked(True)
         self._show_panel()
@@ -1209,14 +1229,14 @@ class MainWindow(QMainWindow):
         return [i for i in self.selected if self.annotations[i].kind not in MARKUP and not self.annotations[i].locked]
 
     def nudge(self, dx: float, dy: float):
-        """The selected annotations moved by (DX, DY) points, kept on the page."""
+        """The selected annotations moved by (DX, DY) points, kept on their pages."""
         chosen = self._movable()
         if not chosen or self.doc is None:
             return
-        page = self.doc[self.page].rect
         annotations = list(self.annotations)
         for i in chosen:
             a = annotations[i]
+            page = self.doc[a.page].rect
             x0, y0, x1, y1 = a.rect
             mx = max(-x0, min(dx, page.width - x1))
             my = max(-y0, min(dy, page.height - y1))
@@ -1306,7 +1326,7 @@ class MainWindow(QMainWindow):
         self.status(ntr("{count} annotation copied", "{count} annotations copied", len(_CLIPBOARD)))
 
     def paste(self, offset: float | None = None):
-        """The annotations copied, on the page shown: a little apart from where they were if
+        """The annotations copied, on the page in view: a little apart from where they were if
         that is this page (marks over text, in the same place)."""
         if not _CLIPBOARD or self.doc is None:
             return
@@ -1316,7 +1336,8 @@ class MainWindow(QMainWindow):
             shift = (10.0 if a.page == self.page else 0.0) if offset is None else offset
             if a.kind in MARKUP:
                 shift = 0.0
-            b = dataclasses.replace(a, page=self.page, xref=0, created="", modified="", locked=False)
+            b = dataclasses.replace(a, page=self.page, xref=0, created="", modified="", locked=False,
+                                    replies=())
             x0, y0, x1, y1 = b.rect
             dx = max(-x0, min(shift, page.width - x1))
             dy = max(-y0, min(shift, page.height - y1))
@@ -1336,11 +1357,12 @@ class MainWindow(QMainWindow):
             self.set_tool("note")
 
     def properties_dialog(self):
+        self.canvas.commit_text()
         self.keep_comment()
         if not self.selected:
             return
         chosen = [self.annotations[i] for i in self.selected]
-        dialog = PropertiesDialog(chosen, self)
+        dialog = PropertiesDialog(chosen, self, categories=self.prefs.category_list())
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         annotations = list(self.annotations)
@@ -1386,16 +1408,70 @@ class MainWindow(QMainWindow):
         menu.addSeparator()
         menu.addAction(tr("Other colour…"), self.choose_color)
 
+    def _one(self) -> int | None:
+        """The index of the annotation selected, if only one is."""
+        if len(self.selected) == 1 and self.selected[0] < len(self.annotations):
+            return self.selected[0]
+        return None
+
     def keep_comment(self):
         """The comment typed in the panel, given to the annotation selected."""
-        if len(self.selected) != 1 or not self.comment.isEnabled():
-            return
-        i = self.selected[0]
-        if i >= len(self.annotations):
+        i = self._one()
+        if i is None or not self.comment.isEnabled():
             return
         text = self.comment.toPlainText().strip("\n")
         if text != self.annotations[i].contents:
             self.replace(i, dataclasses.replace(self.annotations[i], contents=text))
+
+    def keep_tags(self):
+        """The tags typed in the panel, given to the annotation selected."""
+        i = self._one()
+        if i is None:
+            return
+        tags = tuple(t for t in (" ".join(x.split()) for x in self.listing.tags.text().split(",")) if t)
+        if tags != self.annotations[i].tags:
+            self.replace(i, dataclasses.replace(self.annotations[i], tags=tags))
+
+    # ----------------------------------------------------------------- replies and status
+
+    def add_reply(self, text: str | None = None, state: str = ""):
+        """A reply (TEXT, or what is written in the panel) to the annotation selected, by the author
+        of the settings; with STATE, a review status given to it."""
+        i = self._one()
+        if i is None:
+            return
+        text = self.listing.reply_edit.text().strip() if text is None else text
+        if not text and not state:
+            return
+        a = self.annotations[i]
+        reply = Reply(author=self.prefs.author, contents=text, state=state, created=annots.now())
+        self.listing.reply_edit.clear()
+        self.replace(i, dataclasses.replace(a, replies=a.replies + (reply,)))
+
+    def set_status(self, state: str | None):
+        """Give the annotation selected the review status STATE (a reply that says it)."""
+        if not state:
+            return
+        self.add_reply(tr("Status: {status}", status=tr(STATES[state])), state=state)
+
+    def edit_reply(self, row: int):
+        i = self._one()
+        if i is None or not 0 <= row < len(self.annotations[i].replies):
+            return
+        a = self.annotations[i]
+        old = a.replies[row]
+        text, ok = QInputDialog.getMultiLineText(self, tr("Reply"), tr("The reply:"), old.contents)
+        if ok and text.strip() != old.contents:
+            thread = list(a.replies)
+            thread[row] = dataclasses.replace(old, contents=text.strip(), modified=annots.now())
+            self.replace(i, dataclasses.replace(a, replies=tuple(thread)))
+
+    def delete_reply(self, row: int):
+        i = self._one()
+        if i is None or not 0 <= row < len(self.annotations[i].replies):
+            return
+        a = self.annotations[i]
+        self.replace(i, dataclasses.replace(a, replies=a.replies[:row] + a.replies[row + 1:]))
 
     # ----------------------------------------------------------------- settings
 
@@ -1419,6 +1495,28 @@ class MainWindow(QMainWindow):
             self.set_prefs(dialog.settings())
             self.refresh()
 
+    def set_continuous(self, on: bool):
+        self.settings.setValue("continuous", "true" if on else "false")
+        page = self.page
+        self.canvas.set_continuous(on)
+        self.canvas.set_annotations([(i, self.annotations[i]) for i in self.shown()], self.selected)
+        self.canvas.apply_fit()
+        self.show_page(page)
+
+    def set_thumb_size(self, height: int):
+        self.thumb = QSize(round(height * 0.75), height)
+        self.settings.setValue("thumb_height", height)
+        self._size_thumbnails()
+        self._thumbs, self._thumb_shown = {}, {}
+        if self.doc is not None:
+            self._fill_pages()
+            self._label_pages()
+
+    def _size_thumbnails(self):
+        self.pages.setIconSize(self.thumb)
+        self.pages.setGridSize(QSize(self.thumb.width() + 28, self.thumb.height() + 30))
+        self.pages.setMinimumWidth(min(self.thumb.width() + 50, 140))
+
     # ----------------------------------------------------------------- the menu of an annotation
 
     def _colors_menu(self, menu: QMenu, title: str, current: str | None, choose) -> QMenu:
@@ -1439,9 +1537,30 @@ class MainWindow(QMainWindow):
             other.setIcon(swatch(current))
         return sub
 
-    def annotation_menu(self, index: int, where, point=None):
+    def _categories_menu(self, menu: QMenu, chosen: list[Annotation]):
+        """The categories (ticked those all CHOSEN are in), each put in or taken out of them."""
+        sub = menu.addMenu(tr("Categories"))
+        names = self.prefs.category_list()
+        for a in chosen:
+            names += [c for c in a.categories if c not in names]
+        for name in names:
+            act = sub.addAction(name, lambda n=name: self.toggle_category(n))
+            act.setCheckable(True)
+            act.setChecked(all(name in a.categories for a in chosen))
+
+    def toggle_category(self, name: str):
+        """Put the selected annotations in category NAME, or take them out if they all are in it."""
+        have = all(name in self.annotations[i].categories for i in self.selected)
+        annotations = list(self.annotations)
+        for i in self.selected:
+            cats = [c for c in annotations[i].categories if c != name] + ([] if have else [name])
+            annotations[i] = dataclasses.replace(annotations[i], categories=tuple(cats))
+        self.change(annotations, self.selected)
+
+    def annotation_menu(self, index: int, where, page: int = -1, point=None):
         """The right-click menu: of the annotations selected (INDEX: the one clicked),
         or of the page (INDEX -1)."""
+        self.canvas.commit_text()
         self.keep_comment()
         menu = QMenu(self)
         menu.setToolTipsVisible(True)
@@ -1466,6 +1585,12 @@ class MainWindow(QMainWindow):
                     act = menu.addAction(tr("Copy it as a quotation"), lambda: QApplication.clipboard().setText(
                         exchange.quotation(self.doc, chosen[0], self.path.name if self.path else "")))
                     act.setToolTip(tr("The text marked, in quotation marks, with the document and its page"))
+            if len(chosen) == 1 and chosen[0].kind in TEXTUAL + ("note", "caret") and not chosen[0].locked:
+                menu.addAction(tr("Write its text…"), lambda: self.canvas.edit_text(chosen[0], self.selected[0]))
+            status = menu.addMenu(tr("Status"))
+            for key, name in STATES.items():
+                status.addAction(tr(name), lambda k=key: self._status_for_selected(k))
+            self._categories_menu(menu, chosen)
             menu.addSeparator()
             menu.addAction(self.a_copy)
             menu.addAction(self.a_duplicate)
@@ -1481,14 +1606,19 @@ class MainWindow(QMainWindow):
                                                           len(chosen)), self.delete_selected)
             act.setEnabled(not all_locked)
         else:
-            if point is not None and self.doc is not None:
-                x = min(point.x(), self.doc[self.page].rect.width - annots.NOTE_SIZE)
-                y = min(point.y(), self.doc[self.page].rect.height - annots.NOTE_SIZE)
+            if point is not None and self.doc is not None and 0 <= page < self.count:
+                size = self.doc[page].rect
+                x = min(point.x(), size.width - annots.NOTE_SIZE)
+                y = min(point.y(), size.height - annots.NOTE_SIZE)
                 rect = (round(x, 2), round(y, 2), round(x + annots.NOTE_SIZE, 2), round(y + annots.NOTE_SIZE, 2))
                 menu.addAction(icon("note"), tr("Add a note here…"),
-                               lambda: self.add_drawn(self.new_annotation("note", self.page, rect)))
+                               lambda: self.add_drawn(self.new_annotation("note", page, rect)))
                 if _CLIPBOARD:
                     menu.addAction(self.a_paste)
+                word = self.canvas.word_at(page, point)
+                if word:
+                    menu.addAction(icon("edit-find"), tr("Find “{word}” and highlight it…", word=word),
+                                   lambda: self.find_dialog(word))
                 menu.addSeparator()
             for tool in ("select", "highlight", "note", "freetext", "rect", "ink", "eraser"):
                 menu.addAction(self.tool_actions[tool])
@@ -1499,6 +1629,16 @@ class MainWindow(QMainWindow):
                                    "page", len(here)), self.select_page)
                 menu.addAction(self.a_clear_page)
         self.show_menu(menu, where)
+
+    def _status_for_selected(self, state: str):
+        """Give each selected annotation the review status STATE."""
+        name = tr(STATES[state])
+        annotations = list(self.annotations)
+        for i in self.selected:
+            a = annotations[i]
+            reply = Reply(self.prefs.author, tr("Status: {status}", status=name), state, annots.now())
+            annotations[i] = dataclasses.replace(a, replies=a.replies + (reply,))
+        self.change(annotations, self.selected)
 
     def show_menu(self, menu: QMenu, where):
         menu.exec(where)
@@ -1518,6 +1658,7 @@ class MainWindow(QMainWindow):
         self.a_undo.setText(tr("Undo") if not self.undo_stack else tr("Undo ({count})", count=len(self.undo_stack)))
 
     def undo(self):
+        self.canvas.commit_text()
         self.keep_comment()
         if self.undo_stack:
             self.redo_stack.append(self.annotations)
@@ -1531,6 +1672,31 @@ class MainWindow(QMainWindow):
             self.annotations = self.redo_stack.pop()
             self.selected = []
             self.refresh()
+
+    # ----------------------------------------------------------------- find and highlight
+
+    def find_dialog(self, text: str = ""):
+        if self.doc is None:
+            return
+        if self.finder is None:
+            self.finder = FindDialog(self)
+            self.finder.show_match.connect(lambda m: self.canvas.flash(m.page, annots.union(m.rects)))
+            self.finder.mark.connect(self.mark_matches)
+        self.finder.start(text)
+
+    def mark_matches(self, matches: list, kind: str):
+        """A mark of KIND over each place of MATCHES (not twice over the same place)."""
+        have = {(a.page, a.quads) for a in self.annotations if a.kind == kind}
+        new = []
+        for m in matches:
+            if (m.page, m.rects) not in have:
+                have.add((m.page, m.rects))
+                new.append(self.new_annotation(kind, m.page, annots.union(m.rects), quads=m.rects))
+        if not new:
+            self.status(tr("Those places are marked already"))
+            return
+        self.change(self.annotations + new, list(range(len(self.annotations), len(self.annotations) + len(new))))
+        self.status(ntr("{count} place marked", "{count} places marked", len(new)))
 
     # ----------------------------------------------------------------- selection and the list
 
@@ -1547,7 +1713,8 @@ class MainWindow(QMainWindow):
             chosen = list(indices)
         if chosen != self.selected:
             self.selected = chosen
-            self.refresh(pages=False)
+            self.refresh(pages=False, table=False)
+            self._select_rows()
 
     def select_page(self):
         self.pick([i for i, a in enumerate(self.annotations) if a.page == self.page], False)
@@ -1557,25 +1724,25 @@ class MainWindow(QMainWindow):
         self.pick([i for i, a in enumerate(self.annotations) if a.page == self.page and a.kind in kinds], False)
 
     def _table_selected(self):
-        rows = sorted({i.row() for i in self.table.selectedIndexes()})
+        if self._quiet_table:
+            return
+        rows = sorted({i.row() for i in self.table.selectionModel().selectedRows()})
         chosen = [self._rows[r] for r in rows if r < len(self._rows)]
         if chosen == self.selected:
             return
         self.keep_comment()
         self.selected = chosen
-        if chosen and all(self.annotations[i].page != self.page for i in chosen):
-            self.show_page(self.annotations[chosen[0]].page)
-        else:
-            self.refresh(pages=False, table=False)
+        self.refresh(pages=False, table=False)
         if len(chosen) == 1:
-            self.canvas.flash(self.annotations[chosen[0]].rect)
+            a = self.annotations[chosen[0]]
+            self.canvas.flash(a.page, a.rect)
 
     def go_annotation(self, step: int):
         """The next (STEP 1) or previous (-1) annotation of the list, as it is sorted and filtered."""
         if not self._rows:
             return
         current = self._rows.index(self.selected[0]) if self.selected and self.selected[0] in self._rows else None
-        if current is None:  # (from the page shown)
+        if current is None:  # (from the page in view)
             after = [r for r, i in enumerate(self._rows) if self.annotations[i].page >= self.page]
             row = (after[0] if after else 0) if step > 0 else (max(after[0] - 1, 0) if after else len(self._rows) - 1)
         else:
@@ -1583,36 +1750,47 @@ class MainWindow(QMainWindow):
         i = self._rows[row]
         self.keep_comment()
         self.selected = [i]
-        if self.annotations[i].page != self.page:
-            self.show_page(self.annotations[i].page)
         self.refresh(pages=False, table=False)
-        self.canvas.flash(self.annotations[i].rect)
+        self._select_rows()
+        self.canvas.flash(self.annotations[i].page, self.annotations[i].rect)
 
     def _filter_changed(self):
         self._fill_table()
+        self._enable()
         if self.a_only_listed.isChecked():
             self.refresh(table=False)
 
     def _passes(self, a: Annotation) -> bool:
         """Whether A is let through by the search and filters of the list."""
         kind, author, color = self.f_kind.currentData(), self.f_author.currentData(), self.f_color.currentData()
+        status, tag, category = self.f_status.currentData(), self.f_tag.currentData(), self.f_category.currentData()
         if kind and a.kind != kind or author is not None and a.author != author or color and a.color != color:
+            return False
+        if status == "-" and a.status() or status and status != "-" and a.status() != status:
+            return False
+        if tag and tag not in a.tags or category and category not in a.categories:
             return False
         words = self.search.text().lower().split()
         if words:
-            text = " ".join((a.contents, a.author, a.name(), self.marked_text(a))).lower()
+            text = " ".join((a.contents, a.author, a.name(), self.marked_text(a), " ".join(a.tags),
+                             " ".join(a.categories), " ".join(f"{r.author} {r.contents}" for r in a.replies))).lower()
             return all(w in text for w in words)
         return True
 
     def _fill_filters(self):
-        """The choices of the filters: the kinds, authors (with how many annotations each has) and
-        colours there are."""
+        """The choices of the filters: the kinds, authors (with how many annotations each has),
+        colours, statuses, tags and categories there are."""
         by_author = Counter(a.author for a in self.annotations)
+        statuses = {a.status() for a in self.annotations if a.status()}
         for box, everything, values in (
                 (self.f_kind, tr("All kinds"), sorted({a.kind for a in self.annotations},
                                                       key=lambda k: KINDS.index(k))),
-                (self.f_author, tr("All authors"), sorted({a.author for a in self.annotations})),
-                (self.f_color, tr("All colours"), sorted({a.color for a in self.annotations}))):
+                (self.f_author, tr("All authors"), sorted(by_author)),
+                (self.f_color, tr("All colours"), sorted({a.color for a in self.annotations})),
+                (self.f_status, tr("Any status"), ["-"] + [s for s in STATES if s in statuses]),
+                (self.f_tag, tr("All tags"), sorted({t for a in self.annotations for t in a.tags}, key=str.lower)),
+                (self.f_category, tr("All categories"), sorted({c for a in self.annotations for c in a.categories},
+                                                               key=str.lower))):
             current = box.currentData()
             box.blockSignals(True)
             box.clear()
@@ -1622,8 +1800,12 @@ class MainWindow(QMainWindow):
                     box.addItem(tool_name(value), value)
                 elif box is self.f_author:
                     box.addItem(f"{value or tr('(no author)')} ({by_author[value]})", value)
-                else:
+                elif box is self.f_color:
                     box.addItem(swatch(value), color_name(value), value)
+                elif box is self.f_status:
+                    box.addItem(tr("No status yet") if value == "-" else tr(STATES[value]), value)
+                else:
+                    box.addItem(value, value)
             index = box.findData(current) if current is not None else 0
             box.setCurrentIndex(max(index, 0))
             box.blockSignals(False)
@@ -1637,7 +1819,8 @@ class MainWindow(QMainWindow):
             self._fill_table()
         if pages:
             self._label_pages()
-        self.show_page(self.page, keep_view=True)
+        self.canvas.editable = self.a_show.isChecked()
+        self.canvas.set_annotations([(i, self.annotations[i]) for i in self.shown()], self.selected)
         self._show_panel()
         self._enable()
         self._update_title()
@@ -1650,30 +1833,27 @@ class MainWindow(QMainWindow):
             return sorted(self._rows)
         return list(range(len(self.annotations)))
 
-    def show_page(self, page: int, keep_view: bool = False):
+    def show_page(self, page: int):
+        """Bring PAGE into view."""
         if self.doc is None:
-            self.canvas.show_page(None, [], [])
             return
         page = max(0, min(page, self.count - 1))
-        keep_view = keep_view or page == self.page
-        if page != self.page:
-            self.keep_comment()
-            self.selected = [i for i in self.selected if self.annotations[i].page == page]
-            self.page = page
-            self._show_panel()
-            self._select_rows()
-            self._enable()
-        here = [(i, self.annotations[i]) for i in self.shown() if self.annotations[i].page == page]
-        self.canvas.editable = self.a_show.isChecked()
-        self.canvas.placeholder = self._thumbs.get(page)
-        self.canvas.show_page(self.doc[page], here, self.selected, keep_view=keep_view)
-        self.canvas.render_ahead([self.doc[n] for n in (page + 1, page - 1) if 0 <= n < self.count])
+        self.canvas.go_to(page)
+        self._page_shown(page)
+
+    def _page_shown(self, page: int):
+        """PAGE is the one in view now (turned to, or scrolled to)."""
+        self.page = page
         self.page_spin.blockSignals(True)
         self.page_spin.setValue(page + 1)
         self.page_spin.blockSignals(False)
+        label = exchange.page_label(self.doc, page) if self.doc is not None else ""
+        self.page_label.setText(f"({label})" if label and label != str(page + 1) else "")
         self.pages.blockSignals(True)
         self.pages.setCurrentRow(page)
         self.pages.blockSignals(False)
+        self._show_panel()
+        self._enable()
 
     def _fit(self, how: str):
         self.canvas.fit = how
@@ -1681,7 +1861,7 @@ class MainWindow(QMainWindow):
 
     def _fill_pages(self):
         self.pages.clear()
-        blank = QPixmap(THUMB)
+        blank = QPixmap(self.thumb)
         blank.fill(QColor(0, 0, 0, 0))
         for n in range(self.count):
             item = QListWidgetItem(QIcon(blank), str(n + 1))
@@ -1706,7 +1886,7 @@ class MainWindow(QMainWindow):
             self.thumb_timer.stop()
             return
         page = self.doc[n]
-        scale = min(THUMB.width() / page.rect.width, THUMB.height() / page.rect.height)
+        scale = min(self.thumb.width() / page.rect.width, self.thumb.height() / page.rect.height)
         remote = renderer()
         if self.canvas.source is not None and remote.available():
             # (in another process: the timer waits until it is drawn, then goes on with the next)
@@ -1734,11 +1914,11 @@ class MainWindow(QMainWindow):
         if self._thumb_shown.get(n) == shown:
             return
         self._thumb_shown[n] = shown
-        pixmap = QPixmap(THUMB)
+        pixmap = QPixmap(self.thumb)
         pixmap.fill(QColor(0, 0, 0, 0))
         p = QPainter(pixmap)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        x, y = (THUMB.width() - image.width()) // 2, THUMB.height() - image.height()
+        x, y = (self.thumb.width() - image.width()) // 2, self.thumb.height() - image.height()
         p.drawImage(x, y, image)
         p.save()
         p.translate(x, y)
@@ -1784,38 +1964,17 @@ class MainWindow(QMainWindow):
             "changed": lambda i: (self._age(self.annotations[i]), self.annotations[i].page),
             "kind": lambda i: (KINDS.index(self.annotations[i].kind), self.annotations[i].page),
             "author": lambda i: (self.annotations[i].author.lower(), self.annotations[i].page),
+            "status": lambda i: (list(STATES).index(self.annotations[i].status()) if self.annotations[i].status()
+                                 else -1, self.annotations[i].page),
         }
         order = sorted((i for i, a in enumerate(self.annotations) if self._passes(a)), key=keys.get(sort, keys["page"]))
         self._rows = order
-        self.table.blockSignals(True)
-        self.table.setRowCount(len(order))
-        for row, i in enumerate(order):
-            a = self.annotations[i]
-            text = " ".join(a.contents.split())
-            cell = QTableWidgetItem(text)
-            if not text and a.kind in MARKUP:  # (the text marked, in italics)
-                marked = self.marked_text(a)
-                cell = QTableWidgetItem(f"“{marked}”" if marked else "")
-                font = cell.font()
-                font.setItalic(True)
-                cell.setFont(font)
-            if a.contents:
-                cell.setToolTip(a.contents)
-            kind = QTableWidgetItem(swatch(a.color), a.name() + (" 🔒" if a.locked else ""))
-            kind.setToolTip(color_name(a.color))
-            changed = QTableWidgetItem(date_text(a.modified or a.created)[2:] if a.modified or a.created else "")
-            if a.created:
-                changed.setToolTip(tr("Made: {made}; changed: {changed}", made=date_text(a.created),
-                                      changed=date_text(a.modified) or "—"))
-            cells = [QTableWidgetItem(str(a.page + 1)), kind, QTableWidgetItem(a.author), changed, cell]
-            for col, c in enumerate(cells):
-                self.table.setItem(row, col, c)
-        for col in range(4):
-            self.table.resizeColumnToContents(col)
-        self.table.blockSignals(False)
-        self.listed.setText(tr("{shown} of {count}", shown=len(order), count=len(self.annotations))
-                            if len(order) != len(self.annotations) else
-                            ntr("{count} annotation", "{count} annotations", len(order)))
+        self._quiet_table = True
+        self.model.set_rows(order)
+        self._quiet_table = False
+        self.listing.listed.setText(tr("{shown} of {count}", shown=len(order), count=len(self.annotations))
+                                    if len(order) != len(self.annotations) else
+                                    ntr("{count} annotation", "{count} annotations", len(order)))
         self._select_rows()
 
     @staticmethod
@@ -1827,75 +1986,106 @@ class MainWindow(QMainWindow):
     def _select_rows(self):
         """Select in the list the rows of the annotations selected, all at once."""
         chosen = set(self.selected)
-        model = self.table.model()
-        last = self.table.columnCount() - 1
+        model = self.model
+        last = model.columnCount() - 1
         selection = QItemSelection()
         start = None
+        rows = []
         for row, i in enumerate(self._rows + [None]):
             if i is not None and i in chosen:
+                rows.append(row)
                 if start is None:
                     start = row
             elif start is not None:  # (a run of selected rows ends: one range for all of it)
                 selection.select(model.index(start, 0), model.index(row - 1, last))
                 start = None
-        self.table.blockSignals(True)
+        self._quiet_table = True
         self.table.selectionModel().select(selection, QItemSelectionModel.SelectionFlag.ClearAndSelect)
-        self.table.blockSignals(False)
-        rows = [r for r, i in enumerate(self._rows) if i in chosen]
+        self._quiet_table = False
         if len(rows) == 1:
-            self.table.scrollToItem(self.table.item(rows[0], 0))
+            self.table.scrollTo(model.index(rows[0], 0))
 
     def _show_panel(self):
-        """The colour and comment of the selected annotations, or the colour of new ones of the tool."""
+        """The colour, comment, tags, replies and status of the annotation selected (or the colour of new
+        ones of the tool)."""
         chosen = [self.annotations[i] for i in self.selected if i < len(self.annotations)]
+        p = self.listing
         if chosen:
             if len(chosen) == 1:
                 title = tr("{kind}, on page {page}", kind=chosen[0].name(), page=chosen[0].page + 1)
                 if chosen[0].author:
                     title += " — " + chosen[0].author
-                self.panel_title.setText("<b>" + title + "</b>")
+                p.title.setText("<b>" + title + "</b>")
             else:
-                self.panel_title.setText("<b>" + ntr("{count} annotation selected", "{count} annotations selected",
-                                                     len(chosen)) + "</b>")
+                p.title.setText("<b>" + ntr("{count} annotation selected", "{count} annotations selected",
+                                            len(chosen)) + "</b>")
             colors_ = {a.color for a in chosen}
         elif self.canvas.mode in KINDS:
-            self.panel_title.setText("<b>" + tr("New annotations: {kind}", kind=tool_name(self.canvas.mode).lower())
-                                     + "</b>")
+            p.title.setText("<b>" + tr("New annotations: {kind}", kind=tool_name(self.canvas.mode).lower()) + "</b>")
             colors_ = {self.prefs.style(self.canvas.mode).color}
         else:
-            self.panel_title.setText("<b>" + tr("No annotation selected") + "</b>")
+            p.title.setText("<b>" + tr("No annotation selected") + "</b>")
             colors_ = set()
         color = colors_.pop() if len(colors_) == 1 else None
         self.color_button.setIcon(swatch(color) if color else QIcon())
         self.color_button.setText(color_name(color) if color else (tr("(several)") if chosen else "—"))
         self.color_button.setEnabled(self.doc is not None and (bool(chosen) or self.canvas.mode in KINDS))
-        one = len(chosen) == 1
+        one = chosen[0] if len(chosen) == 1 else None
         self.comment.blockSignals(True)
-        self.comment.setEnabled(one)
-        text = chosen[0].contents if one else ""
+        self.comment.setEnabled(one is not None)
+        text = one.contents if one is not None else ""
         if self.comment.toPlainText() != text:
             self.comment.setPlainText(text)
-        self.comment.setPlaceholderText(tr("A comment on this annotation") if one
+        self.comment.setPlaceholderText(tr("A comment on this annotation") if one is not None
                                         else tr("Select an annotation to see its comment here"))
         self.comment.blockSignals(False)
-        self.comment_label.setText(tr("Text:") if one and chosen[0].kind in ("note", "freetext", "callout", "caret")
-                                   else tr("Comment:"))
+        p.comment_label.setText(tr("Text:") if one is not None and one.kind in TEXTUAL + ("note", "caret")
+                                else tr("Comment:"))
+        tags = ", ".join(one.tags) if one is not None else ""
+        if p.tags.text() != tags and not p.tags.hasFocus():
+            p.tags.setText(tags)
+        p.replies.clear()
+        if one is not None:
+            for r in one.replies:
+                head = f"{r.author or tr('(no author)')}"
+                when = date_text(r.modified or r.created)
+                if when:
+                    head += f", {when}"
+                if r.state:
+                    head += f" [{tr(STATES[r.state])}]"
+                p.replies.addItem(f"{head}: {r.contents}" if r.contents else head)
+        p.replies_label.setText(tr("Replies:") if one is None or not one.status()
+                                else tr("Replies (status: {status}):", status=tr(STATES[one.status()])))
+        p.status.blockSignals(True)
+        p.status.clear()
+        p.status.addItem(tr("Set the status…"), "")
+        for key, name in STATES.items():
+            p.status.addItem(tr(name), key)
+        p.status.setCurrentIndex(0)
+        p.status.blockSignals(False)
+        for w in (p.tags, p.replies, p.reply_edit, p.reply_button, p.status):
+            w.setEnabled(one is not None)
 
     def _enable(self):
         has = self.doc is not None
         for w in (self.a_save_as, self.a_first, self.a_last, self.a_fit, self.a_fit_width, self.a_zoom_in,
                   self.a_zoom_out, self.page_spin, self.a_flat, self.a_bare, self.a_import_json, self.a_import_pdf,
-                  *self.tool_actions.values()):
+                  self.a_import_xfdf, self.a_print, self.a_find, *self.tool_actions.values()):
             w.setEnabled(has)
         for act in self.standard_actions.values():
             act.setEnabled(has and self._have_conform)
             act.setToolTip("" if self._have_conform else tr("Needs {command}: install it, or say where it is in "
                                                             "Settings", command=conform.COMMAND))
-        for w in (self.a_export_md, self.a_export_csv, self.a_export_json, self.a_next_annot, self.a_prev_annot):
+        for w in (self.a_export_md, self.a_export_csv, self.a_export_json, self.a_export_xfdf, self.a_summary,
+                  self.a_next_annot, self.a_prev_annot):
             w.setEnabled(has and bool(self._rows))
         self.a_save.setEnabled(has and self.is_modified())
         self.a_clear_all.setEnabled(bool(self.annotations))
         self.a_paste.setEnabled(has and bool(_CLIPBOARD))
+        self.a_prev.setEnabled(has and self.page > 0)
+        self.a_next.setEnabled(has and self.page < self.count - 1)
+        self.a_undo.setEnabled(bool(self.undo_stack))
+        self.a_redo.setEnabled(bool(self.redo_stack))
         for w in (self.a_delete, self.b_delete, self.a_props, self.b_props, self.a_copy, self.a_duplicate,
                   self.a_lock):
             w.setEnabled(bool(self.selected))
@@ -1960,4 +2150,3 @@ class MainWindow(QMainWindow):
                              "text boxes, shapes, stamps and drawings, which any PDF viewer shows and can edit.</p>"
                              "<p>By {author}.</p><p>Licensed under the GNU General Public License, version 3 or "
                              "later.</p>", version=__version__, author=AUTHOR))
-

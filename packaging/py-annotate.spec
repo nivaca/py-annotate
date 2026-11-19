@@ -10,7 +10,7 @@
 # Build with packaging/build-rpm.sh, which makes the source tarball.
 
 Name:           py-annotate
-Version:        0.2.1
+Version:        0.3.0
 Release:        1%{?dist}
 Summary:        Add annotations to PDF documents: highlights, notes, text boxes, shapes, stamps
 
@@ -22,6 +22,7 @@ BuildArch:      noarch
 
 BuildRequires:  python3-devel
 BuildRequires:  desktop-file-utils
+BuildRequires:  /usr/bin/appstreamcli
 # For %%check: the tests run the window (headless).
 BuildRequires:  python3-pytest
 BuildRequires:  python3-pyside6
@@ -58,9 +59,14 @@ sed -i '/"pyside6-essentials/d' pyproject.toml
 desktop-file-install --dir=%{buildroot}%{_datadir}/applications packaging/py-annotate.desktop
 install -d %{buildroot}%{_datadir}/icons
 cp -pr src/py_annotate/icons/linux/hicolor %{buildroot}%{_datadir}/icons/
+install -Dpm 0644 packaging/io.github.nivaca.py-annotate.metainfo.xml \
+    %{buildroot}%{_metainfodir}/io.github.nivaca.py-annotate.metainfo.xml
+install -Dpm 0644 packaging/man/py-annotate.1 %{buildroot}%{_mandir}/man1/py-annotate.1
+install -Dpm 0644 packaging/man/es/py-annotate.1 %{buildroot}%{_mandir}/es/man1/py-annotate.1
 
 %check
 desktop-file-validate %{buildroot}%{_datadir}/applications/py-annotate.desktop
+appstreamcli validate --no-net %{buildroot}%{_metainfodir}/io.github.nivaca.py-annotate.metainfo.xml
 %pyproject_check_import -e 'py_annotate.gui*'
 # The whole test suite, on the installed package, with no settings of the
 # builder's and the window drawn offscreen.
@@ -69,12 +75,22 @@ export HOME="$PWD/check-home" PY_ANNOTATE_CONFIG="$PWD/check-home/config" QT_QPA
 %{py3_test_envvars} %{buildroot}%{_bindir}/py-annotate --version | grep -q '%{version}'
 
 %files -f %{pyproject_files}
-%doc README.md README_es.md
+%doc README.md README_es.md docs/DESCRIPTION.md docs/DESCRIPCIÓN_es.md
 %{_bindir}/py-annotate
 %{_datadir}/applications/py-annotate.desktop
 %{_datadir}/icons/hicolor/*/apps/py-annotate.*
+%{_metainfodir}/io.github.nivaca.py-annotate.metainfo.xml
+%{_mandir}/man1/py-annotate.1*
+%lang(es) %{_mandir}/es/man1/py-annotate.1*
 
 %changelog
+* Thu Nov 19 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.3.0-1
+- Version 0.3.0: annotations changed where they are, and saved incrementally (signatures
+  stay valid); undo after saving; replies and review statuses, tags and
+  categories; XFDF; a summary of the comments; Find and highlight; continuous
+  scrolling; text written on the page; printing; installers for Windows and
+  macOS; the manual and the metainfo
+
 * Thu Nov 19 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.2.1-1
 - Version 0.2.1: PDF/A and PDF/X can be chosen as soon as pdf2iso is given in
   Settings

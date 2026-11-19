@@ -180,14 +180,6 @@
     <tr>Arrastre sobre el texto para subrayarlo con una línea ondulada</tr>
   </text>
   <text>
-    <en>Dragging moves the page in the window</en>
-    <tr>Al arrastrar se mueve la página en la ventana</tr>
-  </text>
-  <text>
-    <en>Draw on the page by hand</en>
-    <tr>Dibuje a mano alzada en la página</tr>
-  </text>
-  <text>
     <en>Ellipse</en>
     <tr>Elipse</tr>
   </text>
@@ -262,14 +254,6 @@
   <text>
     <en>New annotations: {kind}</en>
     <tr>Anotaciones nuevas: {kind}</tr>
-  </text>
-  <text>
-    <en>New note</en>
-    <tr>Nota nueva</tr>
-  </text>
-  <text>
-    <en>New text box</en>
-    <tr>Cuadro de texto nuevo</tr>
   </text>
   <text>
     <en>Next page</en>
@@ -464,14 +448,6 @@
     <tr>La configuración se guarda en {path}</tr>
   </text>
   <text>
-    <en>The text of the note:</en>
-    <tr>El texto de la nota:</tr>
-  </text>
-  <text>
-    <en>The text to write on the page:</en>
-    <tr>El texto que se escribirá en la página:</tr>
-  </text>
-  <text>
     <en>Tools</en>
     <tr>Herramientas</tr>
   </text>
@@ -502,10 +478,6 @@
   <text>
     <en>Write a copy of the document with the annotations, and go on with it</en>
     <tr>Escribir una copia del documento con las anotaciones, y seguir con ella</tr>
-  </text>
-  <text>
-    <en>Write the annotations in the document</en>
-    <tr>Escribir las anotaciones en el documento</tr>
   </text>
   <text>
     <en>Written in each new annotation, as its author</en>
@@ -746,10 +718,6 @@
   <text>
     <en>Changed</en>
     <tr>Cambiada</tr>
-  </text>
-  <text>
-    <en>Choose a tool in the toolbar: drag over text to mark it, drag on the page to draw, or click to add a note. Drag an annotation to move it or resize it; double-click it for its properties, right-click it for more. Right-click a tool to set it up.</en>
-    <tr>Elija una herramienta en la barra: arrastre sobre el texto para marcarlo, arrastre en la página para dibujar o haga clic para añadir una nota. Arrastre una anotación para moverla o cambiar su tamaño; haga doble clic en ella para ver sus propiedades, y clic derecho para más opciones. Con clic derecho sobre una herramienta, se configura.</tr>
   </text>
   <text>
     <en>Choose another name: the document stays open</en>
@@ -1248,20 +1216,12 @@
     <tr>El texto marcado, entre comillas, con el documento y su página</tr>
   </text>
   <text>
-    <en>The text to insert:</en>
-    <tr>El texto que se insertará:</tr>
-  </text>
-  <text>
     <en>The usual colours</en>
     <tr>Los colores habituales</tr>
   </text>
   <text>
     <en>The usual keys</en>
     <tr>Las teclas habituales</tr>
-  </text>
-  <text>
-    <en>Their comments and texts, the text they mark, their authors and kinds</en>
-    <tr>Sus comentarios y textos, el texto que marcan, sus autores y tipos</tr>
   </text>
   <text>
     <en>There are no annotations to export</en>
@@ -1510,5 +1470,389 @@
   <text>
     <en>{count} annotations were left out</en>
     <tr>{count} anotaciones quedaron fuera</tr>
+  </text>
+  <text>
+    <en>(continued)</en>
+    <tr>(continuación)</tr>
+  </text>
+  <text>
+    <en>, on {count} page</en>
+    <tr>, en {count} página</tr>
+  </text>
+  <text>
+    <en>, on {count} pages</en>
+    <tr>, en {count} páginas</tr>
+  </text>
+  <text>
+    <en>A summary of the comments (PDF)…</en>
+    <tr>Un resumen de los comentarios (PDF)…</tr>
+  </text>
+  <text>
+    <en>Accepted</en>
+    <tr>Aceptada</tr>
+  </text>
+  <text>
+    <en>All categories</en>
+    <tr>Todas las categorías</tr>
+  </text>
+  <text>
+    <en>All pages</en>
+    <tr>Todas las páginas</tr>
+  </text>
+  <text>
+    <en>All tags</en>
+    <tr>Todas las etiquetas</tr>
+  </text>
+  <text>
+    <en>Any status</en>
+    <tr>Cualquier estado</tr>
+  </text>
+  <text>
+    <en>By status</en>
+    <tr>Por estado</tr>
+  </text>
+  <text>
+    <en>Cancelled</en>
+    <tr>Cancelada</tr>
+  </text>
+  <text>
+    <en>Categories</en>
+    <tr>Categorías</tr>
+  </text>
+  <text>
+    <en>Categories:</en>
+    <tr>Categorías:</tr>
+  </text>
+  <text>
+    <en>Categories: {categories}</en>
+    <tr>Categorías: {categories}</tr>
+  </text>
+  <text>
+    <en>Choose a tool in the toolbar: drag over text to mark it, drag on the page to draw, or click to add a note. Drag an annotation to move it or resize it; double-click it for its properties (a text box, or a note: to write its text), right-click it for more. Right-click a tool to set it up.</en>
+    <tr>Elija una herramienta en la barra: arrastre sobre el texto para marcarlo, arrastre en la página para dibujar o haga clic para añadir una nota. Arrastre una anotación para moverla o cambiar su tamaño; con doble clic se abren sus propiedades (en un cuadro de texto o una nota, se escribe su texto), y con clic derecho, más opciones. Con clic derecho sobre una herramienta, se configura.</tr>
+  </text>
+  <text>
+    <en>Close</en>
+    <tr>Cerrar</tr>
+  </text>
+  <text>
+    <en>Completed</en>
+    <tr>Terminada</tr>
+  </text>
+  <text>
+    <en>Continuous scrolling</en>
+    <tr>Desplazamiento continuo</tr>
+  </text>
+  <text>
+    <en>Contradictions</en>
+    <tr>Contradicciones</tr>
+  </text>
+  <text>
+    <en>Definitions</en>
+    <tr>Definiciones</tr>
+  </text>
+  <text>
+    <en>Double-click a reply to change it; Delete takes it out</en>
+    <tr>Doble clic en una respuesta para cambiarla; Supr la quita</tr>
+  </text>
+  <text>
+    <en>Dragging moves the pages in the window</en>
+    <tr>Al arrastrar se mueven las páginas en la ventana</tr>
+  </text>
+  <text>
+    <en>Draw on the page by hand (with a tablet's pen, pressing harder draws wider)</en>
+    <tr>Dibujar a mano alzada en la página (con el lápiz de una tableta, cuanto más se aprieta, más ancho)</tr>
+  </text>
+  <text>
+    <en>Each page with annotations, beside a numbered list of them, with the text they mark, their comments and their replies</en>
+    <tr>Cada página con anotaciones, junto a una lista numerada de ellas, con el texto que marcan, sus comentarios y sus respuestas</tr>
+  </text>
+  <text>
+    <en>Editorial problems</en>
+    <tr>Problemas editoriales</tr>
+  </text>
+  <text>
+    <en>Find</en>
+    <tr>Buscar</tr>
+  </text>
+  <text>
+    <en>Find a word, a phrase or a pattern on the pages, and highlight (or underline, strike out…) the places found</en>
+    <tr>Buscar una palabra, una frase o un patrón en las páginas, y resaltar (o subrayar, tachar…) los lugares encontrados</tr>
+  </text>
+  <text>
+    <en>Find and highlight</en>
+    <tr>Buscar y resaltar</tr>
+  </text>
+  <text>
+    <en>Find and highlight…</en>
+    <tr>Buscar y resaltar…</tr>
+  </text>
+  <text>
+    <en>Find “{word}” and highlight it…</en>
+    <tr>Buscar «{word}» y resaltarla…</tr>
+  </text>
+  <text>
+    <en>Find:</en>
+    <tr>Buscar:</tr>
+  </text>
+  <text>
+    <en>For other PDF programs (XFDF)…</en>
+    <tr>Para otros programas de PDF (XFDF)…</tr>
+  </text>
+  <text>
+    <en>Freehand highlight</en>
+    <tr>Resaltado a mano alzada</tr>
+  </text>
+  <text>
+    <en>From another PDF program (XFDF)…</en>
+    <tr>De otro programa de PDF (XFDF)…</tr>
+  </text>
+  <text>
+    <en>From this page to the end</en>
+    <tr>De esta página al final</tr>
+  </text>
+  <text>
+    <en>Give the annotation a review status (a reply that says it)</en>
+    <tr>Dar a la anotación un estado de revisión (una respuesta que lo dice)</tr>
+  </text>
+  <text>
+    <en>Highlight by hand, where there is no text to drag over</en>
+    <tr>Resaltar a mano, donde no hay texto sobre el que arrastrar</tr>
+  </text>
+  <text>
+    <en>Historical references</en>
+    <tr>Referencias históricas</tr>
+  </text>
+  <text>
+    <en>Important quotations</en>
+    <tr>Citas importantes</tr>
+  </text>
+  <text>
+    <en>Looking… page {page} of {count}</en>
+    <tr>Buscando… página {page} de {count}</tr>
+  </text>
+  <text>
+    <en>Main arguments</en>
+    <tr>Argumentos principales</tr>
+  </text>
+  <text>
+    <en>Mark all</en>
+    <tr>Marcar todos</tr>
+  </text>
+  <text>
+    <en>Mark as:</en>
+    <tr>Marcar como:</tr>
+  </text>
+  <text>
+    <en>Mark those chosen</en>
+    <tr>Marcar los elegidos</tr>
+  </text>
+  <text>
+    <en>Match case</en>
+    <tr>Distinguir mayúsculas</tr>
+  </text>
+  <text>
+    <en>Methodological observations</en>
+    <tr>Observaciones metodológicas</tr>
+  </text>
+  <text>
+    <en>No status</en>
+    <tr>Sin estado</tr>
+  </text>
+  <text>
+    <en>No status yet</en>
+    <tr>Aún sin estado</tr>
+  </text>
+  <text>
+    <en>Not found</en>
+    <tr>No se encontró</tr>
+  </text>
+  <text>
+    <en>Only annotations in this category</en>
+    <tr>Solo anotaciones de esta categoría</tr>
+  </text>
+  <text>
+    <en>Only annotations with this review status</en>
+    <tr>Solo anotaciones con este estado de revisión</tr>
+  </text>
+  <text>
+    <en>Only annotations with this tag</en>
+    <tr>Solo anotaciones con esta etiqueta</tr>
+  </text>
+  <text>
+    <en>Primary sources</en>
+    <tr>Fuentes primarias</tr>
+  </text>
+  <text>
+    <en>Print</en>
+    <tr>Imprimir</tr>
+  </text>
+  <text>
+    <en>Print the pages with their annotations</en>
+    <tr>Imprimir las páginas con sus anotaciones</tr>
+  </text>
+  <text>
+    <en>Print…</en>
+    <tr>Imprimir…</tr>
+  </text>
+  <text>
+    <en>Regular expression</en>
+    <tr>Expresión regular</tr>
+  </text>
+  <text>
+    <en>Rejected</en>
+    <tr>Rechazada</tr>
+  </text>
+  <text>
+    <en>Replies (status: {status}):</en>
+    <tr>Respuestas (estado: {status}):</tr>
+  </text>
+  <text>
+    <en>Replies:</en>
+    <tr>Respuestas:</tr>
+  </text>
+  <text>
+    <en>Reply</en>
+    <tr>Responder</tr>
+  </text>
+  <text>
+    <en>Secondary literature</en>
+    <tr>Bibliografía secundaria</tr>
+  </text>
+  <text>
+    <en>Sent to the printer</en>
+    <tr>Enviado a la impresora</tr>
+  </text>
+  <text>
+    <en>Set the status…</en>
+    <tr>Dar un estado…</tr>
+  </text>
+  <text>
+    <en>Status</en>
+    <tr>Estado</tr>
+  </text>
+  <text>
+    <en>Status:</en>
+    <tr>Estado:</tr>
+  </text>
+  <text>
+    <en>Status: {status}</en>
+    <tr>Estado: {status}</tr>
+  </text>
+  <text>
+    <en>Stop</en>
+    <tr>Detener</tr>
+  </text>
+  <text>
+    <en>Tags, separated by commas</en>
+    <tr>Etiquetas, separadas por comas</tr>
+  </text>
+  <text>
+    <en>Tags:</en>
+    <tr>Etiquetas:</tr>
+  </text>
+  <text>
+    <en>Tags: {tags}</en>
+    <tr>Etiquetas: {tags}</tr>
+  </text>
+  <text>
+    <en>Text to find</en>
+    <tr>Texto que buscar</tr>
+  </text>
+  <text>
+    <en>The categories annotations can be put in (in their properties): one on each line</en>
+    <tr>Las categorías en que se pueden poner las anotaciones (en sus propiedades): una en cada línea</tr>
+  </text>
+  <text>
+    <en>The pages one under the other; otherwise, one page at a time</en>
+    <tr>Las páginas una debajo de otra; si no, una sola página cada vez</tr>
+  </text>
+  <text>
+    <en>The regular expression is not right: {error}</en>
+    <tr>La expresión regular no es correcta: {error}</tr>
+  </text>
+  <text>
+    <en>The reply:</en>
+    <tr>La respuesta:</tr>
+  </text>
+  <text>
+    <en>The size of the thumbnails</en>
+    <tr>El tamaño de las miniaturas</tr>
+  </text>
+  <text>
+    <en>The usual categories</en>
+    <tr>Las categorías habituales</tr>
+  </text>
+  <text>
+    <en>Their comments, texts, replies, tags and categories, the text they mark, their authors and kinds</en>
+    <tr>Sus comentarios, textos, respuestas, etiquetas y categorías, el texto que marcan, sus autores y tipos</tr>
+  </text>
+  <text>
+    <en>This document has no annotations.</en>
+    <tr>Este documento no tiene anotaciones.</tr>
+  </text>
+  <text>
+    <en>This page</en>
+    <tr>Esta página</tr>
+  </text>
+  <text>
+    <en>Those places are marked already</en>
+    <tr>Esos lugares ya están marcados</tr>
+  </text>
+  <text>
+    <en>Where:</en>
+    <tr>Dónde:</tr>
+  </text>
+  <text>
+    <en>Whole words</en>
+    <tr>Palabras completas</tr>
+  </text>
+  <text>
+    <en>Write a reply…</en>
+    <tr>Escribir una respuesta…</tr>
+  </text>
+  <text>
+    <en>Write its text…</en>
+    <tr>Escribir su texto…</tr>
+  </text>
+  <text>
+    <en>Write the annotations in the document (its signatures stay valid for what they signed)</en>
+    <tr>Escribir las anotaciones en el documento (sus firmas siguen siendo válidas para lo que firmaron)</tr>
+  </text>
+  <text>
+    <en>XFDF files (*.xfdf)</en>
+    <tr>Archivos XFDF (*.xfdf)</tr>
+  </text>
+  <text>
+    <en>XFDF, the format in which PDF programs exchange annotations (tags and categories are py-annotate's own, and are left out)</en>
+    <tr>XFDF, el formato en que los programas de PDF intercambian anotaciones (las etiquetas y las categorías son propias de py-annotate y quedan fuera)</tr>
+  </text>
+  <text>
+    <en>locked</en>
+    <tr>bloqueada</tr>
+  </text>
+  <text>
+    <en>{count} place found</en>
+    <tr>{count} lugar encontrado</tr>
+  </text>
+  <text>
+    <en>{count} place marked</en>
+    <tr>{count} lugar marcado</tr>
+  </text>
+  <text>
+    <en>{count} places found</en>
+    <tr>{count} lugares encontrados</tr>
+  </text>
+  <text>
+    <en>{count} places marked</en>
+    <tr>{count} lugares marcados</tr>
+  </text>
+  <text>
+    <en>{count} replies</en>
+    <tr>{count} respuestas</tr>
+  </text>
+  <text>
+    <en>{count} reply</en>
+    <tr>{count} respuesta</tr>
   </text>
 </interface>

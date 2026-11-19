@@ -1,0 +1,54 @@
+.TH PY-ANNOTATE 1 "noviembre de 2026" "py-annotate" "Órdenes de usuario"
+.SH NOMBRE
+py-annotate \- añadir anotaciones a documentos PDF
+.SH SINOPSIS
+.B py-annotate
+.RI [ archivo.pdf ]
+.br
+.B py-annotate
+.BR \-\-version " | " \-\-help
+.SH DESCRIPCIÓN
+.B py-annotate
+abre una ventana (Qt) en la que se añaden anotaciones a un documento PDF:
+resaltados, subrayados y tachados sobre el texto, marcas donde falta insertar
+texto, notas, cuadros de texto y llamadas, zonas resaltadas, rectángulos,
+elipses, polígonos, nubes, líneas, flechas, polilíneas, dibujos y resaltados a
+mano alzada, y sellos. Cada una puede llevar un comentario, respuestas, un
+estado de revisión, etiquetas y categorías.
+.PP
+Se escriben como anotaciones PDF corrientes, que cualquier visor de PDF
+muestra y puede editar. Las anotaciones que ya tenga el documento se leen, y
+se pueden cambiar o borrar. Al guardar en el propio documento, los cambios se
+añaden a su final (un guardado incremental), de modo que sus firmas siguen
+siendo válidas para lo que firmaron.
+.PP
+La ventana también exporta las anotaciones (un informe en Markdown, una tabla
+en CSV, JSON, XFDF, un resumen de los comentarios en PDF), las importa (JSON,
+XFDF, otra copia del PDF), imprime el documento y guarda copias aplanadas, sin
+anotaciones, o como PDF/A o PDF/X (con
+.BR pdf2iso ).
+Está en español o en inglés (Configuración > Idioma).
+.SH OPCIONES
+.TP
+.B \-\-version
+Muestra la versión, y termina.
+.TP
+.B \-\-help
+Muestra cómo iniciarlo, y termina.
+.SH ARCHIVOS
+.TP
+.I ~/.config/py-annotate/config.toml
+La configuración: el idioma, el autor de las anotaciones nuevas, cómo dibuja
+cada herramienta, los colores y lo que significan, las categorías, los atajos
+de teclado y dónde está pdf2iso.
+.B $PY_ANNOTATE_CONFIG
+indica otra carpeta.
+.TP
+.I ~/.config/py-annotate/recovery/
+Copias de las anotaciones aún no guardadas, que se ofrecen si el programa se
+cierra antes de guardarlas.
+.SH VÉASE TAMBIÉN
+.BR pdf2iso (1)
+.SH AUTOR
+Nicolas Vaughan <nicolasvaughan@proton.me>. Con licencia GNU General Public
+License, versión 3 o posterior.

@@ -1,9 +1,14 @@
-"""The page being annotated, and its annotations: made with the tool chosen
-(dragging over text, dragging a box, a line or a stroke, clicking the points
-of a polygon, or clicking), moved by dragging them (or with the arrow keys),
-resized by dragging their edges and corners, and reshaped by dragging their
-points; selected by clicking them or by dragging a frame around them; and
-erased with the eraser."""
+"""The pages being annotated, one under the other (or one at a time), and their
+annotations: made with the tool chosen (dragging over text, dragging a box, a
+line or a stroke, clicking the points of a polygon, or clicking), moved by
+dragging them (or with the arrow keys), resized by dragging their edges and
+corners, and reshaped by dragging their points; selected by clicking them or
+by dragging a frame around them; erased with the eraser; and the text of a
+text box or a note written where it is.
+
+Each page is an item of the scene (PageItem), in points; the annotations of a
+page are its children, so they are drawn and handled in the page's own
+points, as the page is shown. Only the pages in view are rendered."""
 
 from __future__ import annotations
 
@@ -13,34 +18,29 @@ from collections import OrderedDict
 from collections.abc import Callable
 
 import pymupdf
-from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
-from PySide6.QtGui import QBrush, QColor, QCursor, QImage, QPainter, QPen, QPixmap
-from PySide6.QtWidgets import QGraphicsItem, QGraphicsPixmapItem, QGraphicsRectItem, QGraphicsScene, QGraphicsView
+from PySide6.QtCore import QEvent, QPointF, QRectF, Qt, QTimer, Signal
+from PySide6.QtGui import QBrush, QColor, QCursor, QImage, QPainter, QPen, QPixmap, QTextOption
+from PySide6.QtWidgets import (
+    QGraphicsItem, QGraphicsPixmapItem, QGraphicsRectItem, QGraphicsScene, QGraphicsTextItem, QGraphicsView,
+)
 
 from .. import annots
 from ..annots import (
-    CARET_SIZE,
-    MARKUP,
-    NOTE_SIZE,
-    RESIZABLE,
-    VERTICES,
-    Annotation,
-    Rect,
-    nearest_word,
-    text_rects,
+    CARET_SIZE, DRAWN, MARKUP, NOTE_SIZE, RESIZABLE, TEXTUAL, VERTICES, Annotation, Rect, nearest_word, text_rects,
     words,
 )
-from .paint import paint, qrect
+from .paint import _font, paint, qrect
 
-SCENE_MARGIN = 12  # points around the page
+GAP = 12  # points between the pages, and around them
 MIN_SIZE = 3.0  # points: a smaller drag is a click
 GRIP = 6  # pixels from an edge, or from a point of a line, where dragging resizes or reshapes
 ERASER = 7  # pixels: the radius of the eraser
 MAX_PIXELS = 40_000_000  # the largest rendering of a page
-CACHED_PAGES = 6  # renderings kept, so that a page turned back needn't render again
+CACHED_PAGES = 16  # renderings kept, so that a page scrolled back to needn't render again
 SELECTED = QColor(42, 127, 255)
 NEAR_TEXT = 3.0  # points: a drag that starts this close to a word selects text
 FREETEXT_SIZE = (180.0, 40.0)  # points: a text box made by a click
+NOTE_EDITOR = (220.0, 110.0)  # points: the field where the text of a note is written
 BOXES = ("freetext", "area", "rect", "ellipse", "cloud")  # (tools that drag a box)
 LINES = ("line", "arrow")
 POLYGONS = ("polygon", "polyline")  # (tools that click point after point)
@@ -93,11 +93,11 @@ def erase_ink(a: Annotation, centres: list[tuple[float, float]], radius: float) 
 
 
 class AnnotItem(QGraphicsItem):
-    """An annotation on the page, drawn as it will look; when selected, a blue
+    """An annotation on its page, drawn as it will look; when selected, a blue
     frame around it, with handles where it can be resized or reshaped."""
 
-    def __init__(self, index: int, annotation: Annotation, selected: bool):
-        super().__init__()
+    def __init__(self, index: int, annotation: Annotation, selected: bool, parent=None):
+        super().__init__(parent)
         self.index = index
         self.annot = annotation
         self.chosen = selected
@@ -108,6 +108,9 @@ class AnnotItem(QGraphicsItem):
         if annotation.contents:
             text = annotation.contents if len(annotation.contents) <= 300 else annotation.contents[:298] + "…"
             tip += "<br>" + text.replace("&", "&amp;").replace("<", "&lt;").replace("\n", "<br>")
+        if annotation.replies:
+            tip += "<br><i>" + "<br>".join(f"{r.author}: {r.contents[:80]}".replace("<", "&lt;")
+                                           for r in annotation.replies[-3:]) + "</i>"
         self.setToolTip(tip)
 
     def set_annotation(self, annotation: Annotation):
@@ -162,12 +165,12 @@ class AnnotItem(QGraphicsItem):
                                                                   a.paths[0][0]), grip + 1):
             return ""
         r = qrect(a.rect)
-        if a.kind == "ink" and not self.chosen:  # (only on its lines; once selected, its frame too)
+        if a.kind in DRAWN and not self.chosen:  # (only on its lines; once selected, its frame too)
             return "" if any(_near_path(point, path, grip + a.width / 2) for path in a.paths) else None
         if not r.adjusted(-grip, -grip, grip, grip).contains(point):
             return None
         edges = ""
-        if a.kind in RESIZABLE and not a.locked and (self.chosen or a.kind != "ink"):
+        if a.kind in RESIZABLE and not a.locked and (self.chosen or a.kind not in DRAWN):
             if abs(point.x() - r.left()) <= grip:
                 edges += "l"
             elif abs(point.x() - r.right()) <= grip:
@@ -182,10 +185,17 @@ class AnnotItem(QGraphicsItem):
 
     def paint(self, painter, option, widget=None):
         paint(painter, self.annot)
+        a = self.annot
+        scale = painter.worldTransform().m11() or 1
+        if a.replies or a.status():  # (a small speech bubble: it has replies, or a status)
+            s = 8 / scale
+            x, y = qrect(a.rect).right() + 2 / scale, qrect(a.rect).top() - s
+            painter.setPen(QPen(QColor(90, 90, 90), 1 / scale))
+            painter.setBrush(QColor({"Accepted": "#a5d6a7", "Rejected": "#ef9a9a", "Completed": "#90caf9",
+                                     "Cancelled": "#e0e0e0"}.get(a.status(), "#fff59d")))
+            painter.drawRoundedRect(QRectF(x, y, s * 1.3, s), s / 4, s / 4)
         if not self.chosen:
             return
-        scale = painter.worldTransform().m11() or 1
-        a = self.annot
         frame = qrect(a.rect) if a.kind not in MARKUP else self.frame()
         pen = QPen(SELECTED, 1.2, Qt.PenStyle.DashLine)
         pen.setCosmetic(True)
@@ -206,10 +216,8 @@ class AnnotItem(QGraphicsItem):
             return
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(SELECTED)
-        corners = [] if a.kind not in RESIZABLE else \
+        corners = [] if a.kind not in RESIZABLE or a.kind in ("line", "arrow", "polyline") else \
             [frame.topLeft(), frame.topRight(), frame.bottomLeft(), frame.bottomRight()]
-        if a.kind in ("line", "arrow", "polyline"):
-            corners = []
         for corner in corners:
             painter.drawRect(QRectF(corner.x() - side / 2, corner.y() - side / 2, side, side))
         painter.setBrush(QColor("white"))
@@ -218,19 +226,67 @@ class AnnotItem(QGraphicsItem):
             painter.drawEllipse(h, side / 2, side / 2)
 
 
+class PageItem(QGraphicsRectItem):
+    """A page: white, with its rendering on it (once it is in view), and its annotations as children."""
+
+    def __init__(self, number: int, size: QRectF):
+        super().__init__(QRectF(0, 0, size.width(), size.height()))
+        self.number = number
+        self.setPen(QPen(Qt.PenStyle.NoPen))
+        self.setBrush(QBrush(Qt.GlobalColor.white))
+        self.pixmap = QGraphicsPixmapItem(self)
+        self.pixmap.setTransformationMode(Qt.TransformationMode.SmoothTransformation)
+        self.scale_shown = 0.0  # (of the rendering it shows; 0: none, or a stand-in)
+        self.wanted: tuple | None = None  # (the key of the rendering asked for)
+
+    def show(self, pixmap: QPixmap, scale: float, final: bool = True):
+        self.pixmap.setPixmap(pixmap)
+        self.pixmap.setScale(1 / scale if final else self.rect().width() / max(pixmap.width(), 1))
+        if final:
+            self.scale_shown = scale
+
+
+class TextEditor(QGraphicsTextItem):
+    """Where the text of a text box, a callout, a note or a caret is written, on the page:
+    Ctrl+Enter, or a click elsewhere, keeps it; Escape gives it up."""
+
+    def __init__(self, canvas: PageCanvas, parent):
+        super().__init__(parent)
+        self.canvas = canvas
+        self.setTextInteractionFlags(Qt.TextInteractionFlag.TextEditorInteraction)
+        self.setZValue(6)
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self.canvas.cancel_text()
+            return
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and \
+                event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            self.canvas.commit_text()
+            return
+        super().keyPressEvent(event)
+
+    def focusOutEvent(self, event):
+        super().focusOutEvent(event)
+        if event.reason() != Qt.FocusReason.PopupFocusReason:  # (not for its own right-click menu)
+            QTimer.singleShot(0, lambda: self.canvas.commit_text(only=self))
+
+
 class PageCanvas(QGraphicsView):
-    """A page and its annotations. The annotations are identified by their
+    """The pages and their annotations. The annotations are identified by their
     index in the window's list; what the user does is reported with the signals."""
 
-    drawn = Signal(object)  # Annotation: a new one (made by FACTORY), drawn on the page
+    drawn = Signal(object)  # Annotation: a new one (made by FACTORY), drawn on a page
     edited = Signal(int, object)  # index, Annotation: one moved, resized or reshaped
     erased = Signal(object)  # {index: Annotation, or None to delete it}: what the eraser did
     nudged = Signal(float, float)  # the selected annotations moved with the arrow keys, by (dx, dy) points
     picked = Signal(list, bool)  # indices clicked (or framed); whether to add them to the selection
     zoom_changed = Signal(float)
-    text_chosen = Signal(list)  # [Rect]: the lines of the text selected (with a markup tool)
-    double_clicked = Signal(int, tuple)  # index of the annotation (-1: none), (x, y) on the page
-    menu_asked = Signal(int, object, object)  # index of the annotation (-1: none), place on the screen, on the page
+    page_changed = Signal(int)  # the page in view is another (scrolling)
+    text_chosen = Signal(int, list)  # page, [Rect]: the lines of the text selected (with a markup tool)
+    double_clicked = Signal(int, int, tuple)  # index of the annotation (-1: none), page, (x, y) on it
+    menu_asked = Signal(int, object, int, object)  # index (-1: none), place on the screen, page, place on it
+    text_done = Signal(int, object)  # index (-1: a new one), the annotation with the text written
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -242,133 +298,161 @@ class PageCanvas(QGraphicsView):
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setBackgroundBrush(self.palette().dark())
-        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.page: pymupdf.Page | None = None
-        self.page_size = QRectF()
+        self.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
+        self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.SmartViewportUpdate)
+        self.doc: pymupdf.Document | None = None
+        self.continuous = True  # all the pages one under the other; else only the page shown
+        self.page = 0  # the page in view (of a continuous view: the one in the middle of the window)
         self.fit = "page"  # 'page', 'width' or '' (a zoom of its own)
         # 'select': selects, moves and resizes; 'hand': dragging scrolls; 'eraser': dragging erases;
         # else the kind of annotation that the tool makes: see annots.KINDS
         self.mode = "select"
         # makes the annotation of a kind, page, frame and paths with the style of new ones (the window's)
         self.factory: Callable[[str, int, Rect, tuple], Annotation] | None = None
+        self.placeholder_for: Callable[[int], QImage | None] = lambda n: None  # (a thumbnail, until it is rendered)
         self.editable = True  # (False: the annotations are hidden, and nothing can be done to them)
-        self._words: list | None = None  # (of the page, when first needed)
-        self.pixmap_item: QGraphicsPixmapItem | None = None
+        self.pages: dict[int, PageItem] = {}  # (those laid out)
         self.items_: list[AnnotItem] = []
+        self._shown_items: list[tuple[int, Annotation]] = []
+        self._selected: list[int] = []
+        self._words: dict[int, list] = {}
         self._drag: dict | None = None
-        self._poly: dict | None = None  # (a polygon being made: its points, and its picture)
-        self._rendered = 0.0
-        self.render_timer = QTimer(self, singleShot=True, interval=120)
-        self.render_timer.timeout.connect(self._render)
+        self._poly: dict | None = None  # (a polygon being made: its page, its points, and its picture)
+        self._editor: dict | None = None  # (a text being written: its item, frame, index and annotation)
+        self._pressure: float | None = None  # (of a tablet's pen, while it touches)
+        self._quiet = False  # (scrolled by the program: the page in view is said by it)
+        self.render_timer = QTimer(self, singleShot=True, interval=90)
+        self.render_timer.timeout.connect(self._render_visible)
+        self.local_timer = QTimer(self, singleShot=True, interval=0)
+        self.local_timer.timeout.connect(self._render_next_here)
+        self._here: list[tuple[int, float]] = []  # (pages to render in this process, one at each turn)
         self._cache: OrderedDict = OrderedDict()  # (document, page number, scale) -> QPixmap
-        self._ahead: list[pymupdf.Page] = []  # pages to render while the window is idle
-        self.ahead_timer = QTimer(self, singleShot=True, interval=60)
-        self.ahead_timer.timeout.connect(self._render_ahead)
         # (path, password, stamp) of the document on disk, if the pages can be rendered in
-        # another process (see renderer.py); and a picture to show until the page arrives
+        # another process (see renderer.py)
         self.source = None
-        self.placeholder: QImage | None = None
-        self._wanted: tuple | None = None  # the key of the rendering awaited for the page shown
+        self.verticalScrollBar().valueChanged.connect(self._scrolled)
+        self.horizontalScrollBar().valueChanged.connect(lambda _: self.render_timer.start())
 
-    # ----------------------------------------------------------------- page and annotations
+    # ----------------------------------------------------------------- the document and its layout
 
-    def show_page(self, page: pymupdf.Page | None, items: list[tuple[int, Annotation]], selected: list[int],
-                  keep_view: bool = False):
-        """PAGE, with ITEMS: (index, annotation)."""
-        same = keep_view and page is not None and self.page is not None and QRectF(*page.rect) == self.page_size
-        self.scene().clear()
-        self.items_, self.pixmap_item, self._drag, self._poly = [], None, None, None
-        if page is not self.page:
-            self._words = None
-            self._wanted = None
+    def set_document(self, doc: pymupdf.Document | None, page: int = 0):
+        """Show DOC (None: nothing), at PAGE."""
+        self.cancel_text()
+        self.doc = doc
         self.page = page
-        if page is None:
-            self.page_size = QRectF()
+        self._words = {}
+        self._cache.clear()
+        self._shown_items, self._selected = [], []
+        self.layout()
+        self.go_to(page)
+
+    def page_rect(self, number: int) -> QRectF:
+        r = self.doc[number].rect
+        return QRectF(0, 0, r.width, r.height)
+
+    def layout(self):
+        """Lay out the pages (all of them, or only the page shown): a PageItem for each."""
+        self.cancel_polygon()
+        self._drag = None
+        scene = self.scene()
+        scene.clear()
+        self.pages, self.items_ = {}, []
+        if self.doc is None:
+            scene.setSceneRect(QRectF())
             return
-        self.page_size = QRectF(*page.rect)
-        self.scene().setSceneRect(self.page_size.adjusted(-SCENE_MARGIN, -SCENE_MARGIN, SCENE_MARGIN, SCENE_MARGIN))
-        self.scene().addRect(self.page_size, QPen(Qt.PenStyle.NoPen), QBrush(Qt.GlobalColor.white))
-        self.pixmap_item = QGraphicsPixmapItem()
-        self.pixmap_item.setTransformationMode(Qt.TransformationMode.SmoothTransformation)
-        self.scene().addItem(self.pixmap_item)
-        self._rendered = 0.0
-        for index, annotation in items:
-            item = AnnotItem(index, annotation, index in selected)
-            self.scene().addItem(item)
-            self.items_.append(item)
-        if not same:
-            self.apply_fit()
-        self._render()
+        numbers = range(self.doc.page_count) if self.continuous else [min(self.page, self.doc.page_count - 1)]
+        sizes = {n: self.page_rect(n) for n in numbers}
+        widest = max(r.width() for r in sizes.values())
+        y = GAP
+        for n in numbers:
+            item = PageItem(n, sizes[n])
+            item.setPos(-sizes[n].width() / 2, y)
+            scene.addItem(item)
+            self.pages[n] = item
+            y += sizes[n].height() + GAP
+        scene.setSceneRect(QRectF(-widest / 2 - GAP, 0, widest + 2 * GAP, y))
+        self._place_annotations()
+        self.render_timer.start()
+
+    def set_continuous(self, on: bool):
+        if on != self.continuous:
+            self.continuous = on
+            self.layout()
+            self.go_to(self.page)
+
+    def set_annotations(self, items: list[tuple[int, Annotation]], selected: list[int]):
+        """Show ITEMS ((index, annotation), on whatever page), SELECTED among them; the pages stay."""
+        self._shown_items, self._selected = list(items), list(selected)
+        self._place_annotations()
+
+    def _place_annotations(self):
+        for item in self.items_:
+            if item.scene() is not None:
+                self.scene().removeItem(item)
+        self.items_ = []
+        if self._drag is not None and self._drag.get("kind") == "edit":
+            self._drag = None
+        for index, a in self._shown_items:
+            parent = self.pages.get(a.page)
+            if parent is not None:
+                self.items_.append(AnnotItem(index, a, index in self._selected, parent))
+
+    def go_to(self, page: int, rect: Rect | None = None):
+        """Bring PAGE into view (its top; or, if given, RECT on it)."""
+        if self.doc is None:
+            return
+        page = max(0, min(page, self.doc.page_count - 1))
+        changed = page != self.page
+        self.page = page
+        if not self.continuous and (page not in self.pages):
+            self.layout()
+            if self.fit:
+                self.apply_fit()
+        item = self.pages.get(page)
+        if item is None:
+            return
+        self._quiet = True
+        if rect is not None:
+            self.ensureVisible(item.mapRectToScene(qrect(rect)), 60, 60)
+        else:
+            top = item.mapToScene(QPointF(0, 0))
+            bar = self.verticalScrollBar()
+            bar.setValue(round(self.mapFromScene(QPointF(0, top.y() - GAP)).y() + bar.value()))
+        self._quiet = False
+        self.render_timer.start()
+        if changed:
+            self.page_changed.emit(page)
+
+    def _scrolled(self, _value):
+        self.render_timer.start()
+        if self._quiet or not self.continuous or not self.pages:
+            return
+        middle = self.mapToScene(self.viewport().rect().center()).y()
+        here = min(self.pages.values(), key=lambda p: 0 if p.sceneBoundingRect().top() <= middle
+                   <= p.sceneBoundingRect().bottom() else min(abs(p.sceneBoundingRect().top() - middle),
+                                                              abs(p.sceneBoundingRect().bottom() - middle)))
+        if here.number != self.page:
+            self.page = here.number
+            self.page_changed.emit(here.number)
+
+    # ----------------------------------------------------------------- rendering
 
     def zoom(self) -> float:
         return self.transform().m11()
 
-    def _scale_for(self, page: pymupdf.Page) -> float:
-        """The scale to render PAGE at, for the zoom and the screen."""
+    def _scale_for(self, number: int) -> float:
+        """The scale to render page NUMBER at, for the zoom and the screen."""
         scale = self.zoom() * self.devicePixelRatioF()
-        w, h = page.rect.width * scale, page.rect.height * scale
-        if w * h > MAX_PIXELS:
-            scale *= (MAX_PIXELS / (w * h)) ** 0.5
+        r = self.doc[number].rect
+        if r.width * scale * r.height * scale > MAX_PIXELS:
+            scale *= (MAX_PIXELS / (r.width * scale * r.height * scale)) ** 0.5
         return round(scale, 3)
-
-    def _pixmap(self, page: pymupdf.Page, scale: float) -> QPixmap:
-        """PAGE rendered at SCALE, from the cache if it is there."""
-        key = (id(page.parent), page.number, scale)
-        pixmap = self._cache.get(key)
-        if pixmap is None:
-            pixmap = self._keep(key, page_image(page, scale))
-        else:
-            self._cache.move_to_end(key)
-        return pixmap
 
     def clear_cache(self):
         """Forget the renderings (another document was opened, or this one changed on disk)."""
         self._cache.clear()
-        self._ahead = []
-
-    def _remote(self):
-        """The renderer of other processes, if pages are rendered there."""
-        from .renderer import renderer
-
-        r = renderer()
-        return r if self.source is not None and r.available() else None
-
-    def render_ahead(self, pages: list[pymupdf.Page]):
-        """Render PAGES (the next and previous ones) when the window is idle, so that
-        turning to them is at once."""
-        self._ahead = list(pages)
-        remote = self._remote()
-        if remote is None:
-            self.ahead_timer.start()
-            return
-        shown = self.page.number if self.page is not None else -1
-        remote.drop("view", keep=lambda path, number: number == shown)
-        self._request_ahead(remote)
-
-    def _request_ahead(self, remote):
-        """Ask the other process for the pages to render ahead (at the zoom of now)."""
-        for page in self._ahead:
-            try:
-                scale = self._scale_for(page)
-            except (RuntimeError, ValueError):  # (the document was closed meanwhile)
-                self._ahead = []
-                return
-            key = (id(page.parent), page.number, scale)
-            if key not in self._cache:
-                remote.request("view", self.source, page.number, scale,
-                               lambda image, key=key: self._arrived(key, image))
-
-    def _render_ahead(self):
-        if not self._ahead:
-            return
-        page = self._ahead.pop(0)
-        try:
-            self._pixmap(page, self._scale_for(page))
-        except (RuntimeError, ValueError):  # (the document was closed meanwhile)
-            self._ahead = []
-            return
-        if self._ahead:
-            self.ahead_timer.start()
+        for item in self.pages.values():
+            item.scale_shown = 0.0
 
     def _keep(self, key: tuple, image: QImage) -> QPixmap:
         pixmap = QPixmap.fromImage(image)
@@ -377,65 +461,123 @@ class PageCanvas(QGraphicsView):
             self._cache.popitem(last=False)
         return pixmap
 
-    def _arrived(self, key: tuple, image: QImage | None):
-        """A rendering from another process (None: it couldn't be made there)."""
-        if image is not None:
-            pixmap = self._keep(key, image)
-        elif key == self._wanted and self.page is not None:
-            pixmap = self._pixmap(self.page, key[2])  # (rendered here, then)
-        else:
-            return
-        if key == self._wanted and self.pixmap_item is not None:
-            self._wanted = None
-            self.pixmap_item.setPixmap(pixmap)
-            self.pixmap_item.setScale(1 / key[2])
+    def _remote(self):
+        """The renderer of other processes, if pages are rendered there."""
+        from .renderer import renderer
 
-    def _render(self):
-        if self.page is None or self.pixmap_item is None:
+        r = renderer()
+        return r if self.source is not None and r.available() else None
+
+    def visible_pages(self, ahead: float = 0.5) -> list[int]:
+        """The pages in view (and those within AHEAD of a window's height of it), the middle one first."""
+        if not self.pages:
+            return []
+        view = self.mapToScene(self.viewport().rect()).boundingRect()
+        view = view.adjusted(0, -view.height() * ahead, 0, view.height() * ahead)
+        found = [n for n, item in self.pages.items() if item.sceneBoundingRect().intersects(view)]
+        return sorted(found, key=lambda n: abs(n - self.page))
+
+    def _render_visible(self):
+        """Render the pages in view at the zoom of now: from the cache, in the other process, or here."""
+        if self.doc is None:
+            return
+        remote = self._remote()
+        wanted = self.visible_pages()
+        if remote is not None:
+            remote.drop("view", keep=lambda path, number: number in wanted)
+        self._here = []
+        for n in wanted:
+            item = self.pages[n]
+            try:
+                scale = self._scale_for(n)
+            except (RuntimeError, ValueError):  # (the document was closed meanwhile)
+                return
+            if abs(scale - item.scale_shown) < 1e-3:
+                continue
+            key = (id(self.doc), n, scale)
+            if key in self._cache:
+                self._cache.move_to_end(key)
+                item.show(self._cache[key], scale)
+                continue
+            if item.pixmap.pixmap().isNull():  # (meanwhile, an older rendering, or the thumbnail)
+                old = next((k for k in reversed(self._cache) if k[:2] == key[:2]), None)
+                if old is not None:
+                    item.show(self._cache[old], old[2], final=False)
+                else:
+                    image = self.placeholder_for(n)
+                    if image is not None and not image.isNull():
+                        item.show(QPixmap.fromImage(image), 1.0, final=False)
+            if item.wanted == key:
+                continue
+            item.wanted = key
+            if remote is not None:
+                remote.request("view", self.source, n, scale, lambda image, key=key: self._arrived(key, image),
+                               first=n == self.page)
+            else:
+                self._here.append((n, scale))
+        if self._here:
+            self.local_timer.start()
+
+    def _render_next_here(self):
+        """Render one page in this process (the window answers between them)."""
+        if not self._here or self.doc is None:
+            return
+        n, scale = self._here.pop(0)
+        try:
+            image = page_image(self.doc[n], scale)
+        except (RuntimeError, ValueError):
+            self._here = []
+            return
+        self._arrived((id(self.doc), n, scale), image)
+        if self._here:
+            self.local_timer.start()
+
+    def _arrived(self, key: tuple, image: QImage | None):
+        """A rendering (None: it couldn't be made in the other process: here, then)."""
+        if self.doc is None or key[0] != id(self.doc):
+            return
+        if image is None:
+            try:
+                image = page_image(self.doc[key[1]], key[2])
+            except (RuntimeError, ValueError):
+                return
+        pixmap = self._keep(key, image)
+        item = self.pages.get(key[1])
+        if item is not None and item.wanted == key:
+            item.wanted = None
+            item.show(pixmap, key[2])
+
+    def render_page_now(self):
+        """Render the page in view at once (for the tests, and before a picture of the window)."""
+        if self.doc is None or self.page not in self.pages:
             return
         scale = self._scale_for(self.page)
-        if abs(scale - self._rendered) < 1e-3:
-            return
-        self._rendered = scale
-        key = (id(self.page.parent), self.page.number, scale)
-        remote = self._remote()
-        if key in self._cache or remote is None:
-            self._wanted = None
-            self.pixmap_item.setPixmap(self._pixmap(self.page, scale))
-            self.pixmap_item.setScale(1 / scale)
-            return
-        # (meanwhile, the page as it was, at another zoom, or its thumbnail made larger)
-        if self.pixmap_item.pixmap().isNull():
-            old = next((k for k in reversed(self._cache) if k[:2] == key[:2]), None)
-            if old is not None:
-                self.pixmap_item.setPixmap(self._cache[old])
-                self.pixmap_item.setScale(1 / old[2])
-            elif self.placeholder is not None and not self.placeholder.isNull():
-                self.pixmap_item.setPixmap(QPixmap.fromImage(self.placeholder))
-                self.pixmap_item.setScale(self.page_size.width() / self.placeholder.width())
-        self._wanted = key
-        remote.drop("view")  # (the pages next to one left behind, or at an older zoom)
-        remote.request("view", self.source, self.page.number, scale, lambda image: self._arrived(key, image),
-                       first=True)
-        self._request_ahead(remote)
+        self._arrived((id(self.doc), self.page, scale), page_image(self.doc[self.page], scale))
+        self.pages[self.page].show(self._cache[(id(self.doc), self.page, scale)], scale)
 
     # ----------------------------------------------------------------- zoom
 
     def set_zoom(self, factor: float, fit: str = ""):
         factor = max(0.05, min(factor, 16))
+        anchor = self.mapToScene(self.viewport().rect().center())
         self.fit = fit
         self.resetTransform()
         self.scale(factor, factor)
+        if self.continuous and self.page in self.pages and fit:
+            self.go_to(self.page)
+        else:
+            self.centerOn(anchor)
         self.render_timer.start()
         self.zoom_changed.emit(factor)
 
     def apply_fit(self):
-        if self.page_size.isEmpty() or not self.fit:
+        if self.doc is None or not self.fit or self.page not in self.pages:
             return
+        size = self.page_rect(self.page)
         room = self.viewport().size()
-        margin = 2 * SCENE_MARGIN + 4  # (points around the page, and a few pixels)
-        by_width = (room.width() - 4) / (self.page_size.width() + margin)
-        by_height = (room.height() - 4) / (self.page_size.height() + margin)
+        widest = max(self.page_rect(n).width() for n in self.pages)
+        by_width = (room.width() - 4) / (widest + 2 * GAP)
+        by_height = (room.height() - 4) / (size.height() + 2 * GAP)
         self.set_zoom(by_width if self.fit == "width" else min(by_width, by_height), self.fit)
 
     def zoom_by(self, factor: float):
@@ -444,6 +586,7 @@ class PageCanvas(QGraphicsView):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.apply_fit()
+        self.render_timer.start()
 
     def wheelEvent(self, event):
         if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
@@ -456,17 +599,38 @@ class PageCanvas(QGraphicsView):
             self.render_timer.start()
             self.zoom_changed.emit(z)
             event.accept()
+        elif not self.continuous and self.doc is not None:  # (one page at a time: past its end, the next)
+            bar = self.verticalScrollBar()
+            down = event.angleDelta().y() < 0
+            if down and bar.value() >= bar.maximum() and self.page < self.doc.page_count - 1:
+                self.go_to(self.page + 1)
+            elif not down and bar.value() <= bar.minimum() and self.page > 0:
+                self.go_to(self.page - 1)
+                bar.setValue(bar.maximum())
+            else:
+                super().wheelEvent(event)
         else:
             super().wheelEvent(event)
 
-    # ----------------------------------------------------------------- the mouse and the keys
+    # ----------------------------------------------------------------- where the mouse is
+
+    def locate(self, pos) -> tuple[PageItem | None, QPointF]:
+        """The page at POS (view coordinates; None if none is there), and the point on it."""
+        scene = self.mapToScene(pos)
+        for item in self.pages.values():
+            if item.sceneBoundingRect().adjusted(-GAP / 2, -GAP / 2, GAP / 2, GAP / 2).contains(scene):
+                return item, item.mapFromScene(scene)
+        return None, QPointF()
 
     def _hit(self, pos) -> tuple[AnnotItem | None, str]:
         """The annotation at POS (view coordinates), and what dragging it does (see AnnotItem.hit)."""
-        point = self.mapToScene(pos)
+        page, point = self.locate(pos)
+        if page is None:
+            return None, ""
         grip = GRIP / (self.zoom() or 1)
         # (the selected first, then those on top: the last drawn)
-        for item in sorted(self.items_, key=lambda i: (-i.zValue(), -i.index)):
+        for item in sorted((i for i in self.items_ if i.parentItem() is page),
+                           key=lambda i: (-i.zValue(), -i.index)):
             edges = item.hit(point, grip)
             if edges is not None:
                 return item, edges
@@ -488,27 +652,29 @@ class PageCanvas(QGraphicsView):
             return Qt.CursorShape.CrossCursor
         return Qt.CursorShape.SizeAllCursor
 
-    def _clamp(self, point: QPointF) -> QPointF:
-        r = self.page_size
+    @staticmethod
+    def _clamp(page: PageItem, point: QPointF) -> QPointF:
+        r = page.rect()
         return QPointF(min(max(point.x(), r.left()), r.right()), min(max(point.y(), r.top()), r.bottom()))
 
     def contextMenuEvent(self, event):
-        if self.page is None:
+        page, point = self.locate(event.pos())
+        if page is None:
             return
         self.cancel_polygon()
         item, _ = self._hit(event.pos())
         if item is not None and not item.chosen:
             self.picked.emit([item.index], False)
-        self.menu_asked.emit(item.index if item else -1, event.globalPos(), self.mapToScene(event.pos()))
+        self.menu_asked.emit(item.index if item else -1, event.globalPos(), page.number, point)
         event.accept()
 
-    def page_words(self) -> list:
-        if self._words is None:
-            self._words = words(self.page) if self.page is not None else []
-        return self._words
+    def page_words(self, number: int) -> list:
+        if number not in self._words:
+            self._words[number] = words(self.doc[number]) if self.doc is not None else []
+        return self._words[number]
 
-    def _text_selection(self, start: QPointF, end: QPointF) -> list[Rect]:
-        found = self.page_words()
+    def _text_selection(self, number: int, start: QPointF, end: QPointF) -> list[Rect]:
+        found = self.page_words(number)
         a = nearest_word(found, start.x(), start.y())
         b = nearest_word(found, end.x(), end.y())
         return [] if a is None else text_rects(found, a, b)
@@ -518,13 +684,18 @@ class PageCanvas(QGraphicsView):
             self.scene().removeItem(item)
         color = QColor(SELECTED)
         color.setAlpha(80)
-        self._drag["marks"] = [self.scene().addRect(qrect(r), QPen(Qt.PenStyle.NoPen), QBrush(color)) for r in rects]
-        for item in self._drag["marks"]:
-            item.setZValue(3)
+        marks = []
+        for r in rects:
+            mark = QGraphicsRectItem(qrect(r), self._drag["page"])
+            mark.setPen(QPen(Qt.PenStyle.NoPen))
+            mark.setBrush(QBrush(color))
+            mark.setZValue(3)
+            marks.append(mark)
+        self._drag["marks"] = marks
 
-    def near_text(self, point: QPointF) -> bool:
-        """Whether POINT (on the page) is on a word, or very close to one."""
-        for (x0, y0, x1, y1), _, _ in self.page_words():
+    def near_text(self, number: int, point: QPointF) -> bool:
+        """Whether POINT (on page NUMBER) is on a word, or very close to one."""
+        for (x0, y0, x1, y1), _, _ in self.page_words(number):
             if x0 - NEAR_TEXT <= point.x() <= x1 + NEAR_TEXT and y0 - NEAR_TEXT <= point.y() <= y1 + NEAR_TEXT:
                 return True
         return False
@@ -536,16 +707,14 @@ class PageCanvas(QGraphicsView):
                          else QGraphicsView.DragMode.NoDrag)
         self.viewport().unsetCursor()
 
-    def _new(self, kind: str, rect: Rect, paths: tuple = ()) -> Annotation:
-        page = self.page.number if self.page is not None else 0
+    def _new(self, kind: str, page: int, rect: Rect, paths: tuple = ()) -> Annotation:
         if self.factory is not None:
             return self.factory(kind, page, rect, paths)
         return Annotation(kind, page, rect, paths=paths)
 
-    def _preview(self, annotation: Annotation) -> AnnotItem:
-        item = AnnotItem(-1, annotation, False)
+    def _preview(self, page: PageItem, annotation: Annotation) -> AnnotItem:
+        item = AnnotItem(-1, annotation, False, page)
         item.setZValue(3)
-        self.scene().addItem(item)
         return item
 
     def _remove_drag_items(self):
@@ -553,17 +722,35 @@ class PageCanvas(QGraphicsView):
             return
         for mark in self._drag.get("marks", []):
             self.scene().removeItem(mark)
-        if "item" in self._drag and self._drag["kind"] not in ("edit",):
+        if "item" in self._drag and self._drag["kind"] != "edit":
             self.scene().removeItem(self._drag["item"])
 
-    # (polygons and polylines: a click for each point; a double-click, Enter or a click on the first
-    #  point ends it, Escape gives it up)
+    # ----------------------------------------------------------------- a tablet's pen
 
-    def _polygon_click(self, point: QPointF):
-        p = self._clamp(point)
+    def viewportEvent(self, event):
+        kind = event.type()
+        if kind in (QEvent.Type.TabletPress, QEvent.Type.TabletMove):
+            self._pressure = event.pressure()
+            if self._drag is not None and self._drag.get("kind") == "ink":
+                self._drag.setdefault("pressures", []).append(event.pressure())
+            event.ignore()  # (Qt then gives the same as mouse events)
+            return False
+        if kind == QEvent.Type.TabletRelease:
+            self._pressure = None
+            event.ignore()
+            return False
+        return super().viewportEvent(event)
+
+    # ----------------------------------------------------------------- polygons, one click at a time
+    # (a double-click, Enter or a click on the first point ends it, Escape gives it up)
+
+    def _polygon_click(self, page: PageItem, point: QPointF):
+        p = self._clamp(page, point)
         here = (round(p.x(), 2), round(p.y(), 2))
         if self._poly is None:
-            self._poly = {"points": [here], "item": self._preview(self._new(self.mode, (*here, *here), ((here, here),)))}
+            self._poly = {"page": page, "points": [here],
+                          "item": self._preview(page, self._new(self.mode, page.number, (*here, *here),
+                                                                ((here, here),)))}
             return
         first = QPointF(*self._poly["points"][0])
         if len(self._poly["points"]) > 2 and math.hypot(p.x() - first.x(), p.y() - first.y()) * self.zoom() <= GRIP:
@@ -575,7 +762,8 @@ class PageCanvas(QGraphicsView):
     def _show_polygon(self, rubber: tuple[float, float] | None):
         points = list(self._poly["points"]) + ([rubber] if rubber else [])
         paths = (tuple(points),)
-        self._poly["item"].set_annotation(self._new(self.mode, annots.frame(self.mode, paths, 1), paths))
+        self._poly["item"].set_annotation(self._new(self.mode, self._poly["page"].number,
+                                                    annots.frame(self.mode, paths, 1), paths))
 
     def finish_polygon(self):
         poly, self._poly = self._poly, None
@@ -585,16 +773,103 @@ class PageCanvas(QGraphicsView):
         points = [p for i, p in enumerate(poly["points"]) if i == 0 or p != poly["points"][i - 1]]
         if len(points) >= (3 if self.mode == "polygon" else 2):
             paths = (tuple(points),)
-            annotation = self._new(self.mode, (0, 0, 0, 0), paths)
+            annotation = self._new(self.mode, poly["page"].number, (0, 0, 0, 0), paths)
             self.drawn.emit(dataclasses.replace(annotation, rect=annots.frame(annotation.kind, paths,
                                                                               annotation.width)))
 
     def cancel_polygon(self):
         if self._poly is not None:
-            self.scene().removeItem(self._poly["item"])
+            if self._poly["item"].scene() is not None:
+                self.scene().removeItem(self._poly["item"])
             self._poly = None
 
+    # ----------------------------------------------------------------- writing on the page
+
+    def edit_text(self, annotation: Annotation, index: int = -1):
+        """Write the text of ANNOTATION (a text box, a callout, a note or a caret; INDEX -1: a
+        new one) where it is: the text_done signal gives it, with its text, when it is kept."""
+        self.commit_text()
+        page = self.pages.get(annotation.page)
+        if page is None:
+            self.go_to(annotation.page)
+            page = self.pages.get(annotation.page)
+            if page is None:
+                return
+        editor = TextEditor(self, page)
+        if annotation.kind in TEXTUAL:
+            box = qrect(annotation.rect)
+            pad = 2 + annotation.width
+            editor.setFont(_font_for(self, annotation))
+            editor.setDefaultTextColor(QColor(annotation.color))
+            frame_rect = box
+            fill = QColor(annotation.fill) if annotation.fill else QColor(255, 255, 255, 230)
+        else:  # (a note, a caret: a field beside its icon)
+            w, h = NOTE_EDITOR
+            r = page.rect()
+            x = min(annotation.rect[2] + 4, r.right() - w)
+            y = min(max(annotation.rect[1], r.top()), r.bottom() - h)
+            frame_rect, pad = QRectF(x, y, w, h), 4
+            editor.setFont(_font_for(self, dataclasses.replace(annotation, font_size=10)))
+            editor.setDefaultTextColor(QColor("black"))
+            fill = QColor("#fffde7")
+        frame = QGraphicsRectItem(frame_rect, page)
+        pen = QPen(SELECTED, 1.5, Qt.PenStyle.DashLine)
+        pen.setCosmetic(True)
+        frame.setPen(pen)
+        frame.setBrush(fill)
+        frame.setZValue(5)
+        editor.setPos(frame_rect.left() + pad - 4, frame_rect.top() + pad - 4)
+        editor.setTextWidth(max(frame_rect.width() - 2 * pad + 8, 20))
+        option = editor.document().defaultTextOption()
+        option.setAlignment({"center": Qt.AlignmentFlag.AlignHCenter, "right": Qt.AlignmentFlag.AlignRight}.get(
+            annotation.align, Qt.AlignmentFlag.AlignLeft) if annotation.kind in TEXTUAL else Qt.AlignmentFlag.AlignLeft)
+        option.setWrapMode(QTextOption.WrapMode.WordWrap)
+        editor.document().setDefaultTextOption(option)
+        editor.setPlainText(annotation.contents)
+        self._editor = {"item": editor, "frame": frame, "index": index, "annotation": annotation}
+        if annotation.kind in TEXTUAL and index >= 0:  # (the box shows the text being written, not the old)
+            for item in self.items_:
+                if item.index == index:
+                    item.setVisible(False)
+        self.ensureVisible(frame, 40, 40)
+        self.setFocus()
+        editor.setFocus()
+        cursor = editor.textCursor()
+        cursor.movePosition(cursor.MoveOperation.End)
+        editor.setTextCursor(cursor)
+
+    def editing(self) -> bool:
+        return self._editor is not None
+
+    def commit_text(self, text: str | None = None, only: TextEditor | None = None):
+        """Keep the text written (or TEXT, if given), and say so (text_done). ONLY: only if that is
+        the editor of now (an editor that loses the focus keeps its own text, never another's)."""
+        if self._editor is None or (only is not None and self._editor["item"] is not only):
+            return
+        editor, self._editor = self._editor, None
+        written = editor["item"].toPlainText() if text is None else text
+        self._drop_editor(editor)
+        self.text_done.emit(editor["index"], dataclasses.replace(editor["annotation"],
+                                                                 contents=written.strip("\n")))
+
+    def cancel_text(self):
+        editor, self._editor = self._editor, None
+        if editor is not None:
+            self._drop_editor(editor)
+
+    def _drop_editor(self, editor: dict):
+        for item in (editor["item"], editor["frame"]):
+            if item.scene() is not None:
+                self.scene().removeItem(item)
+        for item in self.items_:
+            item.setVisible(True)
+
+    # ----------------------------------------------------------------- the keys and the mouse
+
     def keyPressEvent(self, event):
+        if self._editor is not None:
+            super().keyPressEvent(event)
+            return
         key = event.key()
         if self._poly is not None and key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
             self.finish_polygon()
@@ -612,52 +887,67 @@ class PageCanvas(QGraphicsView):
         event.accept()
 
     def mouseDoubleClickEvent(self, event):
-        if self.page is None or self.mode == "hand" or event.button() != Qt.MouseButton.LeftButton:
+        if self._editor is not None:
+            super().mouseDoubleClickEvent(event)
+            return
+        if self.doc is None or self.mode == "hand" or event.button() != Qt.MouseButton.LeftButton:
             super().mouseDoubleClickEvent(event)
             return
         if self._poly is not None:
             self.finish_polygon()
             event.accept()
             return
-        if not self.editable:
+        page, point = self.locate(event.position().toPoint())
+        if not self.editable or page is None:
             return
-        point = self.mapToScene(event.position().toPoint())
         item, _ = self._hit(event.position().toPoint())
         if item is not None and self.mode in MARKUP and item.annot.kind in MARKUP:
             item = None  # (with a markup tool, the word under a mark is marked too)
         self._remove_drag_items()
         self._drag = None
-        self.double_clicked.emit(item.index if item else -1, (point.x(), point.y()))
+        self.double_clicked.emit(item.index if item else -1, page.number, (point.x(), point.y()))
         event.accept()
 
     def mousePressEvent(self, event):
-        if self.mode == "hand" or self.page is None or event.button() != Qt.MouseButton.LeftButton \
+        if self._editor is not None:
+            if self._editor["item"].sceneBoundingRect().contains(self.mapToScene(event.position().toPoint())):
+                super().mousePressEvent(event)
+                return
+            self.commit_text()
+        if self.mode == "hand" or self.doc is None or event.button() != Qt.MouseButton.LeftButton \
                 or not self.editable:
             super().mousePressEvent(event)
             return
         self.setFocus()
         pos = event.position().toPoint()
-        point = self.mapToScene(pos)
+        page, point = self.locate(pos)
+        if page is None:
+            self.picked.emit([], False)
+            return
         if self._poly is not None:
-            self._polygon_click(point)
+            if page is self._poly["page"]:
+                self._polygon_click(page, point)
             event.accept()
             return
         if self.mode == "eraser":
-            mark = self.scene().addEllipse(QRectF(), QPen(SELECTED, 0), QBrush(QColor(42, 127, 255, 40)))
+            mark = QGraphicsRectItem(QRectF(), page)
+            mark.setPen(QPen(SELECTED, 0))
+            mark.setBrush(QBrush(QColor(42, 127, 255, 40)))
             mark.setZValue(4)
-            self._drag = {"kind": "erase", "start": point, "centres": [], "marks": [mark]}
+            self._drag = {"kind": "erase", "page": page, "start": point, "centres": [], "marks": [mark]}
             self._erase_at(point)
             event.accept()
             return
         add = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
         item, edges = self._hit(pos)
         shift = bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+        n = page.number
         if self.mode in MARKUP and (item is None or item.annot.kind in MARKUP or shift):
             # (over a mark, dragging marks text too; a click selects the mark)
-            self._drag = {"kind": "text", "start": point, "marks": [], "candidate": item}
+            self._drag = {"kind": "text", "page": page, "start": point, "marks": [], "candidate": item}
             if item is None:
                 self.picked.emit([], False)
-            if not self.page_words() and item is None:
+            if not self.page_words(n) and item is None:
                 self._drag = None
             event.accept()
             return
@@ -673,36 +963,37 @@ class PageCanvas(QGraphicsView):
                 self._drag = None
                 event.accept()
                 return
-            self._drag = {"kind": "edit", "start": point, "item": item, "edges": edges, "original": item.annot,
-                          "moved": False}
+            self._drag = {"kind": "edit", "page": page, "start": point, "item": item, "edges": edges,
+                          "original": item.annot, "moved": False}
             event.accept()
             return
         if not add:
             self.picked.emit([], False)
-        start = self._clamp(point)
+        start = self._clamp(page, point)
         here = (start.x(), start.y())
         if self.mode == "select":
-            band = QGraphicsRectItem(QRectF(start, start))
+            band = QGraphicsRectItem(QRectF(start, start), page)
             pen = QPen(SELECTED, 1, Qt.PenStyle.DashLine)
             pen.setCosmetic(True)
             band.setPen(pen)
             band.setBrush(QColor(42, 127, 255, 30))
             band.setZValue(4)
-            self.scene().addItem(band)
-            self._drag = {"kind": "band", "start": start, "item": band, "add": add}
+            self._drag = {"kind": "band", "page": page, "start": start, "item": band, "add": add}
         elif self.mode in CLICKS:
-            self._drag = {"kind": "click", "start": start}
+            self._drag = {"kind": "click", "page": page, "start": start}
             if self.mode == "callout":
-                self._drag["item"] = self._preview(self._new("callout", (*here, *here), ((here,),)))
+                self._drag["item"] = self._preview(page, self._new("callout", n, (*here, *here), ((here,),)))
         elif self.mode in BOXES:
-            self._drag = {"kind": "draw", "start": start, "item": self._preview(self._new(self.mode, (*here, *here),
-                                                                                          self._box_paths(here, here)))}
-        elif self.mode in LINES or self.mode == "ink":
+            self._drag = {"kind": "draw", "page": page, "start": start,
+                          "item": self._preview(page, self._new(self.mode, n, (*here, *here),
+                                                                self._box_paths(here, here)))}
+        elif self.mode in LINES or self.mode in DRAWN:
             paths = ((here, here),)
-            self._drag = {"kind": "line" if self.mode != "ink" else "ink", "start": start,
-                          "item": self._preview(self._new(self.mode, (*here, *here), paths)), "points": [here]}
+            self._drag = {"kind": "line" if self.mode in LINES else "ink", "page": page, "start": start,
+                          "item": self._preview(page, self._new(self.mode, n, (*here, *here), paths)),
+                          "points": [here], "pressures": [self._pressure] if self._pressure is not None else []}
         elif self.mode in POLYGONS:
-            self._polygon_click(point)
+            self._polygon_click(page, point)
             self._drag = None
         else:
             self._drag = None
@@ -716,13 +1007,14 @@ class PageCanvas(QGraphicsView):
         y0, y1 = sorted((a[1], b[1]))
         return (((x0, y0), (x1, y0), (x1, y1), (x0, y1)),)
 
-    def _callout_box(self, tip: QPointF, at: QPointF) -> Rect:
+    def _callout_box(self, page: PageItem, tip: QPointF, at: QPointF) -> Rect:
         """The box of a callout that points at TIP, put at AT (a click: above and to the right of TIP)."""
         w, h = FREETEXT_SIZE
         if math.hypot(at.x() - tip.x(), at.y() - tip.y()) * self.zoom() < 6:
             at = QPointF(tip.x() + 30, tip.y() - 30 - h)
-        x = max(min(at.x(), self.page_size.right() - w), self.page_size.left())
-        y = max(min(at.y(), self.page_size.bottom() - h), self.page_size.top())
+        r = page.rect()
+        x = max(min(at.x(), r.right() - w), r.left())
+        y = max(min(at.y(), r.bottom() - h), r.top())
         return round(x, 2), round(y, 2), round(x + w, 2), round(y + h, 2)
 
     def _erase_at(self, point: QPointF):
@@ -730,35 +1022,37 @@ class PageCanvas(QGraphicsView):
         radius = ERASER / (self.zoom() or 1)
         drag["centres"].append((point.x(), point.y()))
         drag["marks"][0].setRect(QRectF(point.x() - radius, point.y() - radius, 2 * radius, 2 * radius))
-        for item in self.items_:
-            if item.annot.locked or item.annot.kind == "ink":
-                continue
-            if item.opacity() > 0.5 and item.hit(point, radius) is not None:
-                item.setOpacity(0.2)  # (to go, once the button is let go)
-        for item in self.items_:
-            if item.annot.kind == "ink" and not item.annot.locked:
+        mine = [i for i in self.items_ if i.parentItem() is drag["page"] and not i.annot.locked]
+        for item in mine:
+            if item.annot.kind in DRAWN:
                 original = drag.setdefault("ink", {}).setdefault(item.index, item.annot)
                 left = erase_ink(original, drag["centres"], radius)
                 if left is None:
                     item.setOpacity(0.2)
                 else:
                     item.set_annotation(left)
+            elif item.opacity() > 0.5 and item.hit(point, radius) is not None:
+                item.setOpacity(0.2)  # (to go, once the button is let go)
 
     def mouseMoveEvent(self, event):
         drag = self._drag
-        point = self.mapToScene(event.position().toPoint())
+        pos = event.position().toPoint()
         if self._poly is not None:
-            p = self._clamp(point)
+            p = self._clamp(self._poly["page"], self._poly["page"].mapFromScene(self.mapToScene(pos)))
             self._show_polygon((round(p.x(), 2), round(p.y(), 2)))
         if drag is None:
-            if self.page is not None and self.mode != "hand" and self.editable:
-                item, edges = self._hit(event.position().toPoint())
-                if self.mode == "eraser":
+            if self.doc is not None and self.mode != "hand" and self.editable and self._editor is None:
+                page, point = self.locate(pos)
+                item, edges = self._hit(pos)
+                if page is None:
+                    shape = Qt.CursorShape.ArrowCursor
+                elif self.mode == "eraser":
                     shape = Qt.CursorShape.CrossCursor
                 elif item is not None and not (self.mode in MARKUP and item.annot.kind in MARKUP):
                     shape = self._cursor(edges, item.movable())
                 elif self.mode in MARKUP:
-                    shape = Qt.CursorShape.IBeamCursor if self.near_text(point) else Qt.CursorShape.ArrowCursor
+                    shape = Qt.CursorShape.IBeamCursor if self.near_text(page.number, point) \
+                        else Qt.CursorShape.ArrowCursor
                 elif self.mode != "select":
                     shape = Qt.CursorShape.CrossCursor
                 else:
@@ -766,29 +1060,33 @@ class PageCanvas(QGraphicsView):
                 self.viewport().setCursor(QCursor(shape))
             super().mouseMoveEvent(event)
             return
+        page = drag["page"]
+        point = page.mapFromScene(self.mapToScene(pos))
         kind = drag["kind"]
+        n = page.number
         if kind == "text":
-            self._show_text(self._text_selection(drag["start"], point))
+            self._show_text(self._text_selection(n, drag["start"], point))
         elif kind == "erase":
             self._erase_at(point)
         elif kind == "band":
-            drag["item"].setRect(QRectF(drag["start"], self._clamp(point)).normalized())
+            drag["item"].setRect(QRectF(drag["start"], self._clamp(page, point)).normalized())
         elif kind == "click" and "item" in drag:  # (a callout: its box follows the mouse)
             tip = drag["start"]
-            box = self._callout_box(tip, self._clamp(point))
-            drag["item"].set_annotation(self._new("callout", box, (((tip.x(), tip.y()),),)))
+            box = self._callout_box(page, tip, self._clamp(page, point))
+            drag["item"].set_annotation(self._new("callout", n, box, (((tip.x(), tip.y()),),)))
         elif kind == "draw":
-            r = QRectF(drag["start"], self._clamp(point)).normalized()
+            r = QRectF(drag["start"], self._clamp(page, point)).normalized()
             a, b = (r.left(), r.top()), (r.right(), r.bottom())
-            drag["item"].set_annotation(self._new(self.mode, (*a, *b), self._box_paths(a, b)))
+            drag["item"].set_annotation(self._new(self.mode, n, (*a, *b), self._box_paths(a, b)))
         elif kind in ("line", "ink"):
-            p = self._clamp(point)
+            p = self._clamp(page, point)
             if kind == "line":
                 drag["points"] = [drag["points"][0], (p.x(), p.y())]
             elif math.hypot(p.x() - drag["points"][-1][0], p.y() - drag["points"][-1][1]) * self.zoom() >= 2:
                 drag["points"].append((p.x(), p.y()))
             paths = (tuple(drag["points"]),)
-            drag["item"].set_annotation(self._new(self.mode, annots.frame(self.mode, paths, 1), paths))
+            new = self._new(self.mode, n, annots.frame(self.mode, paths, 1), paths)
+            drag["item"].set_annotation(self._pressed(new, drag))
         elif kind == "edit":
             new = self._edited(drag, point)
             if new is not None:
@@ -796,25 +1094,35 @@ class PageCanvas(QGraphicsView):
                 drag["moved"] = True
         event.accept()
 
+    @staticmethod
+    def _pressed(a: Annotation, drag: dict) -> Annotation:
+        """A drawing as wide as the pressure of the tablet's pen says (if one draws it)."""
+        pressures = [p for p in drag.get("pressures", []) if p is not None and p > 0]
+        if not pressures:
+            return a
+        mean = sum(pressures) / len(pressures)
+        return dataclasses.replace(a, width=round(max(a.width * (0.4 + 1.2 * mean), 0.25), 2))
+
     def _edited(self, drag: dict, point: QPointF) -> Annotation | None:
         """The annotation dragged, as it is with the mouse at POINT."""
         a: Annotation = drag["original"]
+        page = drag["page"]
         edges = drag["edges"]
         if a.kind in MARKUP or a.locked:  # (they belong to their text, or are locked)
             return None
         if edges.startswith("v"):
-            p = self._clamp(point)
+            p = self._clamp(page, point)
             return annots.with_vertex(a, int(edges[1:]), (p.x(), p.y()))
         r = qrect(a.rect)
+        bounds = page.rect()
         if not edges:
-            delta = point - drag["start"]
-            r.translate(delta)
+            r.translate(point - drag["start"])
             # (kept on the page)
-            dx = max(self.page_size.left() - r.left(), 0) + min(self.page_size.right() - r.right(), 0)
-            dy = max(self.page_size.top() - r.top(), 0) + min(self.page_size.bottom() - r.bottom(), 0)
+            dx = max(bounds.left() - r.left(), 0) + min(bounds.right() - r.right(), 0)
+            dy = max(bounds.top() - r.top(), 0) + min(bounds.bottom() - r.bottom(), 0)
             r.translate(dx, dy)
         else:
-            p = self._clamp(point)
+            p = self._clamp(page, point)
             if "l" in edges:
                 r.setLeft(p.x())
             if "r" in edges:
@@ -839,15 +1147,17 @@ class PageCanvas(QGraphicsView):
         if drag is None or event.button() != Qt.MouseButton.LeftButton:
             super().mouseReleaseEvent(event)
             return
-        point = self.mapToScene(event.position().toPoint())
+        page = drag["page"]
+        point = page.mapFromScene(self.mapToScene(event.position().toPoint()))
         moved = (point - drag["start"]).manhattanLength() * self.zoom() > 3
         kind = drag["kind"]
+        n = page.number
         if kind == "text":
-            rects = self._text_selection(drag["start"], point) if moved else []
+            rects = self._text_selection(n, drag["start"], point) if moved else []
             for item in drag["marks"]:
                 self.scene().removeItem(item)
             if rects:
-                self.text_chosen.emit(rects)
+                self.text_chosen.emit(n, rects)
             elif drag["candidate"] is not None:
                 self.picked.emit([drag["candidate"].index], False)
         elif kind == "erase":
@@ -856,9 +1166,9 @@ class PageCanvas(QGraphicsView):
             radius = ERASER / (self.zoom() or 1)
             changes: dict = {}
             for item in self.items_:
-                if item.annot.locked:
+                if item.annot.locked or item.parentItem() is not page:
                     continue
-                if item.annot.kind == "ink" and item.index in drag.get("ink", {}):
+                if item.annot.kind in DRAWN and item.index in drag.get("ink", {}):
                     left = erase_ink(drag["ink"][item.index], drag["centres"], radius)
                     if left != drag["ink"][item.index]:
                         changes[item.index] = left
@@ -870,7 +1180,7 @@ class PageCanvas(QGraphicsView):
             r = drag["item"].rect()
             self.scene().removeItem(drag["item"])
             if moved:
-                inside = [i.index for i in self.items_ if r.intersects(i.frame())]
+                inside = [i.index for i in self.items_ if i.parentItem() is page and r.intersects(i.frame())]
                 self.picked.emit(inside, drag["add"])
         elif kind == "click":
             self._clicked(drag, point)
@@ -880,13 +1190,15 @@ class PageCanvas(QGraphicsView):
             r = qrect(annotation.rect)
             if self.mode == "freetext" and (r.width() < MIN_SIZE * 4 or r.height() < MIN_SIZE * 4):
                 w, h = FREETEXT_SIZE
-                x = max(min(drag["start"].x(), self.page_size.right() - w), self.page_size.left())
-                y = max(min(drag["start"].y(), self.page_size.bottom() - h), self.page_size.top())
-                self.drawn.emit(self._new("freetext", (round(x, 2), round(y, 2), round(x + w, 2), round(y + h, 2))))
+                bounds = page.rect()
+                x = max(min(drag["start"].x(), bounds.right() - w), bounds.left())
+                y = max(min(drag["start"].y(), bounds.bottom() - h), bounds.top())
+                self.drawn.emit(self._new("freetext", n, (round(x, 2), round(y, 2), round(x + w, 2),
+                                                          round(y + h, 2))))
             elif r.width() >= MIN_SIZE and r.height() >= MIN_SIZE:
                 rounded = tuple(round(v, 2) for v in (r.left(), r.top(), r.right(), r.bottom()))
                 paths = self._box_paths(rounded[:2], rounded[2:])
-                annotation = self._new(self.mode, rounded, paths)
+                annotation = self._new(self.mode, n, rounded, paths)
                 if paths:
                     annotation = dataclasses.replace(annotation, rect=annots.frame(self.mode, paths, annotation.width))
                 self.drawn.emit(annotation)
@@ -894,11 +1206,11 @@ class PageCanvas(QGraphicsView):
             self.scene().removeItem(drag["item"])
             points = tuple((round(x, 2), round(y, 2)) for x, y in drag["points"])
             if kind == "line":
-                p = self._clamp(point)
+                p = self._clamp(page, point)
                 points = (points[0], (round(p.x(), 2), round(p.y(), 2)))
             length = sum(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(points, points[1:]))
             if length >= MIN_SIZE:
-                annotation = self._new(self.mode, (0, 0, 0, 0), (points,))
+                annotation = self._pressed(self._new(self.mode, n, (0, 0, 0, 0), (points,)), drag)
                 self.drawn.emit(dataclasses.replace(annotation, rect=annots.frame(
                     annotation.kind, annotation.paths, annotation.width)))
         elif kind == "edit":
@@ -908,58 +1220,72 @@ class PageCanvas(QGraphicsView):
 
     def _clicked(self, drag: dict, point: QPointF):
         """A click (or a drag) with a tool of CLICKS: a note, a caret or a stamp there, or a callout."""
+        page = drag["page"]
+        n = page.number
         start = drag["start"]
+        bounds = page.rect()
         if self.mode == "callout":
             self.scene().removeItem(drag["item"])
-            box = self._callout_box(start, self._clamp(point))
-            self.drawn.emit(self._new("callout", box, (((round(start.x(), 2), round(start.y(), 2)),),)))
+            box = self._callout_box(page, start, self._clamp(page, point))
+            self.drawn.emit(self._new("callout", n, box, (((round(start.x(), 2), round(start.y(), 2)),),)))
             return
         if self.mode == "stamp":
-            end = self._clamp(point)
+            end = self._clamp(page, point)
             if (end - start).manhattanLength() * self.zoom() > 6:  # (dragged: as wide as that)
                 r = QRectF(start, end).normalized()
-                self.drawn.emit(self._new("stamp", (r.left(), r.top(), r.right(), r.top())))
+                self.drawn.emit(self._new("stamp", n, (r.left(), r.top(), r.right(), r.top())))
             else:  # (a click: of its usual size, there; the window knows it)
-                self.drawn.emit(self._new("stamp", (start.x(), start.y(), start.x(), start.y())))
+                self.drawn.emit(self._new("stamp", n, (start.x(), start.y(), start.x(), start.y())))
             return
         w, h = (NOTE_SIZE, NOTE_SIZE) if self.mode == "note" else \
-            annots.shown_size(self.page.rotation if self.page is not None else 0, CARET_SIZE)
+            annots.shown_size(self.doc[n].rotation if self.doc is not None else 0, CARET_SIZE)
         if self.mode == "caret":  # (the caret's point where the click was)
             x, y = start.x() - w / 2, start.y() - h
         else:
             x, y = start.x(), start.y()
-        x = max(min(x, self.page_size.right() - w), self.page_size.left())
-        y = max(min(y, self.page_size.bottom() - h), self.page_size.top())
-        self.drawn.emit(self._new(self.mode, (round(x, 2), round(y, 2), round(x + w, 2), round(y + h, 2))))
+        x = max(min(x, bounds.right() - w), bounds.left())
+        y = max(min(y, bounds.bottom() - h), bounds.top())
+        self.drawn.emit(self._new(self.mode, n, (round(x, 2), round(y, 2), round(x + w, 2), round(y + h, 2))))
 
-    def word_at(self, point: QPointF) -> str:
-        """The word under POINT (on the page), or ''."""
-        if self.page is None:
+    def word_at(self, number: int, point: QPointF) -> str:
+        """The word under POINT (on page NUMBER), or ''."""
+        if self.doc is None:
             return ""
-        for w in self.page.get_text("words", sort=False):
-            r = pymupdf.Rect(w[:4]) * self.page.rotation_matrix
+        page = self.doc[number]
+        for w in page.get_text("words", sort=False):
+            r = pymupdf.Rect(w[:4]) * page.rotation_matrix
             if r.normalize().contains(pymupdf.Point(point.x(), point.y())):
                 return w[4]
         return ""
 
-    def flash(self, rect: Rect):
-        """Bring RECT into view, and show it for a moment (an annotation chosen in the list)."""
-        color = QColor(255, 200, 0, 90)
+    def flash(self, number: int, rect: Rect):
+        """Bring RECT of page NUMBER into view, and show it for a moment."""
+        self.go_to(number, rect)
+        page = self.pages.get(number)
+        if page is None:
+            return
         pen = QPen(QColor(230, 120, 0), 2)
         pen.setCosmetic(True)
-        item = QGraphicsRectItem(qrect(rect).adjusted(-3, -3, 3, 3))
+        item = QGraphicsRectItem(qrect(rect).adjusted(-3, -3, 3, 3), page)
         item.setPen(pen)
-        item.setBrush(QBrush(color))
+        item.setBrush(QBrush(QColor(255, 200, 0, 90)))
         item.setZValue(4)
-        self.scene().addItem(item)
-        self.ensureVisible(item, 60, 60)
 
         def remove():
             try:
                 if item.scene() is not None:
                     item.scene().removeItem(item)
-            except RuntimeError:  # (the page was shown again meanwhile: the item is gone)
+            except RuntimeError:  # (the page was laid out again meanwhile: the item is gone)
                 pass
 
         QTimer.singleShot(900, remove)
+
+
+def _font_for(canvas: PageCanvas, a: Annotation):
+    """The font of A's text, for the editor on the page (in the page's points)."""
+    pixmap = QPixmap(1, 1)
+    painter = QPainter(pixmap)
+    font = _font(painter, a.font, a.font_size)
+    painter.end()
+    return font
 

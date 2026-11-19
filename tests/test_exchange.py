@@ -123,3 +123,39 @@ def test_partly_flattened(sample, tmp_path):
     doc = annots.open_pdf(target)
     assert [a.kind for a in annots.read(doc)] == ["rect"] and doc[0].get_drawings()
     assert exchange.kinds_lost(wanted, target) == {"polygon": 1}
+
+
+import dataclasses  # noqa: E402
+
+import pytest  # noqa: E402
+
+
+@pytest.mark.parametrize("page", [0, 2])
+def test_xfdf_round_trip(sample, tmp_path, page):
+    wanted = one_of_each(sample, page)
+    wanted[0] = dataclasses.replace(wanted[0], replies=(annots.Reply("B", "Why?"),
+                                                        annots.Reply("C", "Agreed", state="Accepted")))
+    doc = annots.open_pdf(sample)
+    target = tmp_path / "out.xfdf"
+    exchange.export_xfdf(doc, sample, wanted, target)
+    text = target.read_text(encoding="utf-8")
+    assert text.startswith('<?xml') and "<highlight" in text and 'inreplyto="py-annotate-1"' in text
+    got = exchange.import_xfdf(doc, target)
+    assert [a.kind for a in got] == [a.kind for a in wanted]
+    for w, g in zip(wanted, got):
+        assert annots.same(dataclasses.replace(w, image=b""), dataclasses.replace(g, image=b""), tolerance=1.5), \
+            (w.kind, w, g)
+    assert [(r.author, r.contents, r.state) for r in got[0].replies] == [("B", "Why?", ""),
+                                                                         ("C", "Agreed", "Accepted")]
+
+
+def test_summary(sample, tmp_path):
+    wanted = one_of_each(sample, 0)[:3] + [Annotation("note", 1, (300, 200, 316, 216), "#ffd54f",
+                                                      contents="See page two", author="B")]
+    target = tmp_path / "summary.pdf"
+    pages = exchange.save_summary(sample, wanted, target)
+    doc = pymupdf.open(target)
+    assert pages == doc.page_count == 2
+    text = doc[0].get_text()
+    assert "Page 1" in text and "1. Highlight" in text and "First line of page 1" in text and "look" in text
+    assert "See page two" in doc[1].get_text() and doc[0].rect.width > 595

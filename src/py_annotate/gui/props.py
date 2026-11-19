@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import dataclasses
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -18,6 +19,8 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QMenu,
     QPlainTextEdit,
     QPushButton,
@@ -102,7 +105,8 @@ class PropertiesDialog(QDialog):
     """The properties of ANNOTATIONS; or, with TOOL, of the tool that makes
     annotations of their kind (ANNOTATIONS: one, made with its style)."""
 
-    def __init__(self, annotations: list[Annotation], parent=None, tool: settings.Style | None = None):
+    def __init__(self, annotations: list[Annotation], parent=None, tool: settings.Style | None = None,
+                 categories: list[str] | None = None):
         super().__init__(parent)
         self.annotations = annotations
         self.tool = tool
@@ -167,8 +171,8 @@ class PropertiesDialog(QDialog):
 
         lay = QVBoxLayout(self)
         lay.addWidget(look)
-        self.contents = self.author = self.locked = None
-        self.sticky = self.show = None
+        self.contents = self.author = self.locked = self.tags = self.categories = None
+        self.sticky = self.show_after = None
         self.as_default = QCheckBox(tr("Use this style for new annotations of this kind"))
         if tool is None:
             note = QGroupBox(tr("Annotation"))
@@ -184,6 +188,27 @@ class PropertiesDialog(QDialog):
             self.author = QLineEdit("" if author is SAME else author)
             self.author.setPlaceholderText(tr("(several)") if author is SAME else "")
             form.addRow(tr("Author:"), self.author)
+            tags = common("tags")
+            self.tags = QLineEdit("" if tags is SAME else ", ".join(tags))
+            self.tags.setPlaceholderText(tr("(several)") if tags is SAME else tr("Tags, separated by commas"))
+            self._tags_given = tags is not SAME
+            form.addRow(tr("Tags:"), self.tags)
+            self.categories = QListWidget()
+            names = list(categories or [])
+            for a in annotations:
+                names += [c for c in a.categories if c not in names]
+            for name in names:
+                item = QListWidgetItem(name)
+                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                have = sum(name in a.categories for a in annotations)
+                if 0 < have < len(annotations):
+                    item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserTristate)
+                    item.setCheckState(Qt.CheckState.PartiallyChecked)
+                else:
+                    item.setCheckState(Qt.CheckState.Checked if have else Qt.CheckState.Unchecked)
+                self.categories.addItem(item)
+            self.categories.setMaximumHeight(110)
+            form.addRow(tr("Categories:"), self.categories)
             self.locked = self._check(tr("Locked: can't be moved, resized, erased or deleted"), common("locked"))
             form.addRow("", self.locked)
             if len(annotations) == 1:
@@ -205,8 +230,8 @@ class PropertiesDialog(QDialog):
             self.sticky.setToolTip(tr("Otherwise, the Select tool is chosen again"))
             self.sticky.setChecked(tool.sticky)
             form.addRow("", self.sticky)
-            self.show = _combo(settings.SHOW, tool.show)
-            form.addRow(tr("After making an annotation, open:"), self.show)
+            self.show_after = _combo(settings.SHOW, tool.show)
+            form.addRow(tr("After making an annotation, open:"), self.show_after)
             lay.addWidget(behaviour)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
@@ -270,6 +295,8 @@ class PropertiesDialog(QDialog):
                 out["contents"] = text.strip("\n")
         if self.author is not None and (self.author.text() or len({a.author for a in self.annotations}) == 1):
             out["author"] = " ".join(self.author.text().split())
+        if self.tags is not None and (self._tags_given or self.tags.text().strip()):
+            out["tags"] = tuple(t for t in (" ".join(x.split()) for x in self.tags.text().split(",")) if t)
         return out
 
     def apply(self, annotation: Annotation) -> Annotation:
@@ -282,6 +309,15 @@ class PropertiesDialog(QDialog):
                             ("align", TEXTUAL), ("dashed", DASHABLE), ("icon", ("note",))):
             if kind not in kinds:
                 changes.pop(name, None)
+        if self.categories is not None:  # (each ticked category in, each unticked out; half-ticked as it is)
+            chosen = list(annotation.categories)
+            for i in range(self.categories.count()):
+                item = self.categories.item(i)
+                if item.checkState() == Qt.CheckState.Checked and item.text() not in chosen:
+                    chosen.append(item.text())
+                elif item.checkState() == Qt.CheckState.Unchecked and item.text() in chosen:
+                    chosen.remove(item.text())
+            changes["categories"] = tuple(chosen)
         return dataclasses.replace(annotation, **changes)
 
     def style(self) -> settings.Style:
@@ -289,7 +325,7 @@ class PropertiesDialog(QDialog):
         changes = self.changes()
         fields = {k: v for k, v in changes.items() if k in settings.STYLE_FIELDS}
         style = dataclasses.replace(self.tool, **fields, sticky=self.sticky.isChecked(),
-                                    show=self.show.currentData() or "")
+                                    show=self.show_after.currentData() or "")
         if self.stamp is not None:
             style = dataclasses.replace(style, stamp=self.stamp.currentData())
         return style

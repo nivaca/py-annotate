@@ -27,7 +27,13 @@ def window(app, sample, tmp_path, monkeypatch):
         raise AssertionError(f"warning shown: {title}: {text}")
 
     w.warn = warn
-    w.ask_text = lambda annotation: "Typed text"
+    w.typed = "Typed text"  # (what is "written on the page" for a new text box, note...: None gives up)
+
+    def edit_text(annotation, index=-1):
+        if w.typed is not None:
+            w.canvas.text_done.emit(index, dataclasses.replace(annotation, contents=w.typed))
+
+    w.canvas.edit_text = edit_text
 
     def ask_recover(when):  # (likewise)
         raise AssertionError("recovery offered")
@@ -43,9 +49,11 @@ def window(app, sample, tmp_path, monkeypatch):
     w.close()
 
 
-def mouse(w, kind, point, button=Qt.MouseButton.LeftButton, mods=Qt.KeyboardModifier.NoModifier):
+def mouse(w, kind, point, button=Qt.MouseButton.LeftButton, mods=Qt.KeyboardModifier.NoModifier, page=None):
+    """A mouse event at POINT (in points) of PAGE (the page in view, if None)."""
     c = w.canvas
-    pos = c.mapFromScene(*point)
+    item = c.pages[w.page if page is None else page]
+    pos = c.mapFromScene(item.mapToScene(QPointF(*point)))
     handler = {QEvent.Type.MouseButtonPress: c.mousePressEvent, QEvent.Type.MouseMove: c.mouseMoveEvent,
                QEvent.Type.MouseButtonRelease: c.mouseReleaseEvent,
                QEvent.Type.MouseButtonDblClick: c.mouseDoubleClickEvent}[kind]
@@ -53,12 +61,12 @@ def mouse(w, kind, point, button=Qt.MouseButton.LeftButton, mods=Qt.KeyboardModi
     handler(QMouseEvent(kind, QPointF(pos), QPointF(c.viewport().mapToGlobal(pos)), buttons, button, mods))
 
 
-def drag(w, *points, mods=Qt.KeyboardModifier.NoModifier):
-    """Drag with the mouse on the page, through POINTS (in points)."""
-    mouse(w, QEvent.Type.MouseButtonPress, points[0], mods=mods)
+def drag(w, *points, mods=Qt.KeyboardModifier.NoModifier, page=None):
+    """Drag with the mouse on the page (PAGE, or the one in view), through POINTS (in points)."""
+    mouse(w, QEvent.Type.MouseButtonPress, points[0], mods=mods, page=page)
     for p in points[1:]:
-        mouse(w, QEvent.Type.MouseMove, p, mods=mods)
-    mouse(w, QEvent.Type.MouseButtonRelease, points[-1], mods=mods)
+        mouse(w, QEvent.Type.MouseMove, p, mods=mods, page=page)
+    mouse(w, QEvent.Type.MouseButtonRelease, points[-1], mods=mods, page=page)
     QApplication.processEvents()
 
 
@@ -125,7 +133,7 @@ def test_note_and_text_box(window):
     box = window.annotations[1]
     assert box.kind == "freetext" and box.contents == "Typed text"
     assert close(box.rect[:2], (300, 300))
-    window.ask_text = lambda annotation: None  # (given up: nothing is made)
+    window.typed = None  # (given up: nothing is made)
     click(window, (100, 700))
     assert len(window.annotations) == 2
 
@@ -159,16 +167,27 @@ def test_save_and_open_again(window, sample):
     window.set_tool("note")
     click(window, (100, 100))
     assert window.is_modified() and window.save()
-    assert not window.is_modified() and window.undo_stack == []
+    assert not window.is_modified() and len(window.undo_stack) == 3  # (what was done can still be undone)
     kinds = [a.kind for a in annots.read(annots.open_pdf(sample))]
     assert sorted(kinds) == ["highlight", "note", "rect"]
     # the window shows the annotations of the file now, and can delete one of them
     assert all(a.xref for a in window.annotations)
     window.show_page(0)
-    window.pick([i for i, a in enumerate(window.annotations) if a.kind == "rect"], False)
+    rect = next(a for a in window.annotations if a.kind == "rect")
+    window.pick([window.annotations.index(rect)], False)
     window.delete_selected()
+    before = sample.read_bytes()
     assert window.save()
+    assert sample.read_bytes().startswith(before)  # (saved incrementally: added at the end)
     assert sorted(a.kind for a in annots.read(annots.open_pdf(sample))) == ["highlight", "note"]
+    # undone after saving, and saved again: the rectangle is back
+    window.undo()
+    assert sorted(a.kind for a in window.annotations) == ["highlight", "note", "rect"]
+    assert window.save()
+    assert sorted(a.kind for a in annots.read(annots.open_pdf(sample))) == ["highlight", "note", "rect"]
+    window.undo()  # (and the note, made before the first save, goes)
+    assert window.save()
+    assert sorted(a.kind for a in annots.read(annots.open_pdf(sample))) == ["highlight", "rect"]
 
 
 def test_save_as(window, tmp_path, sample):
@@ -315,7 +334,7 @@ def test_tool_behaviour(window):
     drag(window, (100, 300), (250, 400))
     assert window.canvas.mode == "select"  # (not sticky: back to Select)
     window.set_tool("note")
-    window.ask_text = lambda annotation: None  # (asked for its text, and given up: no note)
+    window.typed = None  # (its text asked for, and given up: no note)
     click(window, (400, 200))
     assert len(window.annotations) == 1
 
@@ -425,3 +444,145 @@ def test_panel_can_be_hidden(window):
     drag(window, (100, 300), (250, 400))
     window.replace(0, dataclasses.replace(window.annotations[0], author="B"))
     assert window.f_author.itemText(window.f_author.findData("B")) == "B (1)"
+
+
+def test_text_written_on_the_page(window):
+    from py_annotate.gui.canvas import PageCanvas
+
+    canvas = window.canvas
+    del canvas.edit_text  # (the real one: an editor on the page)
+    window.set_tool("freetext")
+    click(window, (300, 300))
+    assert canvas.editing() and window.annotations == []  # (made once its text is written)
+    canvas.commit_text("Written here")
+    assert [a.contents for a in window.annotations] == ["Written here"]
+    # double-clicked: written again, where it is
+    window.set_tool("select")
+    mouse(window, QEvent.Type.MouseButtonDblClick, (310, 310))
+    assert canvas.editing()
+    canvas.commit_text("Written again")
+    assert window.annotations[0].contents == "Written again" and len(window.undo_stack) == 2
+    # a note: Escape gives it up
+    window.set_tool("note")
+    click(window, (100, 600))
+    assert canvas.editing()
+    canvas.cancel_text()
+    assert len(window.annotations) == 1
+    assert isinstance(canvas, PageCanvas)
+
+
+def test_replies_status_and_tags_in_the_panel(window, sample):
+    window.prefs = dataclasses.replace(window.prefs, author="Me")
+    window.set_tool("rect")
+    drag(window, (100, 300), (250, 400))
+    window.listing.reply_edit.setText("Is this right?")
+    window.add_reply()
+    window.set_status("Accepted")
+    a = window.annotations[0]
+    assert [(r.author, r.contents, r.state) for r in a.replies] == [("Me", "Is this right?", ""),
+                                                                    ("Me", "Status: Accepted", "Accepted")]
+    assert a.status() == "Accepted" and window.listing.replies.count() == 2
+    window.listing.tags.setText("Ethics, Aristotle")
+    window.keep_tags()
+    assert window.annotations[0].tags == ("Ethics", "Aristotle")
+    window.toggle_category("Definitions")
+    assert window.annotations[0].categories == ("Definitions",)
+    # the filters: by status, tag, category; and the search finds replies
+    window.f_status.setCurrentIndex(window.f_status.findData("Accepted"))
+    window.f_tag.setCurrentIndex(window.f_tag.findData("Ethics"))
+    window._filter_changed()
+    assert window._rows == [0]
+    window.f_status.setCurrentIndex(window.f_status.findData("-"))
+    window._filter_changed()
+    assert window._rows == []
+    window.f_status.setCurrentIndex(0)
+    window.f_tag.setCurrentIndex(0)
+    window.search.setText("right?")
+    assert window._rows == [0]
+    window.search.clear()
+    assert window.save()
+    got = annots.read(annots.open_pdf(sample))[0]
+    assert got.status() == "Accepted" and got.tags == ("Ethics", "Aristotle") and len(got.replies) == 2
+    window.pick([0], False)
+    window.delete_reply(0)
+    assert [r.contents for r in window.annotations[0].replies] == ["Status: Accepted"]
+
+
+def test_find_and_highlight(window):
+    window.find_dialog("line of")
+    finder = window.finder
+    finder.search()
+    assert len(finder.matches) == 6
+    finder.kind.setCurrentIndex(finder.kind.findData("underline"))
+    finder._mark(finder.matches)
+    assert [a.kind for a in window.annotations] == ["underline"] * 6
+    assert window.marked_text(window.annotations[0]) == "line of"
+    finder._mark(finder.matches)  # (not twice over the same place)
+    assert len(window.annotations) == 6
+    finder.regex.setChecked(True)
+    finder.query.setText("page (")
+    finder.search()
+    assert finder.matches == [] and "not right" in finder.summary.text()
+    finder.close()
+
+
+def test_continuous_and_one_page(window):
+    canvas = window.canvas
+    assert canvas.continuous and sorted(canvas.pages) == [0, 1, 2]
+    window.show_page(2)
+    assert window.page == 2 and window.page_spin.value() == 3
+    window.a_continuous.setChecked(False)
+    assert list(canvas.pages) == [2]
+    window.show_page(0)
+    assert list(canvas.pages) == [0]
+    window.set_tool("rect")
+    drag(window, (100, 300), (250, 400))
+    assert window.annotations[0].page == 0
+    window.a_continuous.setChecked(True)
+    assert sorted(canvas.pages) == [0, 1, 2] and len(canvas.items_) == 1
+
+
+def test_marker_and_pressure(window):
+    from py_annotate.gui.canvas import PageCanvas
+
+    window.set_tool("marker")
+    drag(window, (100, 650), (150, 655), (200, 650))
+    a = window.annotations[0]
+    assert a.kind == "marker" and a.width == settings.STYLES["marker"].width and a.opacity < 1
+    pressed = PageCanvas._pressed(dataclasses.replace(a, width=2), {"pressures": [1.0, 1.0]})
+    assert pressed.width == 3.2  # (2 × (0.4 + 1.2))
+    assert PageCanvas._pressed(a, {}) == a
+
+
+def test_thumbnail_size(window):
+    window.thumb_slider.setValue(200)
+    assert window.thumb.height() == 200 and window.pages.iconSize().height() == 200
+    QApplication.processEvents()
+
+
+def test_print_and_exports(window, tmp_path, sample):
+    from PySide6.QtGui import QPdfWriter
+
+    from py_annotate.gui import printing
+
+    window.set_tool("rect")
+    drag(window, (100, 300), (250, 400))
+    doc = printing.printable(sample, window.annotations)
+    writer = QPdfWriter(str(tmp_path / "printed.pdf"))
+    assert printing.render(writer, doc, [0, 1])
+    import pymupdf
+
+    assert pymupdf.open(tmp_path / "printed.pdf").page_count == 2
+    window._ask_target = lambda title, suffix, ext="pdf": tmp_path / f"out{suffix}.{ext}"
+    assert window.export_dialog("xfdf") and window.export_dialog("pdf")
+    assert (tmp_path / "out-annotations.xfdf").read_text(encoding="utf-8").count("<square") == 1
+    assert pymupdf.open(tmp_path / "out-summary.pdf").page_count == 1
+
+
+def test_many_annotations_are_listed_at_once(window):
+    import time
+
+    many = [annots.Annotation("rect", i % 3, (10 + i % 50, 10, 30 + i % 50, 30), "#000000") for i in range(3000)]
+    start = time.perf_counter()
+    window.change(many)
+    assert window.model.rowCount() == 3000 and time.perf_counter() - start < 5
