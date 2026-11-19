@@ -406,8 +406,11 @@ def fake_pdf2iso(folder) -> str:
     import sys
 
     script = folder / "pdf2iso"
+    # (it gets the tests' own sys.path: on Windows it is run by whatever Python is on the PATH)
     script.write_text(f"""#!{sys.executable}
-import sys, pymupdf
+import sys
+sys.path[:0] = {sys.path!r}
+import pymupdf
 args = sys.argv[1:]
 out = args[args.index("-o") + 1]
 doc = pymupdf.open(args[-1])
