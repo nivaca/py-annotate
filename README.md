@@ -19,7 +19,7 @@ the annotations that changed, and never touches the others, nor links,
 file attachments or form fields.
 
 It has a window, in English and in Spanish, and is meant to work on Linux,
-Windows and macOS. This is version 0.2.0.
+Windows and macOS. This is version 0.2.1.
 
 I am Nicolas Vaughan (<nicolasvaughan@proton.me>), and I wrote it in 2026.
 It is free software, under the GNU General Public License, version 3 or

@@ -19,7 +19,7 @@ reescriben solo las que cambiaron; las demás no se tocan, ni tampoco los
 enlaces, los archivos adjuntos o los campos de formulario.
 
 Tiene una ventana, en español y en inglés, y está pensado para Linux,
-Windows y macOS. Esta es la versión 0.2.0.
+Windows y macOS. Esta es la versión 0.2.1.
 
 Soy Nicolas Vaughan (<nicolasvaughan@proton.me>) y lo escribí en 2026. Es
 software libre, bajo la Licencia Pública General de GNU, versión 3 o

@@ -1409,6 +1409,7 @@ class MainWindow(QMainWindow):
         colors.set_palette(prefs.palette)
         self._have_conform = conform.available(prefs.pdfconform)
         self.apply_shortcuts()
+        self._enable()
         self._start_autosave()
         self._show_panel()
 

@@ -394,6 +394,8 @@ print("OK  (veraPDF: PASS) in.pdf -> out.pdf [PDF/A-2b]")
 
 
 def test_save_as_pdfa(window, tmp_path):
+    window.set_prefs(dataclasses.replace(window.prefs, pdfconform=str(tmp_path / "missing")))
+    assert not window.standard_actions["a-2b"].isEnabled()  # (no pdf2iso there)
     window.set_prefs(dataclasses.replace(window.prefs, pdfconform=fake_pdf2iso(tmp_path)))
     assert window.standard_actions["a-2b"].isEnabled()
     window.set_tool("rect")
