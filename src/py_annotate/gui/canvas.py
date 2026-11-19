@@ -396,6 +396,8 @@ class PageCanvas(QGraphicsView):
         # hard it must press ('soft', 'normal', 'firm'): see Settings
         self.pen_pressure, self.pen_curve = "along", "normal"
         self._pen_tool: str | None = None  # (the tool chosen, while the eraser end of the pen erases)
+        self.pen_button = "pan"  # what the pen's side button does: 'pan' (moves the page while held) or 'menu'
+        self._pen_pan: tuple | None = None  # (while it moves the page: where the pen and the scroll bars were)
         self._quiet = False  # (scrolled by the program: the page in view is said by it)
         self.render_timer = QTimer(self, singleShot=True, interval=90)
         self.render_timer.timeout.connect(self._render_visible)
@@ -815,8 +817,14 @@ class PageCanvas(QGraphicsView):
 
     CURVES = {"soft": 0.6, "normal": 1.0, "firm": 1.6}  # (the pressure, to this power)
 
+    SIDE = Qt.MouseButton.RightButton | Qt.MouseButton.MiddleButton  # (the side buttons of a pen)
+
     def viewportEvent(self, event):
         kind = event.type()
+        if kind in (QEvent.Type.TabletPress, QEvent.Type.TabletMove, QEvent.Type.TabletRelease) \
+                and self._pen_moves_page(event):
+            event.accept()  # (and no mouse event is made of it: no menu)
+            return True
         if kind in (QEvent.Type.TabletPress, QEvent.Type.TabletMove):
             self._pressure = max(event.pressure(), 0.0) ** self.CURVES.get(self.pen_curve, 1.0) \
                 if self.pen_pressure != "off" else None
@@ -842,6 +850,27 @@ class PageCanvas(QGraphicsView):
             event.ignore()
             return False
         return super().viewportEvent(event)
+
+    def _pen_moves_page(self, event) -> bool:
+        """With a side button of the pen held (if the settings say so), the page follows the pen,
+        as with the hand tool. Whether EVENT was that."""
+        kind = event.type()
+        held = bool((event.button() | event.buttons()) & self.SIDE) if kind != QEvent.Type.TabletRelease \
+            else bool(event.buttons() & self.SIDE)
+        if self._pen_pan is None:
+            if kind != QEvent.Type.TabletPress or self.pen_button != "pan" or not held or self._drag is not None:
+                return False
+            self._pen_pan = (event.position(), self.horizontalScrollBar().value(), self.verticalScrollBar().value())
+            self.viewport().setCursor(QCursor(Qt.CursorShape.ClosedHandCursor))
+            return True
+        start, h, v = self._pen_pan
+        moved = event.position() - start
+        self.horizontalScrollBar().setValue(round(h - moved.x()))
+        self.verticalScrollBar().setValue(round(v - moved.y()))
+        if kind == QEvent.Type.TabletRelease and not held:
+            self._pen_pan = None
+            self.viewport().unsetCursor()
+        return True
 
     def _end_pen_eraser(self):
         if self._pen_tool is not None and self._drag is None:

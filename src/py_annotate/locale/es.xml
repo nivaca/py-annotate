@@ -2267,4 +2267,16 @@
     <en>Pen touch:</en>
     <tr>Toque del lápiz:</tr>
   </text>
+  <text>
+    <en>Moves the page, while it is held</en>
+    <tr>Mueve la página, mientras se mantiene apretado</tr>
+  </text>
+  <text>
+    <en>A right click (the menu)</en>
+    <tr>Un clic derecho (el menú)</tr>
+  </text>
+  <text>
+    <en>Pen side button:</en>
+    <tr>Botón lateral del lápiz:</tr>
+  </text>
 </interface>

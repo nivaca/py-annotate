@@ -185,7 +185,8 @@ class MainWindow(FilesMixin, QMainWindow):
         self._size_thumbnails()
 
         self.canvas = PageCanvas()
-        self.canvas.pen_pressure, self.canvas.pen_curve = self.prefs.pen_pressure, self.prefs.pen_curve
+        self.canvas.pen_pressure, self.canvas.pen_curve, self.canvas.pen_button = (
+            self.prefs.pen_pressure, self.prefs.pen_curve, self.prefs.pen_button)
         self.canvas.continuous = self.settings.value("continuous", "true") != "false"
         self.canvas.factory = self.new_annotation
         self.canvas.placeholder_for = lambda n: self._thumbs.get(n)
@@ -1314,7 +1315,8 @@ class MainWindow(FilesMixin, QMainWindow):
         except (OSError, ValueError) as e:
             self.status(tr("Could not keep the setting: {error}", error=e), error=True)
         colors.set_palette(prefs.palette)
-        self.canvas.pen_pressure, self.canvas.pen_curve = prefs.pen_pressure, prefs.pen_curve
+        self.canvas.pen_pressure, self.canvas.pen_curve, self.canvas.pen_button = (
+            prefs.pen_pressure, prefs.pen_curve, prefs.pen_button)
         self._have_conform = conform.available(prefs.pdfconform)
         self.apply_shortcuts()
         self._enable()

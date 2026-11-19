@@ -865,7 +865,7 @@ def test_searchable_copy(window, tmp_path):
     assert any(t == "justice" for _, t in annots.page_text(window.doc[0]))
 
 
-def tablet(w, kind, point, pressure=0.5, eraser=False):
+def tablet(w, kind, point, pressure=0.5, eraser=False, side=False):
     """A tablet's pen event at POINT (in points of the page in view), its eraser end if ERASER."""
     from PySide6.QtGui import QInputDevice, QPointingDevice, QTabletEvent
 
@@ -876,9 +876,10 @@ def tablet(w, kind, point, pressure=0.5, eraser=False):
     c = w.canvas
     pos = QPointF(c.mapFromScene(c.pages[w.page].mapToScene(QPointF(*point))))
     pos += QPointF(0.37, 0.61)  # (between two pixels: the pen is finer than the mouse)
-    buttons = Qt.MouseButton.NoButton if kind == QEvent.Type.TabletRelease else Qt.MouseButton.LeftButton
+    button = Qt.MouseButton.RightButton if side else Qt.MouseButton.LeftButton  # (a side button, or the tip)
+    buttons = Qt.MouseButton.NoButton if kind == QEvent.Type.TabletRelease else button
     event = QTabletEvent(kind, device, pos, pos, pressure, 0, 0, 0, 0, 0, Qt.KeyboardModifier.NoModifier,
-                         Qt.MouseButton.LeftButton, buttons)
+                         button, buttons)
     return c.viewportEvent(event)
 
 
@@ -924,7 +925,29 @@ def test_pen_strokes(window):
 
 
 def test_pen_settings_kept(tmp_path, monkeypatch):
-    prefs = dataclasses.replace(settings.Settings(), pen_pressure="off", pen_curve="firm", ocr_language="lat+eng")
+    prefs = dataclasses.replace(settings.Settings(), pen_pressure="off", pen_curve="firm", pen_button="menu",
+                                ocr_language="lat+eng")
     settings.save(prefs)
     got = settings.load()
-    assert (got.pen_pressure, got.pen_curve, got.ocr_language) == ("off", "firm", "lat+eng")
+    assert (got.pen_pressure, got.pen_curve, got.pen_button, got.ocr_language) == ("off", "firm", "menu", "lat+eng")
+
+
+def test_pen_side_button_moves_the_page(window):
+    """Held, the side button of the pen moves the page with the pen, and draws nothing, nor opens the
+    menu; with the setting 'menu', it is a right click again."""
+    canvas = window.canvas
+    canvas.set_zoom(3.0)  # (so that there is room to move)
+    QApplication.processEvents()
+    window.set_tool("ink")
+    menus = []
+    canvas.menu_asked.connect(lambda *args: menus.append(args))
+    bar = canvas.verticalScrollBar()
+    bar.setValue(bar.maximum() // 2)
+    before = bar.value()
+    assert tablet(window, QEvent.Type.TabletPress, (200, 300), side=True)
+    assert tablet(window, QEvent.Type.TabletMove, (200, 250), side=True)
+    assert bar.value() > before  # (the pen went up: the page follows it up, so the view goes down)
+    assert tablet(window, QEvent.Type.TabletRelease, (200, 250), side=True)
+    assert window.annotations == [] and menus == [] and canvas._pen_pan is None
+    canvas.pen_button = "menu"
+    assert not tablet(window, QEvent.Type.TabletPress, (200, 300), side=True)  # (left to Qt: a right click)

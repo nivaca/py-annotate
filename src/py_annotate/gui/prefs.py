@@ -104,6 +104,11 @@ class SettingsDialog(QDialog):
             self.pen_curve.addItem(tr(name), key)
         self.pen_curve.setCurrentIndex(max(self.pen_curve.findData(prefs.pen_curve), 0))
         form.addRow(tr("Pen touch:"), self.pen_curve)
+        self.pen_button = QComboBox()
+        for key, name in settings.PEN_BUTTON.items():
+            self.pen_button.addItem(tr(name), key)
+        self.pen_button.setCurrentIndex(max(self.pen_button.findData(prefs.pen_button), 0))
+        form.addRow(tr("Pen side button:"), self.pen_button)
         self.reset = QCheckBox(tr("Put the tools back as they were at first"))
         self.reset.setToolTip(tr("The colours, lines, fonts and opacity of the annotations each tool makes, and "
                                  "how it behaves"))
@@ -252,6 +257,7 @@ class SettingsDialog(QDialog):
                                     ocr_language=self._ocr_language(),
                                     pen_pressure=self.pen_pressure.currentData(),
                                     pen_curve=self.pen_curve.currentData(),
+                                    pen_button=self.pen_button.currentData(),
                                     categories=self._categories(),
                                     palette=tuple(palette), shortcuts=tuple(self.shortcuts().items()))
         if self.reset.isChecked():

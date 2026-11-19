@@ -16,7 +16,8 @@
   (Tesseract's names: ``"eng"``, or several, ``"lat+eng"``);
 * ``pen_pressure`` and ``pen_curve``: how the pressure of a tablet's pen counts
   (``along`` the stroke, once for the whole ``stroke``, or ``off``), and how
-  hard it must press (``soft``, ``normal``, ``firm``);
+  hard it must press (``soft``, ``normal``, ``firm``); ``pen_button``: what its side
+  button does (``pan``: moves the page while held; ``menu``: a right click);
 * ``autosave``: every how many minutes a recovery copy of the annotations
   is kept (0: never; see recovery.py).
 
@@ -117,6 +118,7 @@ PEN_PRESSURE = {"along": N_("Along each stroke (wider where it presses harder)")
                 "stroke": N_("Once for each stroke"), "off": N_("Not at all")}
 PEN_CURVES = {"soft": N_("Soft (a light touch is enough)"), "normal": N_("Normal"),
               "firm": N_("Firm (it must press harder)")}
+PEN_BUTTON = {"pan": N_("Moves the page, while it is held"), "menu": N_("A right click (the menu)")}
 
 
 # the usual categories (translated where they are shown, while they are the usual ones)
@@ -137,6 +139,7 @@ class Settings:
     ocr_language: str = "eng"  # of the text of scanned pages (see ocr.py)
     pen_pressure: str = "along"  # see PEN_PRESSURE
     pen_curve: str = "normal"  # see PEN_CURVES
+    pen_button: str = "pan"  # see PEN_BUTTON
 
     def category_list(self) -> list[str]:
         from .interface import tr
@@ -199,6 +202,8 @@ def valid(field: str, value) -> bool:
         return value in PEN_PRESSURE
     if field == "pen_curve":
         return value in PEN_CURVES
+    if field == "pen_button":
+        return value in PEN_BUTTON
     if field == "autosave":
         return isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 120
     return False
@@ -247,7 +252,8 @@ def load() -> Settings:
                     if valid("categories", categories) else None,
                     params["ocr_language"] if valid("ocr_language", params.get("ocr_language")) else "eng",
                     params["pen_pressure"] if valid("pen_pressure", params.get("pen_pressure")) else "along",
-                    params["pen_curve"] if valid("pen_curve", params.get("pen_curve")) else "normal")
+                    params["pen_curve"] if valid("pen_curve", params.get("pen_curve")) else "normal",
+                    params["pen_button"] if valid("pen_button", params.get("pen_button")) else "pan")
 
 
 def save(settings: Settings) -> None:
@@ -281,7 +287,7 @@ def save(settings: Settings) -> None:
     if not valid("ocr_language", settings.ocr_language):
         raise ValueError(f"ocr_language = {settings.ocr_language!r}")
     values["ocr_language"] = settings.ocr_language if settings.ocr_language != "eng" else None
-    for name, usual in (("pen_pressure", "along"), ("pen_curve", "normal")):
+    for name, usual in (("pen_pressure", "along"), ("pen_curve", "normal"), ("pen_button", "pan")):
         if not valid(name, getattr(settings, name)):
             raise ValueError(f"{name} = {getattr(settings, name)!r}")
         values[name] = getattr(settings, name) if getattr(settings, name) != usual else None
