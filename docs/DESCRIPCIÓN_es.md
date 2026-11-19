@@ -12,7 +12,7 @@ La especificación pedía además lo que hace útil una herramienta de lectura y
 
 El trabajo con el PDF lo hace PyMuPDF, que lee y escribe cada clase de anotación del estándar. Una anotación es un registro inmutable con su clase, su página, su rectángulo, sus colores, su opacidad, su comentario, su autor, los puntos de sus líneas, sus respuestas, sus etiquetas y sus categorías. Se mide sobre la página tal como se ve, con su giro; al escribirla se pasa a las coordenadas propias de la página.
 
-El programa se divide en módulos pequeños. `annots.py` define la anotación y la respuesta, y lee y escribe las anotaciones; `exchange.py` exporta e importa (JSON, Markdown, CSV, XFDF, otra copia del PDF) y hace las copias aplanadas, sin anotaciones y el resumen de los comentarios; `search.py` busca texto en las páginas; `recovery.py` guarda las copias de recuperación; `conform.py` pasa a PDF/A y PDF/X con pdf2iso; `settings.py` y `config.py` guardan la configuración, e `interface.py` traduce la ventana. En `gui/` están la ventana (`window.py`), las páginas con sus anotaciones (`canvas.py`, `paint.py`), el panel de las anotaciones (`listing.py`), buscar y resaltar (`finder.py`), la impresión (`printing.py`) y los diálogos.
+El programa se divide en módulos pequeños. `annots.py` define la anotación y la respuesta, y lee y escribe las anotaciones; `exchange.py` exporta e importa (JSON, Markdown, CSV, XFDF, otra copia del PDF) y hace las copias aplanadas, sin anotaciones y el resumen de los comentarios; `search.py` busca texto en las páginas; `recovery.py` guarda las copias de recuperación; `conform.py` pasa a PDF/A y PDF/X con pdf2iso; `settings.py` y `config.py` guardan la configuración, e `interface.py` traduce la ventana. En `gui/` están la ventana (`window.py`), las páginas con sus anotaciones (`canvas.py`, `paint.py`), el panel de las anotaciones (`listing.py`), buscar y resaltar (`finder.py`), la impresión (`printing.py`), las copias, las exportaciones y las importaciones (`files.py`) y los diálogos.
 
 ### Cómo se guardan las anotaciones
 
@@ -22,7 +22,7 @@ Al guardar, cada anotación se compara con lo que tiene el archivo. La que no ca
 
 ## Implementación
 
-Está escrito en Python 3.14 o superior, con PyMuPDF y PySide6 (Qt 6). Son 36 archivos, unas 9900 líneas. Cada texto de la ventana se busca por su inglés en `locale/es.xml` (464 textos), y cada valor de la configuración, un archivo TOML, se comprueba al leerlo.
+Está escrito en Python 3.14 o superior, con PyMuPDF y PySide6 (Qt 6). Son 37 archivos, unas 10 000 líneas. Cada texto de la ventana se busca por su inglés en `locale/es.xml` (464 textos), y cada valor de la configuración, un archivo TOML, se comprueba al leerlo.
 
 ### Las páginas
 
@@ -36,13 +36,17 @@ Las pruebas con cada clase de anotación, en una página normal y en una girada,
 
 La lista es un modelo que arma cada fila solo cuando se muestra, y miles de anotaciones se listan enseguida. El XFDF lo escribe y lo lee el propio programa, con los puntos pasados al espacio del PDF. El resumen de los comentarios se compone como HTML, con fuentes que tienen las rayas y las comillas. Ghostscript, que usa pdf2iso, deja fuera las marcas de insertar texto, los polígonos y las nubes; py-annotate lo comprueba y ofrece hacer solo esas parte de las páginas.
 
+### Documentos con miles de anotaciones
+
+Con un documento de 300 páginas y 3000 anotaciones, la primera letra escrita en la búsqueda de la lista tardaba catorce segundos: cada resaltado pedía a PyMuPDF el texto de su rectángulo, 18 milisegundos cada uno. Ahora las palabras de cada página se leen una vez y se guardan, las de una marca son las que tienen el centro bajo ella, y la lista se busca cuando se deja de escribir. Un cambio solo vuelve a hacer las anotaciones que cambiaron, y la lista mide una muestra de sus filas para ajustar las columnas. Los otros procesos dibujan las páginas del documento mismo, y quitan las anotaciones en su propia copia, en memoria, en vez de recibir una copia del archivo sin ellas. Guardar lee solo las anotaciones que cambió: tarda 0,4 segundos en lugar de 1,4.
+
 ## Validación
 
-Hay 65 pruebas automáticas (`uv run pytest`). Las de las anotaciones escriben una de cada clase en una página normal y en una girada y las vuelven a leer; comprueban que una anotación cambiada conserva su número y las claves de otros programas, que guardar en el documento solo añade a su final, y que se conservan las respuestas, los estados, las etiquetas y las categorías; y pasan todo por JSON y por XFDF y de vuelta.
+Hay 69 pruebas automáticas (`uv run pytest`). Las de las anotaciones escriben una de cada clase en una página normal y en una girada y las vuelven a leer; comprueban que una anotación cambiada conserva su número y las claves de otros programas, que guardar en el documento solo añade a su final, y que se conservan las respuestas, los estados, las etiquetas y las categorías; y pasan todo por JSON y por XFDF y de vuelta.
 
-La ventana se prueba manejándola como lo haría un usuario, con eventos del ratón sobre las páginas: cada herramienta, mover, redimensionar y cambiar la forma, la goma de borrar, el panel y sus filtros, escribir en la página, deshacer después de guardar y las copias como PDF/A, con un pdf2iso hecho para la prueba que deja fuera los polígonos, como Ghostscript. Una prueba comprueba que cada texto de la ventana tenga su traducción al español, y ninguna otra.
+La ventana se prueba manejándola como lo haría un usuario, con eventos del ratón sobre las páginas: cada herramienta, mover, redimensionar y cambiar la forma, la goma de borrar, el panel y sus filtros, escribir en la página, deshacer después de guardar, guardar cuando otro programa cambió el archivo, las páginas dibujadas en otro proceso sin las anotaciones que la ventana dibuja, y las copias como PDF/A, con un pdf2iso hecho para la prueba que deja fuera los polígonos, como Ghostscript. Una prueba comprueba que cada texto de la ventana tenga su traducción al español, y ninguna otra.
 
-Las pruebas se corren también sin nada del autor en el PATH, como las corre Copr; así se encontraron dos errores que en su equipo no se veían. El RPM vuelve a correrlas sobre el paquete instalado, con el Python, el PyMuPDF y el PySide6 de Fedora, y la AppImage escribe y lee una anotación con su propio Python antes de terminar de armarse. Las ventanas se revisaron además a ojo, con capturas de pantalla en los dos idiomas. Los instaladores de Windows y macOS no se han probado en esos sistemas.
+Las pruebas se corren también sin nada del autor en el PATH, como las corre Copr; así se encontraron dos errores que en su equipo no se veían. El RPM vuelve a correrlas sobre el paquete instalado, con el Python, el PyMuPDF y el PySide6 de Fedora, y la AppImage escribe y lee una anotación con su propio Python antes de terminar de armarse. Las ventanas se revisaron además a ojo, con capturas de pantalla en los dos idiomas. Los tiempos se midieron con un documento de 300 páginas y 3000 anotaciones. Los instaladores de Windows y macOS no se han probado en esos sistemas.
 
 ## Plataforma
 

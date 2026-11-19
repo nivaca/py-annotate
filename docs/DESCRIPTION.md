@@ -9,7 +9,7 @@ annotations, which any viewer shows and can edit. Nicolas Vaughan made it
 in November 2026, starting from two other PDF programs of his, py-redact
 (redaction) and py-foliation (the page labels of a PDF), and from a
 specification of what a full annotation tool should have. Here I explain
-how it was made, in nine stages.
+how it was made, in ten stages.
 
 It is free software, under the GNU General Public License, version 3 or
 later. The annotations are read and written by PyMuPDF (GNU AGPL 3), and
@@ -151,10 +151,35 @@ makes the screenshots of the README in both languages, on an essay it
 writes each time. That script once wrote the window's layout into my own
 settings, because Qt follows `XDG_CONFIG_HOME`; it now redirects that too.
 
+10. Thousands of annotations
+----------------------------
+
+To see where the program was slow, I made a document of 300 pages with
+3,000 annotations and timed what the window does with it. Most of it was
+quick, but the first letter typed in the search of the list took fourteen
+seconds: to find a word in the text a highlight covers, each highlight
+asked PyMuPDF for the text of its rectangle, which took 18 milliseconds
+each. The words of a page are now read once and kept, the words of a mark
+are those whose middle is under it, and the list is searched when the
+typing stops; the first search takes less than a second.
+
+Each change took a sixth of a second, because the list measured all its
+rows to fit its columns and the pages made all their annotations again;
+now a sample of the rows is measured, and only what changed is made again.
+A document with annotations was copied whole, without them, at each
+opening and each save, for the other processes to render; they now render
+the document itself and take the annotations out of their own copy. Saving
+read the annotations of the file three times, and now reads only those it
+changed: it takes 0.4 seconds instead of 1.4. Reading 3,000 annotations
+still takes half a second, spread over many small calls to PyMuPDF, and I
+found nothing that made it shorter. Last, what writes or reads other files
+than the document (copies, printing, exports and imports) moved out of the
+main window's module, which had grown to 2,147 lines, into one of its own.
+
 Testing
 -------
 
-The program has 65 tests (`uv run pytest`). The tests of the annotations
+The program has 69 tests (`uv run pytest`). The tests of the annotations
 write one of each kind on a plain page and on a turned one and read them
 back; check that a changed annotation keeps its number and the keys of
 other programs, that saving into the document only adds to its end, and
@@ -162,10 +187,13 @@ that replies, statuses, tags and categories are kept; and send everything
 through JSON and XFDF and back. The window is tested as a user would use
 it, with mouse events on the pages: every tool, moving, resizing and
 reshaping, the eraser, the panel and its filters, writing on the page,
-undo after saving, and the copies as PDF/A (with a pdf2iso made for the
+undo after saving, a save after the file was changed by another program,
+the pages rendered in another process without the annotations the window
+draws, and the copies as PDF/A (with a pdf2iso made for the
 test that leaves out polygons, as Ghostscript does). A test checks that
 every text of the window has its Spanish translation, and no other. The
 tests are also run with nothing of mine on the PATH, as Copr runs them, and
 the RPM runs them again with Fedora's own Python, PyMuPDF and PySide6. The
-pictures were checked by eye, in both languages. The program has 36 files,
-around 9,900 lines.
+pictures were checked by eye, in both languages. A document of 300 pages with
+3,000 annotations was used to time the window. The program has 37 files,
+around 10,000 lines.
