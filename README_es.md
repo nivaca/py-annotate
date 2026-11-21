@@ -23,7 +23,7 @@ añaden al final del archivo, así que un documento firmado conserva sus
 firmas válidas para lo que firmaron.
 
 Tiene una ventana, en español y en inglés, y funciona en Linux, Windows y
-macOS. Esta es la versión 1.1.0.
+macOS. Esta es la versión 1.1.1.
 
 Soy Nicolas Vaughan (<nicolasvaughan@proton.me>) y lo escribí en 2026. Es
 software libre, bajo la Licencia Pública General de GNU, versión 3 o
@@ -416,3 +416,6 @@ posterior. Se distribuye con la esperanza de que sea útil, pero SIN NINGUNA
 GARANTÍA, ni siquiera la garantía implícita de COMERCIABILIDAD o IDONEIDAD
 PARA UN PROPÓSITO PARTICULAR. Los detalles están en el archivo
 [LICENSE](LICENSE).
+
+El software libre que usa py-annotate, con la licencia de cada uno, está
+en [docs/THIRD_PARTY_es.md](docs/THIRD_PARTY_es.md).

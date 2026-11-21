@@ -8,6 +8,18 @@ construye también en Copr. Algunas versiones (la 0.2.0, de la 0.3.1 a la
 0.3.3, y otras) se hicieron pero no se publicaron aparte: cada una se
 cuenta en la sección de la siguiente versión publicada.
 
+## 1.1.1 — 2026-11-21
+
+### Nuevo
+
+- **El software que usa, y sus licencias.** `docs/THIRD_PARTY_es.md` (y
+  `docs/THIRD_PARTY.md`, en inglés) lista el software libre que usa
+  py-annotate: las bibliotecas que necesita y las que trae PyMuPDF, los
+  programas que corre si están instalados (Tesseract, pdf2iso y
+  Ghostscript) y las herramientas con que se construye y se prueba, cada
+  uno con su licencia. Los README la enlazan.
+- **Este registro de cambios**, en inglés y en español.
+
 ## 1.1.0 — 2026-11-19
 
 Esta versión reúne de la 1.0.3 a la 1.0.7.

@@ -13,7 +13,8 @@ how it was made, in fifteen stages.
 
 It is free software, under the GNU General Public License, version 3 or
 later. The annotations are read and written by PyMuPDF (GNU AGPL 3), and
-the window is made with PySide6 (GNU LGPL 3).
+the window is made with PySide6 (GNU LGPL 3). All the open-source software
+it uses, with the licence of each, is listed in `docs/THIRD_PARTY.md`.
 
 Nicolas Vaughan is Associate Professor of Literature at the School of Arts
 and Humanities of the Universidad de los Andes, Bogotá, Colombia.

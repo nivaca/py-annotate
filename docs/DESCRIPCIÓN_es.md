@@ -1,4 +1,4 @@
-# py-annotate 1.1.0: descripción
+# py-annotate 1.1.1: descripción
 
 ## Análisis
 
@@ -65,5 +65,7 @@ Es una aplicación de escritorio y no necesita internet. Nada sale del equipo: l
 ## Ambiente
 
 Fue desarrollado en Fedora Linux 45 con KDE Plasma, con Python 3.14 y uv, y con git, con repositorios en GitHub (https://github.com/nivaca/py-annotate) y en Codeberg (https://codeberg.org/nivaca/py-annotate). Las versiones se publican en los dos sitios y en Copr (https://copr.fedorainfracloud.org/coprs/nivaca/py-annotate/); un solo script corre las pruebas, hace la rueda, el paquete fuente, el ZIP, la AppImage y el RPM firmado, pone la etiqueta, publica en los dos sitios y manda el RPM fuente a Copr.
+
+El software libre que usa, con la licencia de cada uno, está en `docs/THIRD_PARTY_es.md`; todas esas licencias permiten usarlo en un programa bajo la GPL 3 o posterior.
 
 Para usarlo en Linux basta descargar la AppImage, hacerla ejecutable y abrirla; en Fedora, `sudo dnf copr enable nivaca/py-annotate` y `sudo dnf install py-annotate` lo instalan con su entrada en el menú y su manual (`man py-annotate`). En Windows y macOS, el instalador de `install/` lo deja en el menú Inicio o en `~/Applications`. La configuración queda en la carpeta de configuración del usuario (`~/.config/py-annotate/config.toml` en Linux, con las copias de recuperación en `recovery/`); en macOS, en `~/Library/Application Support/py-annotate/`, y en Windows, en `%APPDATA%\py-annotate\`.
