@@ -3,8 +3,7 @@ Open-source software used by py-annotate
 
 py-annotate is licensed under the GNU General Public License, version 3 or
 later (GPL-3.0-or-later). It is made with the open-source software listed
-here. The licences are those of the versions in `uv.lock` for py-annotate
-1.1.1; the identifiers are SPDX identifiers. All of them allow their use in
+here. The licences are those of the versions in `uv.lock`; the identifiers are SPDX identifiers. All of them allow their use in
 a program under the GPL, version 3 or later.
 
 Libraries the program needs

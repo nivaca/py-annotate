@@ -3,8 +3,7 @@ Software libre que usa py-annotate
 
 py-annotate se distribuye bajo la Licencia Pública General de GNU, versión
 3 o posterior (GPL-3.0-or-later). Está hecho con el software libre de esta
-lista. Las licencias son las de las versiones de `uv.lock` para py-annotate
-1.1.1, con sus identificadores SPDX. Todas permiten usarlo en un programa
+lista. Las licencias son las de las versiones de `uv.lock`, con sus identificadores SPDX. Todas permiten usarlo en un programa
 bajo la GPL, versión 3 o posterior.
 
 Bibliotecas que el programa necesita
