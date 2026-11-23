@@ -8,6 +8,17 @@ construye también en Copr. Algunas versiones (la 0.2.0, de la 0.3.1 a la
 0.3.3, y otras) se hicieron pero no se publicaron aparte: cada una se
 cuenta en la sección de la siguiente versión publicada.
 
+## Sin publicar
+
+### Nuevo
+
+- **Cada versión firmada**: además del RPM, cada archivo publicado (la
+  rueda, el paquete fuente, el ZIP, la AppImage) va con su
+  firma (`.asc`), con `SHA256SUMS` y su firma, y con la clave pública; la
+  etiqueta de la versión también se firma. Cada firma se comprueba con la
+  clave publicada antes de publicar nada. El README dice cómo comprobar
+  una descarga.
+
 ## 1.1.1 — 2026-11-21
 
 ### Nuevo

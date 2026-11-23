@@ -9,7 +9,7 @@ annotations, which any viewer shows and can edit. Nicolas Vaughan made it
 in November 2026, starting from two other PDF programs of his, py-redact
 (redaction) and py-foliation (the page labels of a PDF), and from a
 specification of what a full annotation tool should have. Here I explain
-how it was made, in fifteen stages.
+how it was made, in sixteen stages.
 
 It is free software, under the GNU General Public License, version 3 or
 later. The annotations are read and written by PyMuPDF (GNU AGPL 3), and
@@ -299,10 +299,27 @@ folded for the search, and each place found mapped back to the letters as
 they are written, which the first version forgot: it reported "Accion" for
 "Acción".
 
+16. Every release signed
+------------------------
+
+Only the RPM was signed, and only when the release was asked for it; the
+wheel, the source, the ZIP and the AppImage went out with nothing to show
+where they came from, and so did the tag. Now the RPM is always made, and a
+release signs everything with the same key: a detached signature for each
+file, a list of their SHA-256 sums with its own signature, and the tag,
+signed by git. A signature nobody checks proves little, so the release
+checks each one before publishing, the way a user would, in a keyring of
+its own that holds only the public key published with the files; the build
+of the RPM already did the same for the RPM. A file changed after signing,
+or a published key that is not the one that signed, stops the release. The
+script and its tests came from py-pdftools, where I did this first. The
+tests sign with a key made for them, in a folder of their own, never with
+mine.
+
 Testing
 -------
 
-The program has 106 tests (`uv run pytest`). The tests of the annotations
+The program has 109 tests (`uv run pytest`). The tests of the annotations
 write one of each kind on a plain page and on a turned one and read them
 back, and also text boxes with formatted text and groups made here or by
 another program; check that a changed annotation keeps its number and the keys of
@@ -317,12 +334,13 @@ draws, formatted text written on the page, groups, entries of textual
 criticism, the links listed but not changed, a stroke of changing pressure,
 layers, searchable copies of scanned pages (when Tesseract is installed),
 the pen and its eraser end, and the copies as PDF/A (with a pdf2iso made for the
-test that leaves out polygons, as Ghostscript does). A test checks that
+test that leaves out polygons, as Ghostscript does). The signing of a release
+is tested with a key made in the test. A test checks that
 every text of the window has its Spanish translation, and no other. The
 tests are also run with nothing of mine on the PATH, as Copr runs them, and
 the RPM runs them again with Fedora's own Python, PyMuPDF and PySide6. On
 GitHub they run on Linux, macOS and Windows, against the program as each
 installer installs it. The
 pictures were checked by eye, in both languages. A document of 300 pages with
-3,000 annotations was used to time the window. The program has 39 files,
-around 11,600 lines.
+3,000 annotations was used to time the window. The program has 41 files,
+around 11,800 lines.

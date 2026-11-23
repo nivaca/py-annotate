@@ -50,7 +50,7 @@ Con un documento de 300 páginas y 3000 anotaciones, la primera letra escrita en
 
 ## Validación
 
-Hay 106 pruebas automáticas (`uv run pytest`). Las de las anotaciones escriben una de cada clase en una página normal y en una girada y las vuelven a leer; comprueban que una anotación cambiada conserva su número y las claves de otros programas, que guardar en el documento solo añade a su final, y que se conservan las respuestas, los estados, las etiquetas y las categorías; y pasan todo por JSON y por XFDF y de vuelta.
+Hay 109 pruebas automáticas (`uv run pytest`). Las de las anotaciones escriben una de cada clase en una página normal y en una girada y las vuelven a leer; comprueban que una anotación cambiada conserva su número y las claves de otros programas, que guardar en el documento solo añade a su final, y que se conservan las respuestas, los estados, las etiquetas y las categorías; y pasan todo por JSON y por XFDF y de vuelta. Tres más firman los archivos de una versión con una clave hecha para la prueba, nunca con la del autor, y comprueban que un archivo cambiado, o una clave pública que no es la que firmó, detienen la publicación.
 
 La ventana se prueba manejándola como lo haría un usuario, con eventos del ratón sobre las páginas: cada herramienta, mover, redimensionar y cambiar la forma, la goma de borrar, el panel y sus filtros, escribir en la página, deshacer después de guardar, guardar cuando otro programa cambió el archivo, las páginas dibujadas en otro proceso sin las anotaciones que la ventana dibuja, y las copias como PDF/A, con un pdf2iso hecho para la prueba que deja fuera los polígonos, como Ghostscript. Una prueba comprueba que cada texto de la ventana tenga su traducción al español, y ninguna otra.
 
@@ -64,7 +64,7 @@ Es una aplicación de escritorio y no necesita internet. Nada sale del equipo: l
 
 ## Ambiente
 
-Fue desarrollado en Fedora Linux 45 con KDE Plasma, con Python 3.14 y uv, y con git, con repositorios en GitHub (https://github.com/nivaca/py-annotate) y en Codeberg (https://codeberg.org/nivaca/py-annotate). Las versiones se publican en los dos sitios y en Copr (https://copr.fedorainfracloud.org/coprs/nivaca/py-annotate/); un solo script corre las pruebas, hace la rueda, el paquete fuente, el ZIP, la AppImage y el RPM firmado, pone la etiqueta, publica en los dos sitios y manda el RPM fuente a Copr.
+Fue desarrollado en Fedora Linux 45 con KDE Plasma, con Python 3.14 y uv, y con git, con repositorios en GitHub (https://github.com/nivaca/py-annotate) y en Codeberg (https://codeberg.org/nivaca/py-annotate). Las versiones se publican en los dos sitios y en Copr (https://copr.fedorainfracloud.org/coprs/nivaca/py-annotate/); un solo script corre las pruebas, hace la rueda, el paquete fuente, el ZIP, la AppImage y el RPM firmado, firma cada archivo (con su firma `.asc` y las sumas `SHA256SUMS`, también firmadas), pone la etiqueta, firmada, publica en los dos sitios y manda el RPM fuente a Copr. Antes de publicar, `tools/sign_release.py` comprueba cada firma con la clave pública que va con la versión, y solo con ella.
 
 El software libre que usa, con la licencia de cada uno, está en `docs/THIRD_PARTY_es.md`; todas esas licencias permiten usarlo en un programa bajo la GPL 3 o posterior.
 

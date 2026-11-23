@@ -60,9 +60,23 @@ con estos archivos:
     py-annotate-VERSIÓN.zip                 el código fuente, con los instaladores
     py-annotate-VERSIÓN-x86_64.AppImage     la AppImage (Linux)
     py-annotate-VERSIÓN-1.fc45.noarch.rpm   el paquete de Fedora, firmado
-    RPM-GPG-KEY-py-annotate                 la clave que lo firma
     py_annotate-VERSIÓN.tar.gz              el paquete fuente, para Python
     py_annotate-VERSIÓN-py3-none-any.whl    la rueda (wheel), para Python
+    ARCHIVO.asc                             la firma de cada archivo
+    SHA256SUMS, SHA256SUMS.asc              las sumas de comprobación, y su firma
+    RPM-GPG-KEY-py-annotate                 la clave que los firma todos
+
+Cada archivo, y la etiqueta de la versión, se firman con la misma clave.
+Para comprobar una descarga, se importa la clave una vez y luego se
+comprueban la firma del archivo y su suma:
+
+    $ gpg --import RPM-GPG-KEY-py-annotate
+    $ gpg --verify py-annotate-VERSIÓN.zip.asc py-annotate-VERSIÓN.zip
+    $ gpg --verify SHA256SUMS.asc SHA256SUMS && sha256sum -c --ignore-missing SHA256SUMS
+
+El RPM lleva además su firma dentro: después de `sudo rpm --import
+RPM-GPG-KEY-py-annotate`, `rpm -K` la comprueba. La etiqueta puede
+comprobarse en un clon con `git tag -v vVERSIÓN`.
 
 **AppImage (cualquier Linux).** No necesita nada más: trae su propio
 Python, Qt y PyMuPDF, y funciona con glibc 2.34 o posterior (Ubuntu 22.04,

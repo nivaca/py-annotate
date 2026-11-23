@@ -8,6 +8,17 @@ built on Copr. Some versions (0.2.0, 0.3.1 to 0.3.3, and others) were
 made but not released apart: each is told in the section of the next
 release.
 
+## Unreleased
+
+### Added
+
+- **Every release signed**: besides the RPM, each file published (the
+  wheel, the source, the ZIP, the AppImage) comes with
+  its signature (`.asc`), with `SHA256SUMS` and its signature, and with the
+  public key; the tag of the version is signed too. Each signature is
+  checked with the published key before anything is published. The README
+  says how to check a download.
+
 ## 1.1.1 — 2026-11-21
 
 ### Added
