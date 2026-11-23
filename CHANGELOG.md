@@ -8,7 +8,7 @@ built on Copr. Some versions (0.2.0, 0.3.1 to 0.3.3, and others) were
 made but not released apart: each is told in the section of the next
 release.
 
-## Unreleased
+## 1.1.2 — 2026-11-22
 
 ### Added
 

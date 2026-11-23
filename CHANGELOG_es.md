@@ -8,7 +8,7 @@ construye también en Copr. Algunas versiones (la 0.2.0, de la 0.3.1 a la
 0.3.3, y otras) se hicieron pero no se publicaron aparte: cada una se
 cuenta en la sección de la siguiente versión publicada.
 
-## Sin publicar
+## 1.1.2 — 2026-11-22
 
 ### Nuevo
 
