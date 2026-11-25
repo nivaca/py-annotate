@@ -8,6 +8,17 @@ construye también en Copr. Algunas versiones (la 0.2.0, de la 0.3.1 a la
 0.3.3, y otras) se hicieron pero no se publicaron aparte: cada una se
 cuenta en la sección de la siguiente versión publicada.
 
+## Sin publicar
+
+- `tools/zenodo.py` prepara el depósito de una versión en Zenodo. `collect`
+  deja en `dist/zenodo/` el árbol de la etiqueta como
+  `py-annotate-VERSIÓN-source.tar.gz`, con su firma, un `SHA256SUMS` del
+  depósito, firmado, y la clave pública, y comprueba cada firma con solo esa
+  clave (`--packages` añade los archivos de la versión). `upload` lo sube a
+  Zenodo como borrador, versión nueva del depósito si ya lo hay, y nunca lo
+  publica. `tools/release.py` reúne ahora el depósito después de la etiqueta
+  y, con `--zenodo`, lo sube. Los metadatos están en `.zenodo.json`.
+
 ## 1.1.2 — 2026-11-22
 
 ### Nuevo

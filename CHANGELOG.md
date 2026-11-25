@@ -8,6 +8,18 @@ built on Copr. Some versions (0.2.0, 0.3.1 to 0.3.3, and others) were
 made but not released apart: each is told in the section of the next
 release.
 
+## Unreleased
+
+- `tools/zenodo.py` prepares the deposit of a release for Zenodo. `collect`
+  puts in `dist/zenodo/` the tree of the tag as
+  `py-annotate-VERSION-source.tar.gz`, with its signature, a signed
+  `SHA256SUMS` of the deposit and the public key, and checks every signature
+  with only that key (`--packages` adds the files of the release). `upload`
+  sends it to Zenodo as a draft, a new version of the deposit if there is
+  one already, and never publishes it. `tools/release.py` now collects the
+  deposit after the tag, and uploads it with `--zenodo`. The metadata are in
+  `.zenodo.json`.
+
 ## 1.1.2 — 2026-11-22
 
 ### Added
