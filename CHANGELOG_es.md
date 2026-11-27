@@ -40,6 +40,13 @@ cuenta en la sección de la siguiente versión publicada.
   propio, tantos a la vez como procesadores haya, primero los más lentos.
   `tools/release.py` y el `%check` del RPM las corren con él, y no con un
   solo pytest para todas.
+- Después de publicar una versión solo queda aquí el RPM: `tools/release.py`
+  hace y firma la rueda, el paquete fuente, el ZIP, la AppImage y
+  `SHA256SUMS` en `build/release/` (ya no en `dist/`), y el depósito de
+  Zenodo en `build/zenodo/` (ya no en `dist/zenodo/`); los publica desde
+  allí y al final borra ambas carpetas. `tools/bundle-appimage.py` escribe
+  por omisión en `build/release/`. En `dist/` solo queda la copia del RPM que
+  deja `packaging/build-rpm.sh`.
 
 ## 1.1.2 — 2026-11-22
 
