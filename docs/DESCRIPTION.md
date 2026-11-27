@@ -319,7 +319,8 @@ mine.
 Testing
 -------
 
-The program has 109 tests (`uv run pytest`). The tests of the annotations
+The program has 129 tests. They run with `uv run python tools/test.py`,
+each test file in a process of its own, all at once. The tests of the annotations
 write one of each kind on a plain page and on a turned one and read them
 back, and also text boxes with formatted text and groups made here or by
 another program; check that a changed annotation keeps its number and the keys of
