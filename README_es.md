@@ -418,7 +418,12 @@ Lo que todavía no hace
 Pruebas
 -------
 
-    $ uv run pytest
+    $ uv run python tools/test.py
+
+corre cada archivo de pruebas en un pytest propio, tantos a la vez como
+procesadores haya (`-j N` lo cambia), primero los más lentos; así las corren
+también la publicación y el `%check` del RPM. `uv run pytest` las corre una
+tras otra.
 
 Licencia
 --------

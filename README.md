@@ -408,7 +408,12 @@ What it does not do yet
 Tests
 -----
 
-    $ uv run pytest
+    $ uv run python tools/test.py
+
+runs each test file in a pytest of its own, as many at once as there are
+processors (`-j N` changes that), the slowest first; the release and the
+RPM's `%check` run them so too. `uv run pytest` runs them one after the
+other.
 
 Licensing
 ---------
