@@ -1,20 +1,18 @@
 #!/usr/bin/env python3
-"""Make the screenshots of the README, in English and in Spanish:
+"""Hace las capturas de pantalla del README, en inglés y en español:
 
     uv run python tools/screenshots.py [-o FOLDER]
 
-It writes, in docs/img/ (or FOLDER), for each language (en, es):
+Escribe en docs/img/ (o en FOLDER), para cada idioma (en, es):
 
-* window_LANG.png: the window, with an essay annotated in several ways (a
-  highlight with replies and a review status, notes, a text box, a callout,
-  shapes, a stamp);
-* find_LANG.png: Find and highlight;
-* properties_LANG.png: the properties of an annotation;
-* summary_LANG.png: a page of the summary of the comments.
+* window_LANG.png: la ventana, con un ensayo anotado de varias maneras (un resaltado con respuestas y un estado de
+  revisión, notas, un cuadro de texto, una llamada, formas, un sello);
+* find_LANG.png: Buscar y resaltar;
+* properties_LANG.png: las propiedades de una anotación;
+* summary_LANG.png: una página del resumen de los comentarios.
 
-The window is drawn off the screen (Qt's offscreen platform), with
-configuration folders of its own, so the user's settings are not touched.
-The essay is made each time.
+La ventana se dibuja fuera de la pantalla (la plataforma offscreen de Qt), con carpetas de configuración propias,
+de modo que la configuración del usuario queda intacta. El ensayo se hace de nuevo cada vez.
 """
 
 from __future__ import annotations
